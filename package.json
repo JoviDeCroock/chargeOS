@@ -1,0 +1,52 @@
+{
+  "name": "chargeos",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm build:web && pnpm build:server",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build:web": "vite build",
+    "continuity": "tsx server/continuity-cli.ts",
+    "dev": "concurrently -k -n server,web 'pnpm dev:server' 'pnpm dev:web'",
+    "dev:server": "tsx watch server/main.ts",
+    "dev:web": "vite",
+    "field-pack": "tsx server/field-pack-cli.ts",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "lint": "oxlint --deny-warnings scripts server src test vite.config.ts",
+    "migration-manifest": "tsx server/migration-manifest-cli.ts",
+    "start": "node dist/server/main.js",
+    "test": "vitest run --reporter=verbose",
+    "typecheck": "tsc --noEmit",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm verify:release && pnpm build",
+    "verify:deployment": "node scripts/verify-production-deployment.mjs",
+    "verify:release": "node scripts/verify-release-workflow.mjs",
+    "verify:runtime": "node scripts/smoke-production-runtime.mjs"
+  },
+  "dependencies": {
+    "@preact/signals": "2.11.1",
+    "ocpp-rpc": "2.2.1",
+    "preact": "10.29.8"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "2.10.6",
+    "@testing-library/preact": "3.2.4",
+    "@types/babel__core": "7.20.5",
+    "@types/node": "22.20.1",
+    "@types/ws": "8.18.1",
+    "concurrently": "10.0.4",
+    "jsdom": "30.0.1",
+    "oxfmt": "0.63.0",
+    "oxlint": "1.78.0",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vite": "8.2.1",
+    "vitest": "4.1.10"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.3.0"
+}

@@ -1,0 +1,84 @@
+name: chargeos
+
+services:
+  chargeos:
+    build:
+      context: .
+    image: ${CHARGEOS_IMAGE:-chargeos:local}
+    environment:
+      CHARGEOS_EVENT_LOG_MAX_BYTES: ${CHARGEOS_EVENT_LOG_MAX_BYTES:-268435456}
+      CHARGEOS_OWNER_API_TOKEN_FILE: /run/secrets/owner_api_token
+      CHARGEOS_OWNER_TAGS_FILE: /run/secrets/owner_tags
+      CHARGEOS_OCPP_MAX_CONNECTIONS: ${CHARGEOS_OCPP_MAX_CONNECTIONS:-8}
+      CHARGEOS_OCPP_MAX_PAYLOAD_BYTES: ${CHARGEOS_OCPP_MAX_PAYLOAD_BYTES:-1048576}
+      CHARGEOS_OCPP_MESSAGE_BURST: ${CHARGEOS_OCPP_MESSAGE_BURST:-60}
+      CHARGEOS_OCPP_MESSAGES_PER_MINUTE: ${CHARGEOS_OCPP_MESSAGES_PER_MINUTE:-600}
+      CHARGEOS_STATION_ID: ${CHARGEOS_STATION_ID:?Set CHARGEOS_STATION_ID in .env.production}
+      CHARGEOS_STATION_SECRET_FILE: /run/secrets/station_secret
+      CHARGEOS_TRUST_PROXY_HEADERS: "true"
+    expose:
+      - "9000"
+      - "9080"
+    networks:
+      - chargeos-internal
+    read_only: true
+    restart: unless-stopped
+    secrets:
+      - owner_api_token
+      - owner_tags
+      - station_secret
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    volumes:
+      - chargeos-data:/data
+
+  caddy:
+    image: ${CADDY_IMAGE:-caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648}
+    cap_add:
+      - NET_BIND_SERVICE
+    cap_drop:
+      - ALL
+    depends_on:
+      - chargeos
+    environment:
+      CHARGEOS_ACME_EMAIL: ${CHARGEOS_ACME_EMAIL:?Set CHARGEOS_ACME_EMAIL in .env.production}
+      CHARGEOS_OCPP_MAX_CONNECTIONS: ${CHARGEOS_OCPP_MAX_CONNECTIONS:-8}
+      CHARGEOS_OCPP_DOMAIN: ${CHARGEOS_OCPP_DOMAIN:?Set CHARGEOS_OCPP_DOMAIN in .env.production}
+      CHARGEOS_OWNER_DOMAIN: ${CHARGEOS_OWNER_DOMAIN:?Set CHARGEOS_OWNER_DOMAIN in .env.production}
+    networks:
+      - chargeos-edge
+      - chargeos-internal
+    ports:
+      - "80:80/tcp"
+      - "443:443/tcp"
+      - "443:443/udp"
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-config:/config
+      - caddy-data:/data
+
+networks:
+  chargeos-edge: {}
+  chargeos-internal:
+    internal: true
+
+secrets:
+  owner_api_token:
+    file: ${CHARGEOS_OWNER_API_TOKEN_PATH:?Set CHARGEOS_OWNER_API_TOKEN_PATH in .env.production}
+  owner_tags:
+    file: ${CHARGEOS_OWNER_TAGS_PATH:?Set CHARGEOS_OWNER_TAGS_PATH in .env.production}
+  station_secret:
+    file: ${CHARGEOS_STATION_SECRET_PATH:?Set CHARGEOS_STATION_SECRET_PATH in .env.production}
+
+volumes:
+  caddy-config: {}
+  caddy-data: {}
+  chargeos-data: {}

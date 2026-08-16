@@ -1,0 +1,622 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
+import type { Socket } from "node:net";
+import { RPCServer, createRPCError, type IHandlersOption } from "ocpp-rpc";
+
+import type {
+  ContinuityPreparationInput,
+  ContinuityPreparationResult,
+} from "../shared/continuity.js";
+import { CONTINUITY_PREPARATION_PHRASE } from "../shared/continuity.js";
+import {
+  assessOwnerContinuity,
+  planOwnerContinuityPreparation,
+  type CapabilityAssessment,
+} from "./capabilities.js";
+import { configForStation, configuredStations, type GatewayConfig } from "./config.js";
+import { evidenceEvent, type EvidenceEvent, type EvidenceStore } from "./events.js";
+import { pseudonymizeTag } from "./tag.js";
+
+interface OcppPeer {
+  readonly identity?: string;
+  call(method: string, params?: unknown): Promise<unknown>;
+  close(options?: { code?: number; force?: boolean; reason?: string }): Promise<void>;
+  readonly handshake: { readonly request: { readonly socket: Socket } };
+  handle(
+    method: string | ((request: IHandlersOption) => Promise<Record<string, unknown>>),
+    handler?: (request: IHandlersOption) => Promise<Record<string, unknown>>,
+  ): void;
+  once(event: string, listener: () => void): this;
+}
+
+interface AuthorizeRequest {
+  readonly idTag: string;
+}
+
+interface StartTransactionRequest extends AuthorizeRequest {
+  readonly connectorId: number;
+  readonly meterStart: number;
+  readonly timestamp: string;
+}
+
+interface StopTransactionRequest {
+  readonly idTag?: string;
+  readonly meterStop: number;
+  readonly timestamp: string;
+  readonly transactionId: number;
+}
+
+export interface ChargeGateway {
+  close(): Promise<void>;
+  getRuntime(stationId: string): StationRuntime;
+  inspectLocalAuthorization(stationId: string): Promise<CapabilityAssessment>;
+  listen(port?: number, host?: string): ReturnType<RPCServer["listen"]>;
+  prepareOwnerContinuity(
+    stationId: string,
+    input: ContinuityPreparationInput,
+  ): Promise<ContinuityPreparationResult>;
+  syncOwnerList(stationId: string): Promise<AuthorizationSyncResult>;
+}
+
+export interface StationRuntime {
+  readonly connected: boolean;
+  readonly connectedAt: string | null;
+}
+
+export interface AuthorizationSyncResult {
+  readonly listVersion: number;
+  readonly status: string;
+}
+
+export function createChargeGateway(config: GatewayConfig, evidence: EvidenceStore): ChargeGateway {
+  const stationConfigs = new Map(
+    configuredStations(config).map((station) => [station.id, configForStation(config, station.id)]),
+  );
+  const peers = new Map<string, OcppPeer>();
+  const connectedAt = new Map<string, string>();
+  const pendingConnections = new Map<string, Socket>();
+
+  const server = new RPCServer({
+    maxBadMessages: 3,
+    protocols: ["ocpp1.6"],
+    respondWithDetailedErrors: false,
+    strictMode: true,
+    wssOptions: { maxPayload: config.ocppMaxPayloadBytes },
+  });
+
+  server.auth((accept, reject, handshake) => {
+    const stationConfig = stationConfigs.get(handshake.identity);
+    if (!stationConfig || !securelyEqual(handshake.password, stationConfig.stationSecret)) {
+      reject(401, "Unknown charge point");
+      return;
+    }
+
+    if (peers.has(stationConfig.stationId) || pendingConnections.has(stationConfig.stationId)) {
+      reject(409, "Charge point is already connected");
+      return;
+    }
+
+    pendingConnections.set(stationConfig.stationId, handshake.request.socket);
+    accept({ provisionedStationId: stationConfig.stationId }, "ocpp1.6");
+  });
+
+  server.on("upgradeAborted", ({ identity, socket }: { identity: string; socket: Socket }) => {
+    if (pendingConnections.get(identity) === socket) pendingConnections.delete(identity);
+  });
+
+  server.on("client", (untypedPeer: unknown) => {
+    const peer = untypedPeer as OcppPeer;
+    const stationId = peer.identity;
+    const stationConfig = stationId ? stationConfigs.get(stationId) : undefined;
+    if (!stationId || !stationConfig) return;
+
+    if (pendingConnections.get(stationId) === peer.handshake.request.socket) {
+      pendingConnections.delete(stationId);
+    }
+
+    peers.set(stationId, peer);
+    connectedAt.set(stationId, new Date().toISOString());
+    void record(evidence, stationConfig, stationId, "system", "Connected", {});
+    peer.once("disconnect", () => {
+      if (peers.get(stationId) === peer) {
+        peers.delete(stationId);
+        connectedAt.delete(stationId);
+      }
+      void record(evidence, stationConfig, stationId, "system", "Disconnected", {});
+    });
+
+    const limiter = new TokenBucket(config.ocppMessagesPerMinute, config.ocppMessageBurst);
+    let rateLimitRecorded = false;
+    const enforceRateLimit = async () => {
+      if (limiter.consume()) return;
+      if (!rateLimitRecorded) {
+        rateLimitRecorded = true;
+        await record(evidence, stationConfig, stationId, "system", "ProtocolRateLimitExceeded", {
+          burst: config.ocppMessageBurst,
+          messagesPerMinute: config.ocppMessagesPerMinute,
+        });
+      }
+      await peer.close({ code: 1008, force: true, reason: "Message rate exceeded" });
+      throw createRPCError("InternalError");
+    };
+    const handle = (
+      method: string,
+      handler: (request: IHandlersOption) => Promise<Record<string, unknown>>,
+    ) => {
+      peer.handle(method, async (request) => {
+        await enforceRateLimit();
+        return handler(request);
+      });
+    };
+
+    handle("BootNotification", async ({ params }) => {
+      await record(
+        evidence,
+        stationConfig,
+        stationId,
+        "station-to-csms",
+        "BootNotification",
+        params,
+      );
+      return {
+        currentTime: new Date().toISOString(),
+        interval: config.heartbeatSeconds,
+        status: "Accepted",
+      };
+    });
+
+    handle("Heartbeat", async ({ params }) => {
+      await record(evidence, stationConfig, stationId, "station-to-csms", "Heartbeat", params);
+      return { currentTime: new Date().toISOString() };
+    });
+
+    handle("StatusNotification", async ({ params }) => {
+      await record(
+        evidence,
+        stationConfig,
+        stationId,
+        "station-to-csms",
+        "StatusNotification",
+        params,
+      );
+      return {};
+    });
+
+    handle("Authorize", async ({ params }) => {
+      const request = params as unknown as AuthorizeRequest;
+      await record(evidence, stationConfig, stationId, "station-to-csms", "Authorize", request);
+      const status = authorizationStatus(stationConfig, request.idTag);
+      await record(evidence, stationConfig, stationId, "system", "AuthorizationDecision", {
+        idTag: request.idTag,
+        status,
+      });
+      return { idTagInfo: { status } };
+    });
+
+    handle("StartTransaction", async ({ params }) => {
+      const request = params as unknown as StartTransactionRequest;
+      const status = authorizationStatus(stationConfig, request.idTag);
+      const transactionFingerprint = fingerprintTransaction(stationConfig, request);
+      const allocation = await evidence.recordTransactionStart(
+        stationId,
+        transactionFingerprint,
+        (transactionId) =>
+          recordedEvent(stationConfig, stationId, "station-to-csms", "StartTransaction", {
+            ...request,
+            authorizationStatus: status,
+            transactionFingerprint,
+            transactionId,
+          }),
+      );
+      if (allocation.replayed) {
+        await record(evidence, stationConfig, stationId, "system", "StartTransactionReplay", {
+          transactionFingerprint,
+          transactionId: allocation.transactionId,
+        });
+        return { idTagInfo: { status }, transactionId: allocation.transactionId };
+      }
+      return { idTagInfo: { status }, transactionId: allocation.transactionId };
+    });
+
+    handle("MeterValues", async ({ params }) => {
+      await record(evidence, stationConfig, stationId, "station-to-csms", "MeterValues", params);
+      return {};
+    });
+
+    handle("StopTransaction", async ({ params }) => {
+      const request = params as unknown as StopTransactionRequest;
+      await record(
+        evidence,
+        stationConfig,
+        stationId,
+        "station-to-csms",
+        "StopTransaction",
+        request,
+      );
+      if (request.idTag) {
+        return { idTagInfo: { status: authorizationStatus(stationConfig, request.idTag) } };
+      }
+      return {};
+    });
+
+    peer.handle(async ({ method }) => {
+      await enforceRateLimit();
+      await record(evidence, stationConfig, stationId, "station-to-csms", method ?? "Unknown", {
+        payloadDiscarded: true,
+      });
+      throw createRPCError("NotImplemented");
+    });
+  });
+
+  async function inspectState(stationId: string): Promise<{
+    readonly assessment: CapabilityAssessment;
+    readonly configuration: unknown;
+  }> {
+    const stationConfig = configForStation(config, stationId);
+    const peer = requirePeer(peers, stationId);
+    const keys = [
+      "LocalAuthListEnabled",
+      "LocalAuthorizeOffline",
+      "AllowOfflineTxForUnknownId",
+      "AuthorizationCacheEnabled",
+      "SendLocalListMaxLength",
+      "TransactionMessageAttempts",
+      "TransactionMessageRetryInterval",
+    ];
+    await record(evidence, stationConfig, stationId, "csms-to-station", "GetConfiguration", {
+      key: keys,
+    });
+    const configuration = await peer.call("GetConfiguration", { key: keys });
+    await record(
+      evidence,
+      stationConfig,
+      stationId,
+      "station-to-csms",
+      "GetConfigurationResult",
+      configuration,
+    );
+    await record(evidence, stationConfig, stationId, "csms-to-station", "GetLocalListVersion", {});
+    const localList = await peer.call("GetLocalListVersion", {});
+    await record(
+      evidence,
+      stationConfig,
+      stationId,
+      "station-to-csms",
+      "GetLocalListVersionResult",
+      localList,
+    );
+    const assessment = applyPendingRestart(
+      assessOwnerContinuity(configuration, localList, stationConfig.ownerTags.size),
+      await evidence.readEvents(),
+      stationId,
+    );
+    await record(evidence, stationConfig, stationId, "system", "CapabilityInspection", assessment);
+    return { assessment, configuration };
+  }
+
+  async function inspect(stationId: string): Promise<CapabilityAssessment> {
+    return (await inspectState(stationId)).assessment;
+  }
+
+  return {
+    async close() {
+      await server.close({ awaitPending: true });
+    },
+    getRuntime(stationId) {
+      return {
+        connected: peers.has(stationId),
+        connectedAt: connectedAt.get(stationId) ?? null,
+      };
+    },
+    inspectLocalAuthorization: inspect,
+    async listen(port = config.port, host = config.ocppHost) {
+      const httpServer = await server.listen(port, host);
+      httpServer.headersTimeout = 10_000;
+      httpServer.keepAliveTimeout = 5_000;
+      httpServer.maxConnections = config.ocppMaxConnections;
+      httpServer.requestTimeout = 10_000;
+      return httpServer;
+    },
+    async prepareOwnerContinuity(stationId, input) {
+      const stationConfig = configForStation(config, stationId);
+      if (!input || input.confirmation !== CONTINUITY_PREPARATION_PHRASE) {
+        throw new OwnerContinuityPreparationInputError();
+      }
+      const before = await inspectState(stationId);
+      if (before.assessment.restartRequired) {
+        throw new OwnerContinuityRestartRequiredError(before.assessment);
+      }
+      const plan = planOwnerContinuityPreparation(before.configuration);
+      if (plan.some((setting) => setting.state === "blocked")) {
+        await record(evidence, stationConfig, stationId, "system", "ContinuityPreparationBlocked", {
+          settings: plan,
+        });
+        throw new OwnerContinuityPreparationBlockedError(before.assessment);
+      }
+
+      const requested = plan.filter((setting) => setting.state === "change-required");
+      await record(
+        evidence,
+        stationConfig,
+        stationId,
+        "system",
+        "ContinuityPreparationAuthorized",
+        {
+          confirmationVersion: 1,
+          requested: requested.map(({ desiredValue, key }) => ({ key, value: desiredValue })),
+        },
+      );
+      const peer = requirePeer(peers, stationId);
+      const changes: ContinuityPreparationResult["changes"][number][] = [];
+      for (const setting of requested) {
+        const params = { key: setting.key, value: setting.desiredValue };
+        await record(
+          evidence,
+          stationConfig,
+          stationId,
+          "csms-to-station",
+          "ChangeConfiguration",
+          params,
+        );
+        const response = await peer.call("ChangeConfiguration", params);
+        const status = readStatus(response);
+        await record(
+          evidence,
+          stationConfig,
+          stationId,
+          "station-to-csms",
+          "ChangeConfigurationResult",
+          {
+            key: setting.key,
+            status,
+          },
+        );
+        if (status === "RebootRequired") {
+          throw new OwnerContinuityRestartRequiredError((await inspectState(stationId)).assessment);
+        }
+        if (status !== "Accepted") {
+          throw new OwnerContinuityPreparationBlockedError(
+            (await inspectState(stationId)).assessment,
+          );
+        }
+        changes.push({
+          from: setting.currentValue!,
+          key: setting.key,
+          status,
+          to: setting.desiredValue,
+        });
+      }
+
+      const assessment = requested.length
+        ? (await inspectState(stationId)).assessment
+        : before.assessment;
+      if (assessment.state !== "ready") {
+        throw new OwnerContinuityPreparationBlockedError(assessment);
+      }
+      await record(evidence, stationConfig, stationId, "system", "ContinuityPreparationVerified", {
+        changedKeys: changes.map(({ key }) => key),
+        state: assessment.state,
+      });
+      return { assessment, changes, state: "ready" };
+    },
+    async syncOwnerList(stationId) {
+      const stationConfig = configForStation(config, stationId);
+      const assessment = await inspect(stationId);
+      if (assessment.state !== "ready" || assessment.localListVersion === null) {
+        await record(
+          evidence,
+          stationConfig,
+          stationId,
+          "system",
+          "AuthorizationSyncBlocked",
+          assessment,
+        );
+        throw new OwnerContinuityBlockedError(assessment);
+      }
+      const peer = requirePeer(peers, stationId);
+      const listVersion = await evidence.allocateAuthorizationRevision(
+        stationId,
+        assessment.localListVersion + 1,
+      );
+      const params = {
+        listVersion,
+        localAuthorizationList: [...stationConfig.ownerTags].map((idTag) => ({
+          idTag,
+          idTagInfo: { status: "Accepted" },
+        })),
+        updateType: "Full",
+      };
+      await record(evidence, stationConfig, stationId, "csms-to-station", "SendLocalList", params);
+      const response = await peer.call("SendLocalList", params);
+      const status = readStatus(response);
+      await record(evidence, stationConfig, stationId, "station-to-csms", "SendLocalListResult", {
+        listVersion,
+        status,
+      });
+      if (status !== "Accepted") {
+        throw new Error(`Charge point rejected local authorization list: ${status}`);
+      }
+      return { listVersion, status };
+    },
+  };
+}
+
+class TokenBucket {
+  readonly #burst: number;
+  readonly #tokensPerMillisecond: number;
+  #lastRefill = performance.now();
+  #tokens: number;
+
+  constructor(messagesPerMinute: number, burst: number) {
+    this.#burst = burst;
+    this.#tokens = burst;
+    this.#tokensPerMillisecond = messagesPerMinute / 60_000;
+  }
+
+  consume(): boolean {
+    const now = performance.now();
+    this.#tokens = Math.min(
+      this.#burst,
+      this.#tokens + Math.max(0, now - this.#lastRefill) * this.#tokensPerMillisecond,
+    );
+    this.#lastRefill = now;
+    if (this.#tokens < 1) return false;
+    this.#tokens -= 1;
+    return true;
+  }
+}
+
+export class OwnerContinuityBlockedError extends Error {
+  readonly assessment: CapabilityAssessment;
+
+  constructor(assessment: CapabilityAssessment) {
+    super("Owner authorization sync blocked until every required offline capability passes");
+    this.name = "OwnerContinuityBlockedError";
+    this.assessment = assessment;
+  }
+}
+
+export class OwnerContinuityPreparationInputError extends Error {
+  constructor() {
+    super("Exact owner continuity preparation confirmation is required");
+    this.name = "OwnerContinuityPreparationInputError";
+  }
+}
+
+export class OwnerContinuityPreparationBlockedError extends Error {
+  readonly assessment: CapabilityAssessment;
+
+  constructor(assessment: CapabilityAssessment) {
+    super(
+      "Owner continuity preparation stopped because a required setting could not be proven safe and writable",
+    );
+    this.name = "OwnerContinuityPreparationBlockedError";
+    this.assessment = assessment;
+  }
+}
+
+export class OwnerContinuityRestartRequiredError extends Error {
+  readonly assessment: CapabilityAssessment;
+
+  constructor(assessment: CapabilityAssessment) {
+    super("Charge point restart and a new BootNotification are required before continuing");
+    this.name = "OwnerContinuityRestartRequiredError";
+    this.assessment = assessment;
+  }
+}
+
+function applyPendingRestart(
+  assessment: CapabilityAssessment,
+  events: readonly EvidenceEvent[],
+  stationId: string,
+): CapabilityAssessment {
+  const lastBootIndex = events.findLastIndex(
+    (event) => event.stationId === stationId && event.message === "BootNotification",
+  );
+  const lastRestartRequiredIndex = events.findLastIndex(
+    (event) =>
+      event.stationId === stationId &&
+      event.message === "ChangeConfigurationResult" &&
+      readStatus(event.payload) === "RebootRequired",
+  );
+  if (lastRestartRequiredIndex <= lastBootIndex) return assessment;
+  return {
+    ...assessment,
+    checks: [
+      ...assessment.checks,
+      {
+        id: "continuity-restart",
+        label: "Required configuration restart observed",
+        observed: "awaiting a new BootNotification",
+        state: "fail",
+      },
+    ],
+    restartRequired: true,
+    state: "blocked",
+  };
+}
+
+function requirePeer(peers: ReadonlyMap<string, OcppPeer>, stationId: string): OcppPeer {
+  const peer = peers.get(stationId);
+  if (!peer) {
+    throw new Error(`Charge point ${stationId} is not connected`);
+  }
+  return peer;
+}
+
+function authorizationStatus(config: GatewayConfig, tag: string): "Accepted" | "Invalid" {
+  return config.ownerTags.has(tag) ? "Accepted" : "Invalid";
+}
+
+function securelyEqual(actual: Buffer | undefined, expected: string): boolean {
+  if (!actual) {
+    return false;
+  }
+  const expectedBuffer = Buffer.from(expected, "utf8");
+  return actual.length === expectedBuffer.length && timingSafeEqual(actual, expectedBuffer);
+}
+
+function readStatus(response: unknown): string {
+  if (!response || typeof response !== "object") return "MalformedResponse";
+  const status = (response as { status?: unknown }).status;
+  return typeof status === "string" ? status : "MalformedResponse";
+}
+
+function fingerprintTransaction(config: GatewayConfig, request: StartTransactionRequest): string {
+  return createHmac("sha256", config.stationSecret)
+    .update(
+      JSON.stringify({
+        connectorId: request.connectorId,
+        idTag: request.idTag,
+        meterStart: request.meterStart,
+        timestamp: request.timestamp,
+      }),
+    )
+    .digest("hex");
+}
+
+async function record(
+  evidence: EvidenceStore,
+  config: GatewayConfig,
+  stationId: string,
+  direction: "station-to-csms" | "csms-to-station" | "system",
+  message: string,
+  payload: unknown,
+): Promise<void> {
+  await evidence.append(recordedEvent(config, stationId, direction, message, payload));
+}
+
+function recordedEvent(
+  config: GatewayConfig,
+  stationId: string,
+  direction: "station-to-csms" | "csms-to-station" | "system",
+  message: string,
+  payload: unknown,
+) {
+  const sourcePayloadHmac = createHmac("sha256", config.stationSecret)
+    .update(JSON.stringify(payload) ?? "null", "utf8")
+    .digest("hex");
+  return evidenceEvent(
+    stationId,
+    direction,
+    message,
+    redactTags(payload, config.stationSecret),
+    sourcePayloadHmac,
+  );
+}
+
+function redactTags(value: unknown, secret: string): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => redactTags(item, secret));
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [
+        key,
+        key.toLowerCase().includes("idtag") && typeof child === "string"
+          ? `tag_${pseudonymizeTag(child, secret)}`
+          : redactTags(child, secret),
+      ]),
+    );
+  }
+  return value;
+}

@@ -1,0 +1,35 @@
+{
+	email {$CHARGEOS_ACME_EMAIL}
+	admin off
+}
+
+{$CHARGEOS_OCPP_DOMAIN} {
+	log {
+		format json
+		output stdout
+	}
+
+	reverse_proxy chargeos:9000 {
+		transport http {
+			max_conns_per_host {$CHARGEOS_OCPP_MAX_CONNECTIONS}
+		}
+	}
+}
+
+{$CHARGEOS_OWNER_DOMAIN} {
+	log {
+		format json
+		output stdout
+	}
+
+	header {
+		-Server
+		Content-Security-Policy "default-src 'self'; base-uri 'none'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'"
+		Permissions-Policy "camera=(), geolocation=(), microphone=()"
+		Referrer-Policy "no-referrer"
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+	}
+
+	reverse_proxy chargeos:9080
+}

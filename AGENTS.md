@@ -1,0 +1,89 @@
+# chargeOS agent guide
+
+Read [VISION.md](VISION.md) and [docs/README.md](docs/README.md) before changing architecture, charger behavior, security, evidence, or public claims.
+
+## Non-negotiable boundaries
+
+- Preserve the core invariant: an already-authorized owner can charge when chargeOS, its network, and every vendor cloud are unavailable.
+- The owner is the immutable root principal. Employers, installers, energy providers, and operators receive narrow, revocable, expiring capabilities.
+- Reject unknown charge points and unknown RFID tags by default. A charge-point ID alone never proves ownership.
+- Never claim compatibility at vendor level. Record model, hardware revision, firmware, configuration path, observed behavior, evidence URL, evidence date, and confidence.
+- Treat physical electrical work, enclosure opening, and SIM removal as installer work with power isolated. Software instructions must not imply otherwise.
+- Distinguish sourced fact, product decision, inference, and unresolved uncertainty. Important current claims need primary sources and a verification date.
+- Never log raw RFID identifiers or secrets. Use tenant-scoped pseudonyms in operational data.
+- No protocol, cloud, billing, or UI feature may silently weaken offline owner authorization.
+
+## Repository map
+
+- `server/`: OCPP gateway, integrity-checked evidence store, owner API, projections, and continuity recovery CLI.
+- `shared/`: typed API contracts plus canonical migration, Freedom Test, and delegate role/scope catalogs shared by server and owner UI.
+- `src/`: Preact owner dashboard and API client.
+- `test/`: protocol simulator, trust-boundary, API, projection, and UI tests.
+- `docs/`: canonical product, architecture, security, compatibility, and operational evidence.
+- `docs/decisions/`: accepted architecture decisions.
+- `.agents/skills/liberate-charger/`: repeatable research and charger-liberation workflow.
+
+## Working rules
+
+- Use Preact and TypeScript for the frontend and TypeScript for the backend.
+- Prefer a small adapter over coupling the public domain model to a specific OCPP engine.
+- Add or update the relevant canonical document in the same change as behavior. New orphan docs are not a substitute.
+- A charger-facing change needs a simulator test and a stated effect on every failure mode in `docs/offline-invariants.md`.
+- A compatibility claim needs a row in `docs/charger-freedom-matrix.md`; field evidence beats brochures.
+- Keep migrations reversible. Capture configuration and transaction backups before modifying a charger.
+- Consult the architecture and agent conventions in `~/Documents/SideProjects/staged-publish-sandbox-prototype` (Drydock) and `~/Documents/SideProjects/sarah` when reshaping the repository.
+- Treat `shared/contracts.ts` as the UI/API boundary and `server/events.ts` as the evidence boundary; do not bypass either with ad hoc payloads.
+- Treat fleet mode as one owner security domain with charger-scoped state, never as multi-tenancy. Resolve the station before every projection, mutation, delegate authentication, or OCPP command; reject unknown IDs; keep unique station secrets, one socket per identity, independent owner-tag registries, and cross-station isolation tests. Legacy unscoped API routes may address only the first station.
+- Never emit a partial recovery claim for a fleet. The current encrypted continuity format is single-station and must fail closed when more than one station is configured. Until a versioned fleet bundle passes tamper, wrong-key, current-tag, non-overwrite, and replacement-edge replay drills, recovery-grade deployments use one station per edge.
+- Treat `GET /api/v1/genesis-plan` and `OwnerSnapshot.genesisPlan` as the canonical machine-readable next-action projection. Keep stable action, actor, execution, evidence, and safety identifiers aligned across server, API, UI, docs, and tests. It may order documented work but must never execute external/physical actions or represent an instruction as evidence.
+- Keep the owner API loopback-only by default. A non-loopback bind needs a documented TLS/auth deployment boundary.
+- Treat redacted exports as shareable evidence and encrypted continuity bundles as owner-secret recovery material; never substitute one for the other.
+- Any evidence-format or recovery change needs tamper, wrong-key, non-overwrite, and replacement-edge replay coverage.
+- Continuity payloads must version safety-relevant runtime configuration. Preserve OCPP connection, payload, call-rate, burst, and evidence-capacity limits across a fresh-path restore, but always restore proxy-header trust as `false`; a new host must revalidate the single-proxy topology before enabling it. Keep older payloads readable only with explicit safe defaults and a visible recovery warning, and boot tests from the generated restore environment rather than a hand-built equivalent.
+- Production continuity export must use the compiled CLI inside the existing non-root container. Keep the recovery passphrase off arguments, environment variables, images, container files, and the edge volume; accept one bounded redirected stdin line and emit only the encrypted envelope to stdout. Runtime smoke must authenticate that envelope outside the container and check plaintext-secret absence.
+- Production recovery packages require fresh distinct DNS/ACME metadata, owner-private non-overwriting output, read-only file-secret inputs, and an explicit unvalidated proxy-topology marker. Ledger installation must run non-root into an empty data target, verify before and after a flushed create-only write, clean up only its own partial output, and refuse merge/overwrite. Runtime smoke must boot a second container from the installed chain.
+- Continuity passphrase rotation must authenticate the old envelope and chain, require a distinct strong new secret, use fresh encryption material, preserve the snapshot payload, reject unsafe passphrase paths, and write only a new mode-`0600` bundle.
+- Owner evidence checkpoints sign only canonical bounded fields with an encrypted owner-held Ed25519 key. Keep key generation non-overwriting, private files owner-only/non-symlinked, public verification secret-free, and optional bundle comparison exact. Never present a signature as identity, trustworthy chronology, or physical-test proof without an external anchor and reviewed evidence.
+- A field review pack is redacted review material, not recovery state. Keep its artifact digests canonical, require station/chain-head/record-count agreement, make verification secret-free, and never present internal consistency as identity, chronology, external-evidence truth, or a Freedom grade.
+- `evidence-complete-unreviewed` is deliberately not a certification result. Never rename or present it as liberated, certified, grade A/B, or field-proven without reviewed exact-device evidence.
+- Witnessed Freedom Test observations store only outcome, observation time, step ID, active run ID, and a SHA-256 reference to separately held evidence; do not add uploads, free-form personal notes, secrets, or raw RFID. Start a run only after the exact authorized device and every automatic online check pass, bind it to the inventory, migration authorization, and authorized Boot evidence events, and make any changed baseline stale. Never project legacy, stale, or foreign-run observations as current proof.
+- Delegate bearer secrets are one-time outputs. Persist only a high-entropy token verifier and hint; redact the verifier from projections and exports. New scopes need an explicit role ceiling, dedicated data-minimized projection, owner-visible use audit, expiry/revocation tests, and proof that owner charging is unaffected.
+- Migration checkpoints store only a canonical step ID, confirmed/blocked outcome, observation time, and external SHA-256. Endpoint authorization must remain owner-only, time-bounded, bound to the exact prerequisite fingerprint and a separately held target-manifest hash, and invalidated by changed prerequisites. It records consent but never performs or implies authorization for electrical, enclosure, or SIM work.
+- Migration-target manifests use the closed canonical schema and semantic hash in `server/migration-manifest.ts`. Keep create non-overwriting and owner-private; reject extra fields, embedded credentials, endpoint/station/transport mismatches, changed safety constants, and expected-hash mismatches. Authorization must match the supplied file to exact inventory, configuration path, checkpoint evidence, transport, and time, then persist only its hash. The manifest stays separate from the ledger and never proves its external evidence by itself.
+- Direct migration evidence hashing accepts exactly one file or digest per evidence class. For files, require a non-empty regular non-symlink, open without following the final component, stream rather than buffer, and reject inode, size, timestamp, or final-path changes. Persist only the digest in the secret-free target. Never hash a raw credential, RFID, or recovery passphrase into a shareable artifact.
+- Do not require a chargeOS Boot to establish pre-switch identity. Record an externally evidenced local/current-backend vendor, model, and firmware inventory first; then require the first authorized post-switch Boot to match exactly. A mismatch is a stop condition and inventory changes invalidate authorization.
+- Owner-continuity preparation is a narrow one-way command boundary: require exact owner confirmation and a complete read-only preflight, change only `LocalAuthListEnabled=true`, `LocalAuthorizeOffline=true`, and `AllowOfflineTxForUnknownId=false` when explicitly writable, audit each command/result, never combine it with tag synchronization or restart, and block after `RebootRequired` until a later authenticated Boot and fresh inspection.
+- Treat `compose.yaml` as an exposed lab profile and `compose.production.yaml` as the internet deployment boundary. Production changes must keep chargeOS ports internal, keep OCPP and owner TLS hostnames separate, validate the resolved Compose/Caddy model, and preserve the non-root/read-only runtime.
+- Proxy-header trust is default-off. Enable it only when a single declared proxy is the application's sole network peer, assert that topology in deployment validation, and derive rate-limit identity only from syntactically valid addresses.
+- OCPP resource limits are part of the charger trust boundary. Preserve the one-provisioned-station socket rule, complete-message cap, bounded TCP/proxy connections, malformed-message close, and valid-call token bucket. A changed default needs exact-device traffic evidence, simulator coverage, and an offline-invariant note.
+- `patches/ocpp-rpc@2.2.1.patch` normalizes the dependency's legacy `urn:<method>` schema identifiers to valid `urn:ocpp-rpc:<method>` identifiers at its private AJV boundary. This permits advisory-fixed AJV/fast-uri without changing OCPP method names. Do not drop or broaden the patch until upstream ships an equivalent fix; dependency updates need the gateway, API, recovery-replay, production audit, and runtime suites.
+- Evidence capacity is fail-closed: verify the chain before listeners bind, size-check the complete sealed line before write, retain the prior bytes on refusal, and degrade health before maximum-message headroom is gone. Never implement silent truncation or unanchored rotation; archive work needs continuity, tamper, replay, and recovery tests.
+- Evidence rollover is stopped-edge and owner-custodied: require a separately held encrypted bundle matching every event and segment boundary plus the exact confirmation; atomically rename the active file into the next content-addressed owner-only segment; append a linked redacted archive audit; and emit/inspect a schema-3 post-archive bundle before restart. Reject gaps, unexpected files, changed bytes, stale bundles, empty segments, merge, and overwrite. Never imply rollover frees total disk or permits archive deletion.
+- Evidence compaction is a create-only replacement-edge workflow: authenticate and retain the exact full source bundle off-edge; require the exact owner custody confirmation; hash and record the source bundle bytes plus chain metadata; carry forward transaction replay identity, authorization, safety, delegate, migration, Freedom, and current station projections with explicit source hashes; aggregate only documented noise/retries; reserve append headroom; emit schema 4 as `compacted-operational`; verify custody; and restore/install only to a fresh path and empty volume. Never delete the old edge or a referenced source bundle, never call carried records the original chain, and fail closed when the operational index no longer fits.
+- Bind the authorization decision into transaction-start evidence. Preserve raw retries, deduplicate exact start/meter/stop messages only in projections, and surface conflicting stops without overwriting the first projected energy result.
+- Pair every local-list result with its exact command revision and advance acknowledged tags only on `Accepted`. Preserve unresolved/rejected attempts, expose desired additions and stale-access revocations using pseudonyms, and never infer acknowledgement from event proximity when an explicit revision exists.
+- Treat the raw owner-tag registry as a separate owner-secret state boundary: seed it once from deployment configuration, authenticate and atomically persist it beside the ledger, never write raw values to evidence/logs/responses, keep at least one desired credential, and include the current set in encrypted continuity recovery. Runtime add/revoke is owner-only desired-state mutation and must never auto-synchronize or imply charger revocation before an exact `Accepted` full-list revision.
+- Sensitive runtime settings use exactly one inline development value or `_FILE` path. Never log secret values, silently prefer one source, accept symlinks, or loosen ordinary host-file permissions. `/run/secrets` may be world-readable only when the mount is read-only and the container remains single-purpose and non-root.
+- Container/dependency changes must keep exact base versions, the lockfile, deployment smoke test, and CI SBOM aligned. An SBOM artifact is inventory, not a signature or vulnerability clearance.
+- Stable release tags must exactly match `package.json`. Keep third-party actions pinned by full SHA, checkout credentials non-persistent, job permissions explicit, production advisories fail-closed, the GHCR candidate commit-addressed, and the public version create-only. Run the production drill against the exact candidate digest, attest its build provenance and CycloneDX SBOM, then promote as the final step. Never publish `latest` or treat an attestation or point-in-time advisory result as field, compatibility, vulnerability, or maintainer-identity proof.
+- Use `pnpm verify:runtime` after changing the production image, proxy, secret mounts, network boundary, OCPP transport, authentication, or redaction. It is a disposable synthetic runtime proof, never exact-device or field evidence.
+
+## Canonical commands
+
+```sh
+pnpm install
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm continuity --help
+pnpm field-pack --help
+pnpm migration-manifest --help
+pnpm verify
+pnpm verify:deployment
+pnpm verify:release
+pnpm verify:runtime
+```
+
+Do not declare a charger liberated from unit tests alone. The release gate is a witnessed charger test with WAN loss, backend loss, charge-point restart, successful owner RFID charging, and recovery replay.

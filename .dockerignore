@@ -1,0 +1,9 @@
+.chargeos
+.env*
+.git
+.github
+coverage
+dist
+node_modules
+secrets
+*.log

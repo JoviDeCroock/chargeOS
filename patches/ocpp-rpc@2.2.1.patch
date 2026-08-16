@@ -1,0 +1,28 @@
+diff --git a/lib/validator.js b/lib/validator.js
+--- a/lib/validator.js
++++ b/lib/validator.js
+@@ -35,5 +35,5 @@ class Validator {
+     validate(schemaId, params) {
+-        const validator = this._ajv.getSchema(schemaId);
++        const validator = this._ajv.getSchema(normalizeSchemaId(schemaId));
+ 
+         if (!validator) {
+             throw createRPCError("ProtocolError", `Schema '${schemaId}' is missing from subprotocol schema '${this._subprotocol}'`);
+@@ -54,10 +54,16 @@ class Validator {
+     }
+ }
+ 
++function normalizeSchemaId(schemaId) {
++    return /^urn:[^:]+$/.test(schemaId)
++        ? `urn:ocpp-rpc:${schemaId.slice(4)}`
++        : schemaId;
++}
++
+ function createValidator(subprotocol, json) {
+     const ajv = new Ajv({strictSchema: false});
+     addFormats(ajv);
+-    ajv.addSchema(json);
++    ajv.addSchema(json.map(schema => ({...schema, $id: normalizeSchemaId(schema.$id)})));
+ 
+     ajv.removeKeyword("multipleOf");
+     ajv.addKeyword({

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Liberate Charger"
+  short_description: "Research and prove charger owner continuity"
+  default_prompt: "Use $liberate-charger to investigate and prove that this charger remains usable without its vendor cloud."

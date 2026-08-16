@@ -1,0 +1,47 @@
+import { loadEnvFile } from "node:process";
+
+import { createOwnerApi } from "./api.js";
+import { configForStation, loadConfig } from "./config.js";
+import { NdjsonEvidenceStore } from "./events.js";
+import { createChargeGateway } from "./gateway.js";
+import { openOwnerTagRegistries, withOwnerTagRegistries } from "./owner-tags.js";
+
+try {
+  loadEnvFile(process.env.CHARGEOS_ENV_FILE);
+} catch (error) {
+  if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+}
+
+const bootstrapConfig = loadConfig();
+const evidence = new NdjsonEvidenceStore(
+  bootstrapConfig.eventLogPath,
+  bootstrapConfig.eventLogMaxBytes,
+);
+await evidence.readEvents();
+const ownerTags = await openOwnerTagRegistries(bootstrapConfig);
+const config = withOwnerTagRegistries(bootstrapConfig, ownerTags);
+for (const [stationId, registry] of ownerTags) {
+  await registry.reconcile(configForStation(config, stationId), evidence);
+}
+const gateway = createChargeGateway(config, evidence);
+const api = createOwnerApi(config, gateway, evidence, ownerTags);
+
+await gateway.listen();
+try {
+  await api.listen();
+} catch (error) {
+  await gateway.close();
+  throw error;
+}
+
+console.log(`chargeOS OCPP 1.6J listening on ${config.ocppHost}:${config.port}`);
+console.log(`chargeOS owner UI/API listening on http://${config.apiHost}:${config.apiPort}`);
+console.log(
+  "Internet-facing use requires TLS/WSS termination; plaintext is for local development only.",
+);
+
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    void Promise.all([api.close(), gateway.close()]).finally(() => process.exit(0));
+  });
+}

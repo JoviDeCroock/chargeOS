@@ -1,0 +1,9 @@
+services:
+  chargeos:
+    # Runtime verification must not depend on or leave durable Docker state. The
+    # production model still requires the chargeos-data volume and is checked
+    # separately by scripts/verify-production-deployment.mjs.
+    volumes: !reset []
+    tmpfs: !override
+      - /data:size=16m,mode=0700,uid=100,gid=101
+      - /tmp:size=16m,mode=1777
