@@ -34,6 +34,10 @@ This research did not access a competitor’s authenticated customer portal, exe
 - [EVerest](https://github.com/EVerest/everest) — LF Energy charger-side framework; not a CSMS.
 - [Home Assistant OCPP integration](https://home-assistant-ocpp.readthedocs.io/en/latest/user-guide.html), [evcc](https://docs.evcc.io/en/integrations/home-assistant/) — useful local/energy ecosystems, not owner-root migration platforms.
 
+## Dependency maintenance: 2026-10-28
+
+- [fast-uri 3.1.9 release](https://github.com/fastify/fast-uri/releases/tag/v3.1.9) — upstream security release for the maintained 3.x line. The local override and lockfile now use this release; production audit is clear at the check time. This does not replace protocol/recovery/runtime verification or prove exploitability of the previous application path.
+
 ## Deployment tooling
 
 - [Docker Compose secrets](https://docs.docker.com/compose/how-tos/use-secrets/) and [service secret reference](https://docs.docker.com/reference/compose-file/services/#secrets) — file-backed secrets appear under `/run/secrets`; file-source ownership/mode remapping is not implemented because Compose uses bind mounts.

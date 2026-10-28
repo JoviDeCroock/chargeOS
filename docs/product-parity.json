@@ -877,6 +877,14 @@
         "Policy-boundary and invalid-record quarantine",
         "Explicit unapproved JSON export and declared-amount comparison"
       ]
+    },
+    "verification": {
+      "date": "2026-10-28",
+      "focusedWorkflowTests": "21 passed",
+      "fullSuite": "85 passed; 21 unchanged Windows filesystem/recovery failures",
+      "browser": "21 desktop prototype views, five mobile prototype views, observation import/calculate/download/compare/reset, zero preview API or upload requests",
+      "productionAudit": "0 advisories after fast-uri 3.1.9 override",
+      "remainingRuntime": "Fresh Linux/Docker production drill and existing Caddy capability failure remain unverified"
     }
   }
 }

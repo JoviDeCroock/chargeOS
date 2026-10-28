@@ -75,6 +75,10 @@ For OCPP 1.6J, require WSS plus unique HTTP Basic credentials when the charger s
 
 The image attestation proves which GitHub workflow and source revision produced a digest; it is not an independent rebuild, vulnerability clearance, maintainer identity outside the GitHub trust root, field configuration proof, compatibility result, or Freedom Test. Remaining production work includes volumetric DDoS protection appropriate to each public deployment, automated custody-media lifecycle/retention policy beyond the create-only compacted replacement workflow, an external timestamp/anchor for owner-signed checkpoints, protected/signed source tags and release governance, multi-node failover, and a fully authenticated ownership-transfer ceremony.
 
+## Dependency maintenance: 2026-10-28
+
+The fast-uri override is pinned to 3.1.9, retaining the narrow ocpp-rpc schema-identifier patch and AJV 8.20.0. The production dependency audit reports zero known advisories at this check. Gateway/API and other passing regression cases remain green; the full Windows run has 85 passes and the same 21 filesystem/recovery failures as the original baseline. A fresh Linux production runtime and the recorded Caddy capability failure still require verification; this update does not establish deployment or device readiness.
+
 ## Browser-only observation
 
 The `/observe` tool has no backend endpoint and does not consume an owner token. User-selected files are bounded, parsed as data, held only in browser memory and never uploaded by the tool. Selected operational aliases, source digests, policy inputs and draft decisions are exported only on an explicit download; unselected raw columns are omitted. Source/mapping/policy changes invalidate old results and asynchronous reads cannot revive cleared data. The digest is provenance, not authenticity. Its draft cannot authorize reimbursement, create a financial obligation, mark a payment settled or alter station evidence/configuration. See [Local observation](local-observation.md).

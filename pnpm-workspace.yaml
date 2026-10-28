@@ -4,7 +4,7 @@ minimumReleaseAgeExclude:
   - "@preact/signals@2.11.1"
 overrides:
   ajv: 8.20.0
-  fast-uri: 3.1.5
+  fast-uri: 3.1.9
 patchedDependencies:
   ocpp-rpc@2.2.1: patches/ocpp-rpc@2.2.1.patch
 verifyDepsBeforeRun: false
