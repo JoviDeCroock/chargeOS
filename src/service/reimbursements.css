@@ -130,3 +130,34 @@
     justify-self: end;
   }
 }
+
+.cs-money-balances {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 1rem;
+  margin: 1.4rem 0;
+}
+.cs-money-balance,
+.cs-money-adjustment {
+  padding: 1.1rem;
+  border: 1px solid #d4e1c6;
+  border-radius: 12px;
+  background: #f0f5e7;
+}
+.cs-money-balance > strong {
+  font-size: 1.7rem;
+  letter-spacing: -0.04em;
+}
+.cs-money-balance > p:not(.cs-eyebrow),
+.cs-money-hash {
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+.cs-money-adjustment {
+  margin-bottom: 1.5rem;
+}
+
+.cs-root .cs-money-tabs button[aria-pressed="true"]:hover:enabled {
+  background: #153b2e;
+  color: #fff;
+}

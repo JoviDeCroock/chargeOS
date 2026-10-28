@@ -35,7 +35,7 @@ The real `/service` workspace adds persistent verified-email accounts, authentic
 
 ## Local reimbursement review
 
-The `/service` finance workspace now connects immutable policy versions, dated employee/vehicle/card-alias/cost-center assignments, explicit CSV imports, server-calculated statements and a different reviewer’s fresh-MFA approval. Statements remain visibly unpaid; no payment or bank operation is implemented. Driver views and evidence downloads are scoped to their own records. See [Reimbursement statements](docs/reimbursement-statements.md) for source/rounding rules, offboarding, duplicate prevention and remaining financial gaps.
+The `/service` finance workspace now connects immutable policy versions, dated employee/vehicle/card-alias/cost-center assignments, explicit CSV imports, server-calculated statements and a different reviewer’s fresh-MFA approval. Approved corrections now append linked adjustment receipts, preserve prior snapshots and session reservations, and project a driver-scoped journal and current balance. Full cancellation needs a separate reviewer. Statements remain visibly unpaid; no payment or bank operation is implemented. Driver views and evidence downloads are scoped to their own records. See [Reimbursement statements](docs/reimbursement-statements.md) for source/rounding rules, offboarding, duplicate prevention and remaining financial gaps.
 
 ## Working owner-edge MVP
 

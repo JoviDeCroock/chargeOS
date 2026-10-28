@@ -1,4 +1,11 @@
 import type {
+  ReimbursementAdjustment,
+  ReimbursementApprovedBalance,
+  ReimbursementCorrectionContext,
+  ReimbursementCorrectionReason,
+  ReimbursementJournalEntry,
+} from "./reimbursement-corrections.js";
+import type {
   ObservationPolicy,
   ObservationDecision,
   ObservationImport,
@@ -60,10 +67,14 @@ export interface CreateReimbursementStatement {
   mapping: SessionColumnMapping;
   revisionOf: string | null;
   driverDeclarationConfirmed: boolean;
+  correctionOf?: string | null;
+  correctionReason?: ReimbursementCorrectionReason | null;
+  correctionPolicyVersionId?: string | null;
 }
 export interface ReimbursementSnapshot {
   schemaVersion: 1;
-  sourceAuthority: "user-supplied-csv";
+  sourceAuthority: "user-supplied-csv" | "finance-void-request";
+  correction?: ReimbursementCorrectionContext;
   assignment: ReimbursementAssignment;
   period: { from: string; until: string };
   policy: ObservationPolicy;
@@ -93,6 +104,12 @@ export interface ReimbursementStatementSummary {
   paymentStatus: "not-instructed";
   snapshotSha256: string;
   revisionOf: string | null;
+  createdBy: string;
+  rootStatementId: string;
+  correctionOf: string | null;
+  correctionMode: "recalculate" | "void" | null;
+  supersededBy: string | null;
+  adjustmentCents: number | null;
   reviewedBy: string | null;
   reviewedAt: string | null;
   rejectionReason: ReimbursementRejectionReason | null;
@@ -106,10 +123,13 @@ export type ReimbursementRejectionReason =
   | "needs-review";
 export interface ReimbursementStatement extends ReimbursementStatementSummary {
   snapshot: ReimbursementSnapshot;
+  adjustment: ReimbursementAdjustment | null;
 }
 export interface ReimbursementWorkspaceData {
   employees: { id: string; name: string }[];
   policies: ReimbursementPolicy[];
   assignments: ReimbursementAssignment[];
   statements: ReimbursementStatementSummary[];
+  journal: ReimbursementJournalEntry[];
+  balances: ReimbursementApprovedBalance[];
 }

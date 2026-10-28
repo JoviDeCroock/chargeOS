@@ -171,6 +171,8 @@ export const serviceAudit = sqliteTable("service_audit", {
       "statement.drafted",
       "statement.approved",
       "statement.rejected",
+      "statement.correction-drafted",
+      "statement.adjusted",
     ],
   }).notNull(),
   subjectId: text("subject_id").notNull(),

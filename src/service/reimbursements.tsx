@@ -8,7 +8,14 @@ import type {
   ReimbursementWorkspaceData,
   ServiceOrganization,
   SessionColumnMapping,
+  ReimbursementCorrectionReason,
 } from "../../shared/contracts.js";
+import { ApprovedBalances, ReimbursementJournal } from "./reimbursement-journal.js";
+import {
+  CancellationRequestForm,
+  CorrectionComparison,
+  CorrectionDraftFields,
+} from "./reimbursement-corrections.js";
 import { formatEuroCents } from "../../shared/currency.js";
 import { parseObservationCsv } from "../../shared/observation-engine.js";
 import { ServiceRequestError, serviceRequest } from "./client.js";
@@ -31,17 +38,23 @@ const displayDate = (iso: string) =>
 const statusText = (
   statement: ReimbursementStatement | ReimbursementWorkspaceData["statements"][number],
 ) =>
-  statement.status === "approved"
-    ? "Approved · unpaid"
-    : statement.status === "rejected"
-      ? "Rejected"
-      : statement.eligibilityChanged
-        ? "Eligibility changed"
-        : statement.heldRecords || statement.invalidRecords
-          ? "On hold"
-          : statement.energyWh === 0
-            ? "No eligible sessions"
-            : "Ready for review";
+  statement.supersededBy
+    ? "Replaced · unpaid"
+    : statement.status === "approved"
+      ? statement.correctionMode === "void"
+        ? "Cancelled · unpaid"
+        : "Approved · unpaid"
+      : statement.status === "rejected"
+        ? "Rejected"
+        : statement.eligibilityChanged
+          ? "Eligibility changed"
+          : statement.heldRecords || statement.invalidRecords
+            ? "On hold"
+            : statement.energyWh === 0 && statement.correctionMode !== "void"
+              ? "No eligible sessions"
+              : statement.correctionOf
+                ? "Correction awaiting review"
+                : "Ready for review";
 
 export function ReimbursementWorkspace({
   organization: org,
@@ -51,12 +64,13 @@ export function ReimbursementWorkspace({
 }: Props) {
   const root = `/service/api/v1/organizations/${org.id}/money`;
   const data = useSignal<ReimbursementWorkspaceData | null>(null);
-  const tab = useSignal<"statements" | "assignments" | "policies">("statements");
+  const tab = useSignal<"statements" | "assignments" | "policies" | "journal">("statements");
   const busy = useSignal(true),
     message = useSignal(""),
     error = useSignal("");
   const detail = useSignal<ReimbursementStatement | null>(null);
   const assignmentId = useSignal("");
+  const correctionOfId = useSignal("");
   const fileData = useSignal<{
     base64: string;
     headers: readonly string[];
@@ -158,6 +172,9 @@ export function ReimbursementWorkspace({
       `${root}/statements/${current.id}/${kind}`,
       {
         snapshotSha256: current.snapshotSha256,
+        ...(current.snapshot.correction
+          ? { previousSnapshotSha256: current.snapshot.correction.previousSnapshotSha256 }
+          : {}),
         ...(kind === "approve" ? { authenticatorCode: value(values, "authenticatorCode") } : {}),
         ...(kind === "reject" ? { reason: value(values, "reason") } : {}),
       },
@@ -165,7 +182,9 @@ export function ReimbursementWorkspace({
     await refresh();
     message.value =
       kind === "approve"
-        ? "Statement approved. No payment has been instructed."
+        ? current.snapshot.correction
+          ? "Adjustment applied. The original statement is retained and no payment has been instructed."
+          : "Statement approved. No payment has been instructed."
         : "Statement rejected. Its snapshot is retained; create a linked revision after resolving the issue.";
   }
   function downloadStatement() {
@@ -199,12 +218,19 @@ export function ReimbursementWorkspace({
         being built.
       </p>
       <nav class="cs-money-tabs" aria-label="Reimbursement views">
-        {(["statements", "assignments", "policies"] as const).map((item) => (
+        {(["statements", "assignments", "policies", "journal"] as const).map((item) => (
           <button
             type="button"
             key={item}
             aria-pressed={tab.value === item}
             onClick={() => {
+              if (tab.value === "statements" && item !== "statements") {
+                generation.value++;
+                fileData.value = null;
+                selectedMapping.value = null;
+                correctionOfId.value = "";
+                assignmentId.value = "";
+              }
               tab.value = item;
             }}
           >
@@ -225,6 +251,13 @@ export function ReimbursementWorkspace({
       )}
       {current && (
         <>
+          {tab.value === "journal" && (
+            <ReimbursementJournal
+              data={current}
+              busy={busy.value}
+              onOpen={(id) => void action(() => openStatement(id))}
+            />
+          )}
           {tab.value === "policies" && (
             <div>
               <h3>Published policy versions</h3>
@@ -490,6 +523,7 @@ export function ReimbursementWorkspace({
           {tab.value === "statements" && (
             <div>
               <h3>Statements</h3>
+              <ApprovedBalances data={current} />
               <ul class="cs-money-records">
                 {current.statements.map((item) => (
                   <li key={item.id}>
@@ -499,11 +533,13 @@ export function ReimbursementWorkspace({
                         {displayDate(item.periodFrom)} – {displayDate(item.periodUntil)} UTC
                       </p>
                       <span class="cs-tag">{statusText(item)}</span>
-                      {item.eligibilityChanged && item.status === "approved" && (
-                        <p class="cs-money-warning">
-                          Eligibility changed after approval. A correction review is required.
-                        </p>
-                      )}
+                      {item.eligibilityChanged &&
+                        item.status === "approved" &&
+                        !item.supersededBy && (
+                          <p class="cs-money-warning">
+                            Eligibility changed after approval. A correction review is required.
+                          </p>
+                        )}
                     </div>
                     <div class="cs-money-amount">
                       <strong>{formatEuroCents(item.amountCents)}</strong>
@@ -546,6 +582,13 @@ export function ReimbursementWorkspace({
                         revisionOf: value(values, "revisionOf") || null,
                         driverDeclarationConfirmed:
                           value(values, "driverDeclarationConfirmed") === "on",
+                        correctionOf: correctionOfId.value || null,
+                        correctionReason: correctionOfId.value
+                          ? (value(values, "correctionReason") as ReimbursementCorrectionReason)
+                          : null,
+                        correctionPolicyVersionId: correctionOfId.value
+                          ? value(values, "correctionPolicyVersionId") || null
+                          : null,
                       };
                       void action(async () => {
                         detail.value = await serviceRequest<ReimbursementStatement>(
@@ -559,6 +602,21 @@ export function ReimbursementWorkspace({
                       });
                     }}
                   >
+                    <CorrectionDraftFields
+                      data={current}
+                      previousId={correctionOfId.value}
+                      onChange={(id, form) => {
+                        correctionOfId.value = id;
+                        const previous = current.statements.find((item) => item.id === id);
+                        if (previous) {
+                          assignmentId.value = previous.assignmentId;
+                          const start = form?.elements.namedItem("periodFrom"),
+                            end = form?.elements.namedItem("periodUntil");
+                          if (start instanceof HTMLInputElement) start.value = previous.periodFrom;
+                          if (end instanceof HTMLInputElement) end.value = previous.periodUntil;
+                        }
+                      }}
+                    />
                     <label>
                       Assigned employee and station
                       <select
@@ -701,7 +759,8 @@ export function ReimbursementWorkspace({
                           .filter(
                             (item) =>
                               item.status === "rejected" &&
-                              item.assignmentId === assignmentId.value,
+                              item.assignmentId === assignmentId.value &&
+                              item.correctionOf === (correctionOfId.value || null),
                           )
                           .map((item) => (
                             <option key={item.id} value={item.id}>
@@ -724,6 +783,11 @@ export function ReimbursementWorkspace({
           )}
           {selected && (
             <section class="cs-money-review" aria-label="Statement review">
+              <CorrectionComparison
+                statement={selected}
+                busy={busy.value}
+                onOpen={(id) => void action(() => openStatement(id))}
+              />
               <div class="cs-section-heading">
                 <div>
                   <p class="cs-eyebrow">{selected.id}</p>
@@ -740,14 +804,18 @@ export function ReimbursementWorkspace({
               </p>
               <p class="cs-muted">
                 Policy {selected.snapshot.policy.policyId} · v{selected.snapshot.policy.version}.
-                Source: user-supplied CSV; independently verified device/meter provenance is still
-                required.
+                {selected.snapshot.sourceAuthority === "finance-void-request"
+                  ? "Source: finance cancellation request; review the previous snapshot. No new meter observations are asserted."
+                  : "Source: user-supplied CSV; independently verified device/meter provenance is still required."}
               </p>
               <dl class="cs-money-provenance">
                 <dt>Statement snapshot SHA-256</dt>
                 <dd>{selected.snapshotSha256}</dd>
                 <dt>Original source SHA-256</dt>
-                <dd>{selected.snapshot.sources.map((item) => item.sha256).join(", ")}</dd>
+                <dd>
+                  {selected.snapshot.sources.map((item) => item.sha256).join(", ") ||
+                    "No new source; the previous snapshot is referenced above."}
+                </dd>
                 <dt>Business assignment</dt>
                 <dd>
                   {selected.snapshot.assignment.stationAlias} ·{" "}
@@ -756,7 +824,7 @@ export function ReimbursementWorkspace({
                   {selected.snapshot.assignment.costCenter}
                 </dd>
               </dl>
-              {selected.eligibilityChanged && (
+              {selected.eligibilityChanged && !selected.supersededBy && (
                 <div class="cs-message cs-error">
                   Eligibility changed after this snapshot.{" "}
                   {selected.status === "approved"
@@ -815,6 +883,25 @@ export function ReimbursementWorkspace({
               <button type="button" onClick={downloadStatement}>
                 Download statement evidence JSON
               </button>
+              {finance && selected.status === "approved" && !selected.supersededBy && (
+                <CancellationRequestForm
+                  statement={selected}
+                  data={current}
+                  busy={busy.value}
+                  onRequest={(body) =>
+                    void action(async () => {
+                      detail.value = await serviceRequest<ReimbursementStatement>(
+                        `${root}/statements/${selected.id}/void-draft`,
+                        body,
+                      );
+                      linePage.value = 0;
+                      await refresh();
+                      message.value =
+                        "Cancellation draft saved. Another finance reviewer must approve it before the balance changes.";
+                    })
+                  }
+                />
+              )}
               {finance && selected.status === "draft" && (
                 <div class="cs-money-fields cs-money-review-actions">
                   {selected.employeeId === actorId ? (
@@ -829,8 +916,10 @@ export function ReimbursementWorkspace({
                         }}
                       >
                         <label class="cs-checkbox">
-                          <input type="checkbox" required />I reviewed the exact source, policy and
-                          eligibility
+                          <input type="checkbox" required />
+                          {selected.snapshot.correction
+                            ? "I reviewed both snapshots and the adjustment"
+                            : "I reviewed the exact source, policy and eligibility"}
                         </label>
                         {!mfaEnabled && (
                           <p>Enable authenticator MFA in Account security before approval.</p>
@@ -851,14 +940,22 @@ export function ReimbursementWorkspace({
                           disabled={
                             busy.value ||
                             !mfaEnabled ||
+                            (Boolean(selected.snapshot.correction) &&
+                              selected.createdBy === actorId) ||
                             selected.eligibilityChanged ||
                             selected.heldRecords > 0 ||
                             selected.invalidRecords > 0 ||
-                            selected.snapshot.counts.included === 0
+                            (selected.snapshot.counts.included === 0 &&
+                              selected.correctionMode !== "void")
                           }
                         >
-                          Approve statement · no payment
+                          {selected.snapshot.correction
+                            ? "Apply adjustment · no payment"
+                            : "Approve statement · no payment"}
                         </button>
+                        {selected.snapshot.correction && selected.createdBy === actorId && (
+                          <p>Another finance reviewer must approve the correction you created.</p>
+                        )}
                       </form>
                       <form
                         onSubmit={(event) => {

@@ -21,12 +21,23 @@ import type {
   ReimbursementPolicy,
   ReimbursementSnapshot,
   ReimbursementStatement,
-  ReimbursementStatementSummary,
   ReimbursementWorkspaceData,
   ServiceOrganization,
   SessionColumnMapping,
 } from "../shared/contracts.js";
 import { createServiceAuth, type ServiceEnv } from "./auth.js";
+import {
+  financialJournal,
+  financialStatement,
+  financialSummary,
+  readFinancialData,
+  type FinancialData,
+} from "./reimbursement-journal.js";
+import type {
+  ReimbursementCorrectionContext,
+  ReimbursementCorrectionReason,
+  ReimbursementAdjustmentReceipt,
+} from "../shared/contracts.js";
 
 const identifier = (value: unknown) => {
   const text = textValue(value, 96);
@@ -165,60 +176,39 @@ async function handle(
     if (!result) throw new HttpError(404, "Assignment not found");
     return result;
   }
-  async function statementRows() {
-    return db
-      .select({
-        record: statementTable,
-        employeeName: user.name,
-        currentUntil: endTable.effectiveUntil,
-      })
-      .from(statementTable)
-      .innerJoin(user, eq(statementTable.employeeId, user.id))
-      .leftJoin(endTable, eq(statementTable.assignmentId, endTable.assignmentId))
-      .where(
-        finance
-          ? eq(statementTable.organizationId, org.id)
-          : and(eq(statementTable.organizationId, org.id), eq(statementTable.employeeId, actorId)),
-      );
-  }
-  function summary(
-    row: Awaited<ReturnType<typeof statementRows>>[number],
-  ): ReimbursementStatementSummary {
-    const r = row.record;
-    return {
-      id: r.id,
-      employeeId: r.employeeId,
-      employeeName: row.employeeName,
-      assignmentId: r.assignmentId,
-      periodFrom: iso(r.periodFrom),
-      periodUntil: iso(r.periodUntil),
-      status: r.status,
-      amountCents: r.amountCents,
-      energyWh: r.energyWh,
-      heldRecords: r.heldRecords,
-      invalidRecords: r.invalidRecords,
-      eligibilityChanged:
-        row.currentUntil !== null && row.currentUntil.getTime() !== r.assignmentUntil.getTime(),
-      paymentStatus: "not-instructed",
-      snapshotSha256: r.snapshotSha256,
-      revisionOf: r.revisionOf,
-      reviewedBy: r.reviewedBy,
-      reviewedAt: r.reviewedAt ? iso(r.reviewedAt) : null,
-      rejectionReason: r.rejectionReason,
-      createdAt: iso(r.createdAt),
-    };
+  let financialCache: Promise<FinancialData> | undefined;
+  function financialData() {
+    return (financialCache ??= readFinancialData(env, org.id, actorId, finance));
   }
   async function statement(id: string): Promise<ReimbursementStatement> {
-    const row = (await statementRows()).find((item) => item.record.id === id);
-    if (!row) throw new HttpError(404, "Statement not found");
+    return financialStatement(id, await financialData());
+  }
+  function correctionReason(value: unknown): ReimbursementCorrectionReason {
     if (
-      (await hashBytes(new TextEncoder().encode(row.record.snapshotJson))) !==
-      row.record.snapshotSha256
+      typeof value !== "string" ||
+      !["source-issue", "eligibility", "policy-rate", "duplicate", "needs-review"].includes(value)
     )
-      throw new HttpError(409, "Statement snapshot integrity check failed");
+      throw new HttpError(400, "Choose a correction reason");
+    return value as ReimbursementCorrectionReason;
+  }
+  async function correctionContext(
+    previousId: string,
+    reason: unknown,
+    selectedPolicyVersionId: string,
+    mode: "recalculate" | "void",
+  ): Promise<ReimbursementCorrectionContext> {
+    const previous = await statement(previousId);
+    if (previous.status !== "approved")
+      throw new HttpError(409, "Only an approved statement can be corrected");
     return {
-      ...summary(row),
-      snapshot: JSON.parse(row.record.snapshotJson) as ReimbursementSnapshot,
+      mode,
+      reason: correctionReason(reason),
+      rootStatementId: previous.rootStatementId,
+      previousStatementId: previous.id,
+      previousSnapshotSha256: previous.snapshotSha256,
+      previousAdjustmentSha256: previous.adjustment?.sha256 ?? null,
+      previousAmountCents: previous.amountCents,
+      selectedPolicyVersionId,
     };
   }
   async function auditIfCreated(
@@ -251,21 +241,134 @@ async function handle(
           .innerJoin(user, eq(membership.userId, user.id))
           .where(eq(membership.organizationId, org.id))
       : [];
+    const financialModel = await financialData();
     const result: ReimbursementWorkspaceData = {
       employees,
       assignments: ownAssignments,
       policies: policies
         .filter(
-          (policy) => finance || ownAssignments.some((item) => item.policyVersionId === policy.id),
+          (policy) =>
+            finance ||
+            ownAssignments.some((item) => item.policyVersionId === policy.id) ||
+            financialModel.rows.some(
+              (row) => row.snapshot.correction?.selectedPolicyVersionId === policy.id,
+            ),
         )
         .map(policyView),
-      statements: (await statementRows()).map(summary),
+      statements: financialModel.rows.map((row) => financialSummary(row, financialModel)),
+      ...financialJournal(financialModel),
     };
     return json(result);
   }
   const read = path.match(/^statements\/([a-zA-Z0-9_-]+)$/);
   if (read?.[1] && request.method === "GET") return json(await statement(read[1]));
   if (!finance) throw new HttpError(403, "Finance or organization administrator access required");
+
+  const voiding = path.match(/^statements\/([a-zA-Z0-9_-]+)\/void-draft$/);
+  if (voiding?.[1] && request.method === "POST") {
+    const body = await input(request, ["snapshotSha256", "reason", "revisionOf"]);
+    const previous = await statement(voiding[1]);
+    if (body.snapshotSha256 !== previous.snapshotSha256)
+      throw new HttpError(409, "Review the exact approved snapshot before requesting cancellation");
+    if (!["source-issue", "eligibility", "duplicate"].includes(String(body.reason)))
+      throw new HttpError(400, "Choose a source, eligibility or duplicate cancellation reason");
+    const record = await findAssignment(previous.assignmentId);
+    const context = await correctionContext(
+      previous.id,
+      body.reason,
+      previous.snapshot.correction?.selectedPolicyVersionId ?? record.policyVersionId,
+      "void",
+    );
+    const rootStatement = await statement(context.rootStatementId);
+    const snapshot: ReimbursementSnapshot = {
+      schemaVersion: 1,
+      sourceAuthority: "finance-void-request",
+      assignment: record,
+      period: rootStatement.snapshot.period,
+      policy: previous.snapshot.policy,
+      sources: [],
+      mapping: previous.snapshot.mapping,
+      decisions: [],
+      issues: [],
+      omittedRecords: 0,
+      includedEnergyWh: 0,
+      expectedAmountCents: 0,
+      counts: { included: 0, held: 0, duplicate: 0, excluded: 0 },
+      correction: context,
+    };
+    const snapshotJson = JSON.stringify(snapshot),
+      snapshotSha256 = await hashBytes(new TextEncoder().encode(snapshotJson));
+    const revisionOf = body.revisionOf == null ? null : identifier(body.revisionOf);
+    if (revisionOf) {
+      const rejected = await statement(revisionOf);
+      if (
+        rejected.status !== "rejected" ||
+        rejected.correctionOf !== previous.id ||
+        rejected.correctionMode !== "void"
+      )
+        throw new HttpError(
+          409,
+          "Only a rejected cancellation for this predecessor can be revised",
+        );
+    }
+    const draftKey = await hashBytes(
+      new TextEncoder().encode(
+        JSON.stringify(["void", context, record.effectiveUntil, revisionOf]),
+      ),
+    );
+    const existing = (
+      await db
+        .select({ id: statementTable.id })
+        .from(statementTable)
+        .where(
+          and(eq(statementTable.organizationId, org.id), eq(statementTable.draftKey, draftKey)),
+        )
+    )[0];
+    if (existing) return json(await statement(existing.id));
+    const id = crypto.randomUUID();
+    await env.SERVICE_DB.batch([
+      q(
+        `INSERT OR IGNORE INTO reimbursement_statement (id,organization_id,employee_id,assignment_id,draft_key,period_from,period_until,assignment_until,status,snapshot_json,snapshot_sha256,amount_cents,energy_wh,included_records,held_records,invalid_records,revision_of,created_by,created_at)
+        SELECT ?,?,?,?,?,?,?,?,'draft',?,?,0,0,0,0,0,?,?,? WHERE ${guard}
+        AND EXISTS (SELECT 1 FROM reimbursement_statement p WHERE p.id=? AND p.organization_id=? AND p.status='approved' AND p.snapshot_sha256=? AND NOT EXISTS (SELECT 1 FROM reimbursement_adjustment WHERE previous_statement_id=p.id))
+        AND EXISTS (SELECT 1 FROM reimbursement_assignment a LEFT JOIN reimbursement_assignment_end e ON e.assignment_id=a.id WHERE a.id=? AND a.organization_id=? AND coalesce(e.effective_until,a.effective_until)=?)`,
+        id,
+        org.id,
+        record.employeeId,
+        record.id,
+        draftKey,
+        Date.parse(snapshot.period.from),
+        Date.parse(snapshot.period.until),
+        Date.parse(record.effectiveUntil),
+        snapshotJson,
+        snapshotSha256,
+        revisionOf,
+        actorId,
+        nowMs,
+        org.id,
+        actorId,
+        previous.id,
+        org.id,
+        previous.snapshotSha256,
+        record.id,
+        org.id,
+        Date.parse(record.effectiveUntil),
+      ),
+      await auditIfCreated(id, "statement.correction-drafted", "reimbursement_statement"),
+    ]);
+    financialCache = undefined;
+    const saved = (
+      await db
+        .select({ id: statementTable.id })
+        .from(statementTable)
+        .where(
+          and(eq(statementTable.organizationId, org.id), eq(statementTable.draftKey, draftKey)),
+        )
+    )[0];
+    if (!saved)
+      throw new HttpError(409, "Statement or eligibility changed, or finance access ended");
+    return json(await statement(saved.id), saved.id === id ? 201 : 200);
+  }
 
   if (path === "policies" && request.method === "POST") {
     const body = await input(request, [
@@ -433,6 +536,9 @@ async function handle(
       "mapping",
       "revisionOf",
       "driverDeclarationConfirmed",
+      "correctionOf",
+      "correctionReason",
+      "correctionPolicyVersionId",
     ]);
     const record = await findAssignment(identifier(body.assignmentId));
     const period = interval(body.periodFrom, body.periodUntil);
@@ -443,14 +549,44 @@ async function handle(
       period.until > new Date(record.effectiveUntil)
     )
       throw new HttpError(400, "Statement period must fit the current assignment");
+    const previousId =
+      body.correctionOf === null || body.correctionOf === undefined
+        ? null
+        : identifier(body.correctionOf);
+    if (!previousId && (body.correctionReason || body.correctionPolicyVersionId))
+      throw new HttpError(400, "A correction policy or reason requires an approved predecessor");
+    const selectedPolicyId =
+      previousId && body.correctionPolicyVersionId
+        ? identifier(body.correctionPolicyVersionId)
+        : record.policyVersionId;
+    const correction = previousId
+      ? await correctionContext(previousId, body.correctionReason, selectedPolicyId, "recalculate")
+      : undefined;
+    if (correction) {
+      const rootStatement = await statement(correction.rootStatementId);
+      if (
+        rootStatement.employeeId !== record.employeeId ||
+        rootStatement.snapshot.assignment.stationAlias !== record.stationAlias ||
+        period.from < new Date(rootStatement.periodFrom) ||
+        period.until > new Date(rootStatement.periodUntil)
+      )
+        throw new HttpError(
+          400,
+          "Correction must preserve the employee/station identity and fit the original financial period",
+        );
+    }
     const policyRow = (
       await db
         .select()
         .from(policyTable)
-        .where(
-          and(eq(policyTable.id, record.policyVersionId), eq(policyTable.organizationId, org.id)),
-        )
-    )[0]!;
+        .where(and(eq(policyTable.id, selectedPolicyId), eq(policyTable.organizationId, org.id)))
+    )[0];
+    if (
+      !policyRow ||
+      period.from < policyRow.effectiveFrom ||
+      period.until > policyRow.effectiveUntil
+    )
+      throw new HttpError(400, "The selected published policy must cover the correction period");
     const mapping = columnMapping(body.mapping);
     if (!mapping.driverAlias && body.driverDeclarationConfirmed !== true)
       throw new HttpError(
@@ -519,6 +655,7 @@ async function handle(
       includedEnergyWh: result.includedEnergyWh,
       expectedAmountCents: result.expectedAmountCents,
       counts,
+      ...(correction ? { correction } : {}),
     };
     const snapshotJson = JSON.stringify(snapshot),
       snapshotSha256 = await hashBytes(new TextEncoder().encode(snapshotJson));
@@ -531,7 +668,8 @@ async function handle(
       if (
         old.status !== "rejected" ||
         old.employeeId !== record.employeeId ||
-        old.assignmentId !== record.id
+        old.assignmentId !== record.id ||
+        old.correctionOf !== previousId
       )
         throw new HttpError(409, "Only a rejected statement for this assignment can be revised");
     }
@@ -546,6 +684,7 @@ async function handle(
           sha256,
           mapping,
           revisionOf,
+          ...(correction ? [correction] : []),
         ]),
       ),
     );
@@ -562,7 +701,8 @@ async function handle(
     await env.SERVICE_DB.batch([
       q(
         `INSERT OR IGNORE INTO reimbursement_statement (id,organization_id,employee_id,assignment_id,draft_key,period_from,period_until,assignment_until,status,snapshot_json,snapshot_sha256,amount_cents,energy_wh,included_records,held_records,invalid_records,revision_of,created_by,created_at)
-        SELECT ?,?,?,?,?,?,?,?,'draft',?,?,?,?,?,?,?,?,?,? WHERE ${guard} AND EXISTS (SELECT 1 FROM reimbursement_assignment a LEFT JOIN reimbursement_assignment_end e ON e.assignment_id = a.id WHERE a.id = ? AND a.organization_id = ? AND coalesce(e.effective_until,a.effective_until) = ?)`,
+        SELECT ?,?,?,?,?,?,?,?,'draft',?,?,?,?,?,?,?,?,?,? WHERE ${guard} AND EXISTS (SELECT 1 FROM reimbursement_assignment a LEFT JOIN reimbursement_assignment_end e ON e.assignment_id = a.id WHERE a.id = ? AND a.organization_id = ? AND coalesce(e.effective_until,a.effective_until) = ?)
+        AND (? IS NULL OR EXISTS (SELECT 1 FROM reimbursement_statement p WHERE p.id=? AND p.organization_id=? AND p.status='approved' AND p.snapshot_sha256=? AND NOT EXISTS (SELECT 1 FROM reimbursement_adjustment WHERE previous_statement_id=p.id)))`,
         id,
         org.id,
         record.employeeId,
@@ -586,9 +726,18 @@ async function handle(
         record.id,
         org.id,
         Date.parse(record.effectiveUntil),
+        previousId,
+        previousId,
+        org.id,
+        correction?.previousSnapshotSha256 ?? null,
       ),
-      await auditIfCreated(id, "statement.drafted", "reimbursement_statement"),
+      await auditIfCreated(
+        id,
+        correction ? "statement.correction-drafted" : "statement.drafted",
+        "reimbursement_statement",
+      ),
     ]);
+    financialCache = undefined;
     const saved = (
       await db
         .select({ id: statementTable.id })
@@ -610,12 +759,24 @@ async function handle(
         "A different finance reviewer must review this employee's statement",
       );
     if (review[2] === "approve") {
-      const body = await input(request, ["snapshotSha256", "authenticatorCode"]);
+      const body = await input(request, [
+        "snapshotSha256",
+        "authenticatorCode",
+        "previousSnapshotSha256",
+      ]);
       if (body.snapshotSha256 !== saved.snapshotSha256)
         throw new HttpError(409, "Review the exact current statement snapshot before approval");
       if (!mfaEnabled)
         throw new HttpError(403, "Enable authenticator MFA before approving statements");
       if (saved.status === "approved") return json(saved);
+      const correction = saved.snapshot.correction;
+      if (correction && saved.createdBy === actorId)
+        throw new HttpError(403, "A different person must approve this correction draft");
+      if (correction && body.previousSnapshotSha256 !== correction.previousSnapshotSha256)
+        throw new HttpError(
+          409,
+          "Review both the original and replacement snapshot hashes before applying an adjustment",
+        );
       if (typeof body.authenticatorCode !== "string" || !/^[0-9]{6}$/.test(body.authenticatorCode))
         throw new HttpError(403, "Enter a current authenticator code to approve this statement");
       try {
@@ -631,12 +792,112 @@ async function handle(
         saved.heldRecords ||
         saved.invalidRecords ||
         saved.eligibilityChanged ||
-        saved.snapshot.counts.included === 0
+        (saved.snapshot.counts.included === 0 && correction?.mode !== "void")
       )
         throw new HttpError(
           409,
           "Statement is not approvable: resolve holds/source issues, review eligibility, or create a fresh draft",
         );
+      if (correction) {
+        const previous = await statement(correction.previousStatementId);
+        if (
+          previous.status !== "approved" ||
+          previous.supersededBy ||
+          previous.snapshotSha256 !== correction.previousSnapshotSha256 ||
+          (previous.adjustment?.sha256 ?? null) !== correction.previousAdjustmentSha256
+        )
+          throw new HttpError(
+            409,
+            "Correction predecessor changed; review the current approved statement",
+          );
+        const receipt: ReimbursementAdjustmentReceipt = {
+          schemaVersion: 1,
+          kind: "reimbursement-adjustment",
+          id: crypto.randomUUID(),
+          rootStatementId: correction.rootStatementId,
+          previousStatementId: previous.id,
+          replacementStatementId: saved.id,
+          previousSnapshotSha256: previous.snapshotSha256,
+          replacementSnapshotSha256: saved.snapshotSha256,
+          previousAdjustmentSha256: correction.previousAdjustmentSha256,
+          previousAmountCents: previous.amountCents,
+          replacementAmountCents: saved.amountCents,
+          differenceCents: Number(BigInt(saved.amountCents) - BigInt(previous.amountCents)),
+          reason: correction.reason,
+          mode: correction.mode,
+          approvedBy: actorId,
+          approvedAt: iso(now),
+        };
+        const receiptJson = JSON.stringify(receipt),
+          receiptSha256 = await hashBytes(new TextEncoder().encode(receiptJson));
+        const results = await env.SERVICE_DB.batch([
+          q(
+            `INSERT OR IGNORE INTO reimbursement_adjustment (id,organization_id,employee_id,root_statement_id,previous_statement_id,replacement_statement_id,receipt_json,receipt_sha256,difference_cents,created_by,created_at)
+            SELECT ?,s.organization_id,s.employee_id,?,p.id,s.id,?,?,?,?,? FROM reimbursement_statement s JOIN reimbursement_statement p ON p.id=? AND p.organization_id=s.organization_id
+            WHERE s.id=? AND s.organization_id=? AND s.status='draft' AND p.status='approved' AND s.employee_id=p.employee_id AND s.employee_id!=? AND s.created_by!=?
+            AND p.snapshot_sha256=? AND s.snapshot_sha256=? AND p.amount_cents=? AND s.amount_cents=? AND s.held_records=0 AND s.invalid_records=0 AND (s.included_records>0 OR json_extract(s.snapshot_json,'$.correction.mode')='void')
+            AND ${guard} AND EXISTS (SELECT 1 FROM user WHERE id=? AND two_factor_enabled=1)
+            AND EXISTS (SELECT 1 FROM reimbursement_assignment a LEFT JOIN reimbursement_assignment_end e ON e.assignment_id=a.id WHERE a.id=s.assignment_id AND a.organization_id=s.organization_id AND coalesce(e.effective_until,a.effective_until)=s.assignment_until)
+            AND NOT EXISTS (SELECT 1 FROM reimbursement_adjustment WHERE previous_statement_id=p.id)
+            AND coalesce((SELECT receipt_sha256 FROM reimbursement_adjustment WHERE replacement_statement_id=p.id),'')=?
+            AND NOT EXISTS (SELECT 1 FROM reimbursement_claim c,json_each(s.snapshot_json,'$.decisions') candidate WHERE c.organization_id=s.organization_id AND c.station_alias=json_extract(candidate.value,'$.session.stationId') AND c.session_id=json_extract(candidate.value,'$.session.sessionId') AND json_extract(candidate.value,'$.status')='included' AND c.statement_id!=?)`,
+            receipt.id,
+            receipt.rootStatementId,
+            receiptJson,
+            receiptSha256,
+            receipt.differenceCents,
+            actorId,
+            nowMs,
+            previous.id,
+            saved.id,
+            org.id,
+            actorId,
+            actorId,
+            previous.snapshotSha256,
+            saved.snapshotSha256,
+            previous.amountCents,
+            saved.amountCents,
+            org.id,
+            actorId,
+            actorId,
+            correction.previousAdjustmentSha256 ?? "",
+            receipt.rootStatementId,
+          ),
+          q(
+            `INSERT INTO reimbursement_claim (organization_id,station_alias,session_id,statement_id)
+            SELECT s.organization_id,json_extract(line.value,'$.session.stationId'),json_extract(line.value,'$.session.sessionId'),? FROM reimbursement_statement s,json_each(s.snapshot_json,'$.decisions') line WHERE s.id=? AND s.organization_id=? AND json_extract(line.value,'$.status')='included' AND EXISTS (SELECT 1 FROM reimbursement_adjustment WHERE id=?)
+            AND NOT EXISTS (SELECT 1 FROM reimbursement_claim c WHERE c.organization_id=s.organization_id AND c.station_alias=json_extract(line.value,'$.session.stationId') AND c.session_id=json_extract(line.value,'$.session.sessionId'))`,
+            receipt.rootStatementId,
+            saved.id,
+            org.id,
+            receipt.id,
+          ),
+          q(
+            "UPDATE reimbursement_statement SET status='approved',reviewed_by=?,reviewed_at=? WHERE id=? AND organization_id=? AND status='draft' AND EXISTS (SELECT 1 FROM reimbursement_adjustment WHERE id=?)",
+            actorId,
+            nowMs,
+            saved.id,
+            org.id,
+            receipt.id,
+          ),
+          q(
+            "INSERT INTO service_audit (id,organization_id,actor_id,action,subject_id,created_at) SELECT ?,?,?,'statement.adjusted',replacement_statement_id,? FROM reimbursement_adjustment WHERE id=?",
+            crypto.randomUUID(),
+            org.id,
+            actorId,
+            nowMs,
+            receipt.id,
+          ),
+        ]);
+        financialCache = undefined;
+        const current = await statement(saved.id);
+        if (results[2]?.meta.changes !== 1 && current.status !== "approved")
+          throw new HttpError(
+            409,
+            "Adjustment blocked by a stale predecessor, session reservation, eligibility change or ended reviewer access",
+          );
+        return json(current);
+      }
       const eligible = `s.id = ? AND s.organization_id = ? AND s.status = 'draft' AND s.employee_id != ? AND s.held_records = 0 AND s.invalid_records = 0 AND s.included_records > 0 AND ${guard} AND EXISTS (SELECT 1 FROM user WHERE id = ? AND two_factor_enabled = 1) AND EXISTS (SELECT 1 FROM reimbursement_assignment a LEFT JOIN reimbursement_assignment_end e ON e.assignment_id = a.id WHERE a.id = s.assignment_id AND a.organization_id = s.organization_id AND coalesce(e.effective_until,a.effective_until) = s.assignment_until)`;
       const results = await env.SERVICE_DB.batch([
         q(
@@ -671,6 +932,7 @@ async function handle(
           nowMs,
         ),
       ]);
+      financialCache = undefined;
       const current = await statement(saved.id);
       if (results[1]?.meta.changes !== 1 && current.status !== "approved")
         throw new HttpError(
@@ -715,6 +977,7 @@ async function handle(
     ]);
     if (results[0]?.meta.changes !== 1)
       throw new HttpError(409, "Statement already reviewed or finance access ended");
+    financialCache = undefined;
     return json(await statement(saved.id));
   }
   throw new HttpError(404, "Not found");

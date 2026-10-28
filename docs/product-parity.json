@@ -419,7 +419,7 @@
         "LMS / ThreeForce": "Documented (L2)",
         "D’Ieteren": "Documented (D2)"
       },
-      "currentEvidence": "Frozen unpaid reimbursement statements, closed-code rejection and linked revisions of rejected drafts. Tax invoices, approved credit/correction ledger and payment/settlement documents remain absent.",
+      "currentEvidence": "Frozen unpaid statements with rejected revisions and approved correction/cancellation chains. Separate-person MFA review appends hash-linked differences; originals and root session reservations are retained. Statutory invoices/credit notes, accounting handoff and settled-payment corrections remain absent.",
       "acceptance": "Produce numbered documents with source-session traceability and reviewed applicable accounting treatment; corrections reference prior records and never silently replace them."
     },
     {
@@ -464,7 +464,7 @@
         "LMS / ThreeForce": "Unverified",
         "D’Ieteren": "Package/device dependent (D4)"
       },
-      "currentEvidence": "Held/invalid financial records block approval; closed-code rejection and changed-eligibility flags retain history. Owned dispute cases, bank exceptions and resolution/adjustment operations remain missing.",
+      "currentEvidence": "Source/eligibility holds, closed-code rejection, reviewed unpaid adjustments/cancellation and current-balance review flags exist. Owned dispute cases, failed-bank-payment evidence and post-settlement recovery remain missing.",
       "acceptance": "Missing session, wrong rate and failed payout each get an owner, evidence, next action and resolution; unaffected approved amounts can proceed."
     },
     {
@@ -524,7 +524,7 @@
         "LMS / ThreeForce": "Package/device dependent (L2)",
         "D’Ieteren": "Package/device dependent (D2)"
       },
-      "currentEvidence": "Driver-scoped draft/hold/rejected/approved-unpaid statements with reviewer metadata, source hashes and evidence download. Funding, payment instruction, bank confirmation and a settled timeline remain absent.",
+      "currentEvidence": "Driver-scoped statement/adjustment journal, both-snapshot evidence, current approved balances and explicit unpaid/cancelled/replaced states. Funding, instruction, bank confirmation and a settled timeline remain absent.",
       "acceptance": "Every amount links to sessions, policy, approval, funding, settlement and any exception; expected dates are labelled estimates."
     },
     {
@@ -809,7 +809,7 @@
         "LMS / ThreeForce": "Package/device dependent (L1)",
         "D’Ieteren": "Package/device dependent (D2)"
       },
-      "currentEvidence": "Membership removal closes future assignment eligibility atomically, revokes organization access and preserves frozen history. Approved eligibility changes require correction review; financial closing, household grants and explicit physical ownership transfer remain incomplete.",
+      "currentEvidence": "Offboarding closes future business eligibility and preserves financial snapshots; reviewed unpaid corrections can resolve resulting balance changes. Formal financial-period closing, household grants and physical ownership transfer remain incomplete.",
       "acceptance": "Close financial periods, revoke employer rights, preserve household ownership and charging, and explicitly approve any ownership transfer."
     },
     {
