@@ -209,3 +209,16 @@ export {
   type ContinuityPreparationResult,
   type ContinuitySettingKey,
 } from "./continuity.js";
+
+export type {
+  ObservationSource,
+  ObservationCsv,
+  SessionColumnMapping,
+  ObservationSession,
+  ObservationImport,
+  ObservationPolicyInput,
+  ObservationPolicy,
+  ObservationDecision,
+  ReimbursementObservation,
+  DeclaredAmountComparison,
+} from "./observation.js";

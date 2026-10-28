@@ -74,6 +74,10 @@ Compacted recovery is a planned replacement-edge outage and the bounded-storage 
 
 A tagged image update is also a planned local-edge outage. Provenance/SBOM verification changes only the operator's confidence in the container bytes; it never changes the charge point's acknowledged owner list or proves offline behavior. Before deployment the owner retains a current continuity bundle and the prior immutable image digest. While the edge is replaced, charger-local authorization must continue exactly as in the local-edge-loss row. A failed boot, health check, WSS reconnect, identity match, or capability inspection requires rollback to the prior digest without editing the ledger. chargeOS never auto-updates itself or the charger firmware.
 
+## Effect of local observation and the product preview
+
+The `/observe` browser-only import/calculation workspace and fictional `/preview` product workspace have no charger-facing connection or command path. Browser/network/tool failure removes analysis or preview access only; it cannot change desired or acknowledged RFID state, a charger endpoint, power limits or essential local charging. Imported observations never enter the canonical charger ledger through this tool. Neither a successful draft calculation nor a preview interaction satisfies a physical Freedom Test.
+
 ## Availability/security trade-off
 
 Offline authorization cannot simultaneously accept a previously authorized owner and honor an unseen cloud revocation. chargeOS chooses availability for the owner's essential credential and fail-closed behavior for unknown credentials. The UI must expose last synchronization time and pending revocations. Lost owner tags need a physical/local incident procedure; marketing must not claim immediate offline revocation.

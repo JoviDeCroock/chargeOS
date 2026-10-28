@@ -62,7 +62,9 @@ Before a switch, maintain a customer-specific parity manifest listing the curren
 
 ## Protect the existing ThreeForce connection
 
-During G0, use authorized configuration/session exports, statements and payment records, plus an isolated simulated charger. The repository still needs the P38 import adapter. No OCPP endpoint/profile, APN, SIM, firmware, RFID list, charging schedule or electrical setting changes belong in observation mode. A proxy insertion also changes the live path and is not read-only verification.
+The functional `/observe` workspace now implements local CSV mapping, original-byte fingerprints, explicit-policy calculations, duplicate/conflict handling, draft export and declared-amount comparison. See [Local observation](local-observation.md). Vendor-specific format adapters, true statement/bank imports and commercial approval remain open.
+
+During G0, use authorized configuration/session exports, statements and payment records, plus an isolated simulated charger. P38 now has a generic local import foundation; an exact provider-format adapter still requires actual export evidence. No OCPP endpoint/profile, APN, SIM, firmware, RFID list, charging schedule or electrical setting changes belong in observation mode. A proxy insertion also changes the live path and is not read-only verification.
 
 Run the final exact-device migration/offline test only in an explicitly authorized maintenance window with saved configuration, historical transactions, financial cut-off and verified rollback, or use a separate representative charger. Broader commercial parity does not eliminate the physical Freedom Test.
 

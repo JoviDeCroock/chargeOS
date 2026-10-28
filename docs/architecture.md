@@ -99,6 +99,10 @@ The current fleet process is appropriate for one owner and up to 1,000 staticall
 
 Home Assistant, inverters, batteries, meters, and tariff providers connect through scoped adapters/webhooks. They contribute site observations and proposed schedules; the owner sets maximum current, availability, and override policy. The adapter cannot change station ownership, credentials, firmware, or local owner authorization. Employer reimbursement consumes a signed, scoped session export with meter provenance and never receives household-wide energy data.
 
+## Local observation boundary
+
+The browser-only `/observe` workspace uses typed contracts re-exported by `shared/contracts.ts` and the deterministic `shared/observation-engine.ts` module. It reads an explicitly selected CSV into memory, fingerprints original bytes, applies declared employee/station/policy inputs and exports an unapproved draft. It does not call the owner API, authenticate a customer, append imported data to the charger evidence ledger, change station configuration or move money. The product preview at `/preview` is separately lazy-loaded and fictional. See [Local observation](local-observation.md) for source provenance, decimal/unit/date requirements and financial limitations.
+
 ## Desired/observed synchronization
 
 The Genesis edge seeds a durable owner-tag registry from owner-custodied configuration on first boot and then manages that desired set through owner-only full-state mutations. Each attempted station write receives a monotonic command revision; the station record separately retains only accepted acknowledgements. Differential charger updates remain deliberately unimplemented.

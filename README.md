@@ -25,6 +25,10 @@ The first target is an Alfen Eve Single S/Pro line charger in Belgium. The first
 
 Run `pnpm dev:web` and open `/preview` to explore the fictional driver, employer/finance and operator/support workspaces. The preview is isolated from live charger APIs; it sends no charger commands, support messages or payments. See [the product experience](docs/product-design.md) for implemented interactions, domain boundaries and limitations. The existing authenticated owner console remains at `/`.
 
+## Read-only local observation
+
+Open `/observe` to map an authorized session CSV, fingerprint its original bytes, apply an explicit policy and inspect an exact unapproved reimbursement draft. The tool processes files in browser memory and sends no upload, charger command or payment. See [Local observation](docs/local-observation.md) for supported formats, rounding, provenance, privacy and limitations.
+
 ## Working owner-edge MVP
 
 The repository now contains a self-hostable owner-edge vertical slice:

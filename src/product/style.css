@@ -2195,3 +2195,16 @@
     min-height: 40px;
   }
 }
+
+.pv-observation-link {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  color: #526b42 !important;
+  border: 1px solid #dde6d2;
+  background: #f3f7eb;
+  border-radius: 7px;
+  padding: 12px 10px;
+  margin-bottom: 10px;
+}

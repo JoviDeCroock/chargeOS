@@ -18,6 +18,8 @@ Choose the smallest relevant canonical layer. Read all documents in **Always** b
 
 ## Strategy and evidence
 
+- [Local observation](local-observation.md): functional read-only CSV mapping, provenance, deterministic reimbursement drafts and amount checks.
+
 - [Product experience](product-design.md): implemented local preview, role workflows, commercial domain boundaries and verification.
 
 - [Charging-service replacement and feature parity](product-parity.md): current product target, UX brief and switching gates.

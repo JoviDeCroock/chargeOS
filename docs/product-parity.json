@@ -389,7 +389,7 @@
         "LMS / ThreeForce": "Documented (L2)",
         "D’Ieteren": "Documented (D4)"
       },
-      "currentEvidence": "ChargeSession contains no monetary values or policy references.",
+      "currentEvidence": "ObservationPolicy records an explicit version, assignment, period, rate and rounding for local drafts. Durable policies and authentic employer approval are absent.",
       "acceptance": "Record employer-approved rate, region if applicable, eligibility, effective dates, rounding and currency; explain the exact rule used per session."
     },
     {
@@ -404,7 +404,7 @@
         "LMS / ThreeForce": "Documented (L2)",
         "D’Ieteren": "Documented (D2)"
       },
-      "currentEvidence": "Employer session export has no reimbursement calculations.",
+      "currentEvidence": "Exact per-session draft calculation and duplicate/conflict quarantine exist in shared/observation-engine.ts. Finance approval and durable statements remain absent.",
       "acceptance": "Approved kWh and monetary totals reproduce independently; exclude unresolved meter/identity conflicts; approval freezes a versioned statement."
     },
     {
@@ -726,7 +726,7 @@
       "id": "P38",
       "group": "Migration",
       "name": "Historical imports and shadow reconciliation",
-      "status": "missing",
+      "status": "foundation",
       "phase": "G0",
       "delivery": "Build",
       "providers": {
@@ -734,7 +734,7 @@
         "LMS / ThreeForce": "Package/device dependent (L9)",
         "D’Ieteren": "Unverified"
       },
-      "currentEvidence": "No CSV/backend import adapter.",
+      "currentEvidence": "Generic browser-only CSV mapping and original-byte provenance at /observe. Actual vendor-format and statement/bank adapters still need implementation and authorized source evidence.",
       "acceptance": "Import authorized device/provider/statement data read-only; record provenance; detect source gaps; compare without contacting or modifying the live charger."
     },
     {
@@ -864,6 +864,19 @@
     "designDocument": "product-design.md",
     "status": "Fictional interactive prototype; no production parity claimed",
     "implemented": "21 role-based routes, sample filtering/detail/export, simulated approval, in-memory support cases, and offline/empty/loading/error states",
-    "isolation": "No owner API requests, charger commands, support messages or payments"
+    "isolation": "No owner API requests, charger commands, support messages or payments",
+    "observation": {
+      "entry": "/observe",
+      "document": "local-observation.md",
+      "status": "Functional local draft analysis only; no commercial approval or settlement",
+      "features": [
+        "CSV mapping and explicit energy decimals/units",
+        "Original-byte SHA-256 and record provenance",
+        "Exact per-session monetary arithmetic",
+        "Duplicate exclusion and all-version conflict holds",
+        "Policy-boundary and invalid-record quarantine",
+        "Explicit unapproved JSON export and declared-amount comparison"
+      ]
+    }
   }
 }

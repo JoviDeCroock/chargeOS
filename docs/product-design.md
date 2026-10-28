@@ -10,7 +10,7 @@ Session inspection, search/location filtering, sample CSV export, held-versus-ap
 
 The entry module loads the preview separately from the authenticated owner-console model. The preview neither requests the owner API nor sends charger commands, messages or payments. All demo changes are memory-only and reset on full reload. `/` still opens the existing owner console. Workspace selection demonstrates navigation, not authentication or a tenant boundary.
 
-This completes an implemented design prototype, not commercial parity. Employer authentication, device control, policy calculation, notifications, payment execution, staffed support, roaming and integrations need the implementation/evidence levels in the feature register. The next functional slice is read-only import and deterministic reimbursement, while ThreeForce stays connected.
+This completes an implemented design prototype, not commercial parity. Employer authentication, device control, policy calculation, notifications, payment execution, staffed support, roaming and integrations need the implementation/evidence levels in the feature register. The [local observation workspace](local-observation.md) now provides real read-only import and deterministic draft calculation while ThreeForce stays connected. It is separate from fictional preview values and still carries no commercial approval or payment authority.
 
 ## Experience decisions
 

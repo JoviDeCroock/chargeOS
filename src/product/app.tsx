@@ -187,6 +187,9 @@ export function ProductPreview() {
             ))}
           </nav>
           <div class="pv-sidebar-bottom">
+            <a class="pv-observation-link" href="/observe">
+              Analyze a local export <span>↗</span>
+            </a>
             <div class="pv-ownership">
               <span aria-hidden="true">◇</span>
               <div>
@@ -644,6 +647,9 @@ export function ProductPreview() {
                 {page === "activity" && (
                   <section class="pv-panel">
                     <div class="pv-filter-row">
+                      <a class="pv-button primary" href="/observe">
+                        Analyze a local CSV ↗
+                      </a>
                       <label>
                         <span class="pv-sr-only">Search sample sessions</span>
                         <input
