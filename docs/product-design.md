@@ -24,7 +24,7 @@ This completes an implemented design prototype, not commercial parity. Employer 
 
 ## Commercial domain boundaries to implement
 
-The [commercial account workspace](commercial-service.md) at `/service` now implements real local accounts, MFA/recovery, organizations and driver/finance invitations. These records use separate Worker/D1 persistence and typed contracts, rather than preview fixtures. Production delivery, household/station authority, effective-dated employment and the financial chain remain unfinished.
+The [commercial account workspace](commercial-service.md) at `/service` now implements real local accounts, MFA/recovery, organizations and driver/finance invitations. These records use separate Worker/D1 persistence and typed contracts, rather than preview fixtures. The [reimbursement workspace](reimbursement-statements.md) now connects dated member/vehicle/card-alias/cost-center assignments, immutable rate versions, server-calculated drafts, fresh-MFA finance review and driver-scoped evidence. Production delivery, household/station authority, approved financial corrections and settlement remain unfinished.
 
 | Record                                      | Authority and relationship                                                                                                                |
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |

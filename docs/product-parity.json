@@ -209,7 +209,7 @@
         "LMS / ThreeForce": "Documented (L2)",
         "D’Ieteren": "Documented (D2)"
       },
-      "currentEvidence": "Persistent 72-hour driver/finance invitations with verified-email binding, revocation, one-use/race checks and membership removal. Vehicle/card/charger/cost-center assignments and effective dates remain missing.",
+      "currentEvidence": "Persistent role invitations plus immutable dated member/vehicle/card-alias/station-alias/cost-center assignments to an exact policy version. Offboarding closes future business eligibility; physical station/card authority remains separate.",
       "acceptance": "Assign employee, vehicle, card, charger and cost center with effective dates; joining/leaving changes future eligibility without rewriting history."
     },
     {
@@ -224,7 +224,7 @@
         "LMS / ThreeForce": "Documented (L2)",
         "D’Ieteren": "Documented (D3)"
       },
-      "currentEvidence": "Owner RFID registry and expiring read delegates exist; no commercial employee/card mapping.",
+      "currentEvidence": "Owner RFID registry plus commercial non-secret card/vehicle/employee aliases and dated eligibility. Actual commercial card linking, device claiming and owner-scoped business grants remain incomplete.",
       "acceptance": "Separate household, employee and guest credentials; reimbursement applies only to eligible sessions and periods."
     },
     {
@@ -381,7 +381,7 @@
       "id": "P15",
       "group": "Money",
       "name": "Versioned reimbursement policies and tariffs",
-      "status": "missing",
+      "status": "foundation",
       "phase": "G1",
       "delivery": "Build",
       "providers": {
@@ -389,14 +389,14 @@
         "LMS / ThreeForce": "Documented (L2)",
         "D’Ieteren": "Documented (D4)"
       },
-      "currentEvidence": "ObservationPolicy records an explicit version, assignment, period, rate and rounding for local drafts. Durable policies and authentic employer approval are absent.",
+      "currentEvidence": "Persistent immutable policy key/version, effective dates, explicit EUR/kWh and exact rounding; assignments select one fixed version. Real customer/tax/regional rules and independently accepted policy evidence remain unproven.",
       "acceptance": "Record employer-approved rate, region if applicable, eligibility, effective dates, rounding and currency; explain the exact rule used per session."
     },
     {
       "id": "P16",
       "group": "Money",
       "name": "Calculation and finance approval",
-      "status": "missing",
+      "status": "foundation",
       "phase": "G1",
       "delivery": "Build",
       "providers": {
@@ -404,14 +404,14 @@
         "LMS / ThreeForce": "Documented (L2)",
         "D’Ieteren": "Documented (D2)"
       },
-      "currentEvidence": "Exact per-session draft calculation and duplicate/conflict quarantine exist in shared/observation-engine.ts. Finance approval and durable statements remain absent.",
+      "currentEvidence": "Server-calculated, byte-provenanced immutable drafts with separate-reviewer current-TOTP approval, exact snapshot checks, eligibility holds and atomic duplicate-session reservations. Local synthetic proof only; actual provider/customer acceptance remains open.",
       "acceptance": "Approved kWh and monetary totals reproduce independently; exclude unresolved meter/identity conflicts; approval freezes a versioned statement."
     },
     {
       "id": "P17",
       "group": "Money",
       "name": "Invoices, reimbursement statements and corrections",
-      "status": "missing",
+      "status": "foundation",
       "phase": "G1",
       "delivery": "Build + accounting review",
       "providers": {
@@ -419,7 +419,7 @@
         "LMS / ThreeForce": "Documented (L2)",
         "D’Ieteren": "Documented (D2)"
       },
-      "currentEvidence": "No invoice, statement, credit or monetary ledger.",
+      "currentEvidence": "Frozen unpaid reimbursement statements, closed-code rejection and linked revisions of rejected drafts. Tax invoices, approved credit/correction ledger and payment/settlement documents remain absent.",
       "acceptance": "Produce numbered documents with source-session traceability and reviewed applicable accounting treatment; corrections reference prior records and never silently replace them."
     },
     {
@@ -464,14 +464,14 @@
         "LMS / ThreeForce": "Unverified",
         "D’Ieteren": "Package/device dependent (D4)"
       },
-      "currentEvidence": "Session conflicts exist; no owned financial case workflow.",
+      "currentEvidence": "Held/invalid financial records block approval; closed-code rejection and changed-eligibility flags retain history. Owned dispute cases, bank exceptions and resolution/adjustment operations remain missing.",
       "acceptance": "Missing session, wrong rate and failed payout each get an owner, evidence, next action and resolution; unaffected approved amounts can proceed."
     },
     {
       "id": "P21",
       "group": "Money",
       "name": "Employer cost centers and reporting",
-      "status": "missing",
+      "status": "foundation",
       "phase": "G1",
       "delivery": "Build",
       "providers": {
@@ -479,7 +479,7 @@
         "LMS / ThreeForce": "Documented (L6)",
         "D’Ieteren": "Documented (D2)"
       },
-      "currentEvidence": "Fleet overview shows energy and readiness, not costs.",
+      "currentEvidence": "Dated cost-center assignments and per-employee financial statements exist. Cost-center aggregation, budgets and customer reporting/export acceptance remain unimplemented.",
       "acceptance": "Reconcile driver, site, card, cost-center and invoice views to the same ledger; approved totals and exported totals agree."
     },
     {
@@ -516,7 +516,7 @@
       "id": "P24",
       "group": "Experience",
       "name": "Traceable reimbursement timeline",
-      "status": "missing",
+      "status": "foundation",
       "phase": "G1",
       "delivery": "Design + build",
       "providers": {
@@ -524,7 +524,7 @@
         "LMS / ThreeForce": "Package/device dependent (L2)",
         "D’Ieteren": "Package/device dependent (D2)"
       },
-      "currentEvidence": "No money lifecycle in UI or API.",
+      "currentEvidence": "Driver-scoped draft/hold/rejected/approved-unpaid statements with reviewer metadata, source hashes and evidence download. Funding, payment instruction, bank confirmation and a settled timeline remain absent.",
       "acceptance": "Every amount links to sessions, policy, approval, funding, settlement and any exception; expected dates are labelled estimates."
     },
     {
@@ -801,7 +801,7 @@
       "id": "P43",
       "group": "Accounts",
       "name": "Employer change and ownership transfer",
-      "status": "missing",
+      "status": "foundation",
       "phase": "G1",
       "delivery": "Build",
       "providers": {
@@ -809,7 +809,7 @@
         "LMS / ThreeForce": "Package/device dependent (L1)",
         "D’Ieteren": "Package/device dependent (D2)"
       },
-      "currentEvidence": "Local organization membership removal revokes service access. Effective-dated employment, financial cut-off and explicit physical ownership transfer remain unimplemented.",
+      "currentEvidence": "Membership removal closes future assignment eligibility atomically, revokes organization access and preserves frozen history. Approved eligibility changes require correction review; financial closing, household grants and explicit physical ownership transfer remain incomplete.",
       "acceptance": "Close financial periods, revoke employer rights, preserve household ownership and charging, and explicitly approve any ownership transfer."
     },
     {

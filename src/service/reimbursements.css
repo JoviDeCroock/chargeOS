@@ -1,0 +1,132 @@
+.cs-money-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 1.3rem 0;
+  border-bottom: 1px solid #e2e8db;
+  margin-bottom: 1.5rem;
+}
+.cs-money-tabs button[aria-pressed="true"] {
+  background: #214b3d;
+  color: #fff;
+  border-color: #214b3d;
+}
+.cs-money-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.cs-money-records {
+  padding: 0;
+  margin: 1.2rem 0;
+  list-style: none;
+}
+.cs-money-records li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #e2e8db;
+  padding: 1.2rem 0;
+  min-width: 0;
+}
+.cs-money-records li > div {
+  min-width: 0;
+}
+.cs-money-records p {
+  margin: 0.4rem 0;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.cs-money-records small {
+  color: #61745e;
+  overflow-wrap: anywhere;
+}
+.cs-money-records strong {
+  overflow-wrap: anywhere;
+}
+.cs-money-amount {
+  display: grid;
+  gap: 0.7rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+.cs-money-amount > strong {
+  font-size: 1.3rem;
+}
+.cs-money-form {
+  margin-top: 1.5rem;
+  border: 1px solid #dce4d4;
+  border-radius: 12px;
+  padding: 1rem 1.2rem;
+}
+.cs-money-form > summary {
+  cursor: pointer;
+  font-weight: 650;
+  padding: 0.4rem 0;
+}
+.cs-money-form > form {
+  margin-top: 1.3rem;
+}
+.cs-money-review {
+  margin-top: 2rem;
+  border-top: 2px solid #c7d9ad;
+  padding-top: 2rem;
+}
+.cs-money .cs-money-total {
+  font-size: 2rem;
+  letter-spacing: -0.04em;
+}
+.cs-money-provenance {
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.cs-money-provenance dt {
+  color: #61745e;
+  font-weight: 600;
+  margin-top: 0.7rem;
+}
+.cs-money-provenance dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.cs-money-review-actions {
+  margin-top: 1.5rem;
+  align-items: start;
+}
+.cs-money-warning {
+  color: #7d4824;
+  font-weight: 600;
+}
+.cs-money-mapping {
+  border: 1px solid #dce4d4;
+  border-radius: 10px;
+  padding: 1rem;
+  min-width: 0;
+}
+.cs-money-mapping legend {
+  color: #61745e;
+  font-size: 0.85rem;
+  padding: 0 0.5rem;
+}
+.cs-money input[type="file"] {
+  max-width: 100%;
+  overflow: hidden;
+}
+@media (max-width: 680px) {
+  .cs-money-fields {
+    grid-template-columns: 1fr;
+  }
+  .cs-money-records li {
+    flex-wrap: wrap;
+  }
+  .cs-money-amount {
+    text-align: left;
+    width: 100%;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+  }
+  .cs-money-amount button {
+    justify-self: end;
+  }
+}

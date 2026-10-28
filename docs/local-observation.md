@@ -13,7 +13,7 @@ No original charger configuration, source export, provider statement or bank rec
 - UTF-8 CSV, with an optional BOM, comma or semicolon separator, RFC-style quoted fields, doubled quotes and embedded quoted line breaks.
 - At most 4 MiB, 20,000 data records and 128 columns. Duplicate/empty headings, binary data and malformed quotation are rejected.
 - Explicit column mappings for session ID, station ID, start, end and energy; choose Wh/kWh and the energy decimal separator. Grouping and exponent notation are rejected. The tool never guesses that a comma is grouping versus a decimal separator.
-- Use an employee alias column, or explicitly assign a non-secret alias to every imported record. Do not map a raw card, RFID or token value as an employee alias. Common raw-card column names are rejected for that mapping. Unselected source columns are absent from the exported analysis.
+- Use an employee alias column, or explicitly assign a non-secret alias to every imported record. Do not map a raw card, RFID or token value as an employee alias. Common raw-card/RFID/token column names are rejected across selected mappings, including session IDs. Mislabelled arbitrary cell values cannot be universally identified as secrets. Unselected source columns are absent from the exported analysis.
 - IDs are bounded non-secret identifiers. Timestamps include seconds and `Z` or an explicit UTC offset. Invalid calendar dates, local/ambiguous times, non-increasing sessions and negative/imprecise energy become row issues rather than silently corrected inputs.
 - CSV record numbers include blank records; a quoted newline does not create another CSV record.
 
@@ -45,7 +45,7 @@ An optional user-entered statement/payment amount is compared with the expected 
 
 The downloadable schema-1 `reimbursement-observation` has authority `unapproved-local-analysis`; it contains the policy, sources/mappings, decisions, issues, totals and optional `user-declared-amount-only` comparison. It is not a payment instruction, approved statement, invoice, signed financial record or settlement receipt.
 
-The financial model still needs authentic employee/policy approval, effective-dated assignment across multiple people, durable statements/corrections, actual provider/statement imports, bank-confirmed settlement, partner execution and a transactional authorization boundary. A local draft does not satisfy those parity requirements.
+The separate authenticated [reimbursement service](reimbursement-statements.md) now implements local dated assignments, durable policy versions/snapshots, server-side calculation and separate-reviewer finance approval. It explicitly uploads a selected CSV; this `/observe` tool remains browser-only and unapproved. Real customer/source acceptance, approved financial corrections, provider/statement adapters, bank-confirmed settlement and partner execution remain required. Neither path by itself satisfies complete parity.
 
 ## Verification
 

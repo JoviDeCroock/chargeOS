@@ -114,3 +114,5 @@ A model/firmware combination passes only after:
 ## Separate commercial accounts
 
 The local commercial Worker/D1 account service has no charger connection, owner credential, edge-ledger access or authorization-list mutation. Losing its process, database, login session, email-delivery path or an employer membership cannot change the previously acknowledged owner list or the OCPP endpoint. Its account/organization tests do not replace any offline or recovery proof above. Household grants and station claiming must preserve these boundaries when implemented; see [ADR 0003](decisions/0003-separate-commercial-worker.md).
+
+Reimbursement policy, assignment, approval and offboarding mutations affect only commercial SQL state. They have no OCPP command or owner-tag path. Missing account service, finance reviewer, file, MFA device or payment service cannot remove previously acknowledged owner charging access. Offboarding may end future business eligibility while the physical owner remains root.

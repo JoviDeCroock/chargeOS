@@ -129,6 +129,10 @@ export function mapObservationSessions(
   )
     throw new ObservationInputError("Map each required field to a different existing column.");
   if (!mapping.driverAlias) identifier(declaredDriverAlias, "Declared driver alias");
+  if (selected.some((heading) => /rfid|card|tag|token|badge|pasnummer|kaartnummer/i.test(heading)))
+    throw new ObservationInputError(
+      "Use non-secret session and employee aliases, not raw card, RFID or token columns.",
+    );
   const indexes = new Map(csv.headers.map((heading, index) => [heading, index]));
   const sessions: ObservationSession[] = [],
     issues: ObservationImport["issues"][number][] = [];
@@ -187,7 +191,7 @@ export function calculateReimbursementObservation(
   input: ObservationPolicyInput,
 ): ReimbursementObservation {
   if (imports.length === 0) throw new ObservationInputError("Import at least one session source.");
-  const policy = observationPolicy(input);
+  const policy = normalizeObservationPolicy(input);
   for (const item of imports) {
     if (
       !/^[a-f0-9]{64}$/.test(item.source.sha256) ||
@@ -296,7 +300,7 @@ export function compareDeclaredAmount(
   return { authority: "user-declared-amount-only", reportedAmountCents, differenceCents, outcome };
 }
 
-function observationPolicy(input: ObservationPolicyInput): ObservationPolicy {
+export function normalizeObservationPolicy(input: ObservationPolicyInput): ObservationPolicy {
   identifier(input.policyId, "Policy ID");
   identifier(input.version, "Policy version");
   identifier(input.driverAlias, "Driver alias");

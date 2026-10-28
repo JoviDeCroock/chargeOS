@@ -9,7 +9,7 @@ The replacement target needs unrelated customer accounts, employer roles and fin
 
 ## Decision
 
-Add a separate TypeScript Worker in `service/`, with Better Auth for password/session, verified-email, recovery and authenticator/backup-code flows, and Drizzle over D1/SQLite for commercial account and organization records. The Preact workspace is `/service`; cookies and API routes are confined to `/service/api`. Existing owner APIs retain bearer authentication. Neither credential authenticates the other service.
+Add a separate TypeScript Worker in `service/`, with Better Auth for password/session, verified-email, recovery and authenticator/backup-code flows, and Drizzle over D1/SQLite for commercial account, organization, dated eligibility and reimbursement-statement records. The Preact workspace is `/service`; cookies and API routes are confined to `/service/api`. Existing owner APIs retain bearer authentication. Neither credential authenticates the other service.
 
 Organization administrators control membership in their organization. They cannot become a physical station owner, claim a station by CPID, issue an OCPP command, read the edge ledger or change local owner authorization. Household/station claiming and explicit owner grants remain separate work.
 

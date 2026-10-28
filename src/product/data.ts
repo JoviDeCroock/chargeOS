@@ -1,3 +1,4 @@
+import { formatEuroCents } from "../../shared/currency.js";
 export type PreviewWorkspace = "driver" | "employer" | "operator";
 export type PreviewScenario = "normal" | "offline" | "empty" | "loading" | "error";
 
@@ -241,16 +242,7 @@ export function previewRoute(hash: string): { workspace: PreviewWorkspace; page:
   };
 }
 
-export function euro(cents: number): string {
-  const exact = BigInt(cents);
-  const whole = exact / 100n;
-  const displayWhole = exact < 0n && whole === 0n ? -0 : whole;
-  const fraction = (exact < 0n ? -exact : exact) % 100n;
-  return new Intl.NumberFormat("en-BE", { style: "currency", currency: "EUR" })
-    .formatToParts(displayWhole)
-    .map((part) => (part.type === "fraction" ? fraction.toString().padStart(2, "0") : part.value))
-    .join("");
-}
+export const euro = formatEuroCents;
 
 export function energy(wh: number): string {
   return `${new Intl.NumberFormat("en-BE", { maximumFractionDigits: 1 }).format(wh / 1000)} kWh`;

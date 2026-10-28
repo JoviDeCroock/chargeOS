@@ -8,6 +8,13 @@
       "when": 1793186779790,
       "tag": "0000_minor_nekra",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793188569683,
+      "tag": "0001_shiny_makkari",
+      "breakpoints": true
     }
   ]
 }

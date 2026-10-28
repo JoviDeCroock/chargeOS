@@ -2,7 +2,7 @@
 
 chargeOS is an open, owner-controlled operating layer for privately owned EV chargers.
 
-The commercial target is a complete charging-management replacement for home, workplace and public use, with polished driver/employer experiences, traceable reimbursement and independent service delivery. The current code remains the owner-edge foundation. See the [replacement plan](docs/product-parity.md) and [feature register](docs/product-parity.json) for the gaps and customer switching gates.
+The commercial target is a complete charging-management replacement for home, workplace and public use, with polished driver/employer experiences, traceable reimbursement and independent service delivery. The current code combines the owner-edge foundation with local commercial account and reimbursement workflows. See the [replacement plan](docs/product-parity.md) and [feature register](docs/product-parity.json) for the gaps and customer switching gates.
 
 Its non-negotiable promise is narrow and testable:
 
@@ -32,6 +32,10 @@ Open `/observe` to map an authorized session CSV, fingerprint its original bytes
 ## Local commercial accounts
 
 The real `/service` workspace adds persistent verified-email accounts, authenticator MFA, password recovery, organizations and expiring role invitations in a separate locally runnable Cloudflare Worker with D1/SQLite. Start with `pnpm service:setup`, `pnpm service:migrate` and `pnpm service:dev`, then run the web app. Local delivery uses an operator-only database outbox and sends no email. See [Commercial service](docs/commercial-service.md) for the exact origin, verification flow, isolation and remaining deployment gates. This service has no charger or payment authority.
+
+## Local reimbursement review
+
+The `/service` finance workspace now connects immutable policy versions, dated employee/vehicle/card-alias/cost-center assignments, explicit CSV imports, server-calculated statements and a different reviewer’s fresh-MFA approval. Statements remain visibly unpaid; no payment or bank operation is implemented. Driver views and evidence downloads are scoped to their own records. See [Reimbursement statements](docs/reimbursement-statements.md) for source/rounding rules, offboarding, duplicate prevention and remaining financial gaps.
 
 ## Working owner-edge MVP
 

@@ -1,3 +1,5 @@
+import { HttpError, input, json, textValue } from "./http.js";
+import { handleReimbursements } from "./reimbursements.js";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { createServiceAuth, localConfiguration, type ServiceEnv } from "./auth.js";
@@ -8,19 +10,10 @@ import type {
   ServiceOrganization,
 } from "../shared/contracts.js";
 
-class HttpError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-const json = (value: unknown, status = 200) => Response.json(value, { status });
 const idPattern = /^[a-zA-Z0-9_-]{1,128}$/;
 const root = "/service/api/v1";
 
-async function boundedBody(request: Request): Promise<Request> {
+async function boundedBody(request: Request, limit: number): Promise<Request> {
   if (!request.body) return request;
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -29,7 +22,7 @@ async function boundedBody(request: Request): Promise<Request> {
     const next = await reader.read();
     if (next.done) break;
     length += next.value.length;
-    if (length > 32768) {
+    if (length > limit) {
       await reader.cancel();
       throw new HttpError(413, "Request is too large");
     }
@@ -42,32 +35,6 @@ async function boundedBody(request: Request): Promise<Request> {
     offset += chunk.length;
   }
   return new Request(request, { method: request.method, body: bytes });
-}
-async function input(request: Request, keys: string[]): Promise<Record<string, unknown>> {
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    throw new HttpError(400, "Use a JSON object");
-  }
-  if (
-    !body ||
-    typeof body !== "object" ||
-    Array.isArray(body) ||
-    Object.keys(body).some((key) => !keys.includes(key))
-  )
-    throw new HttpError(400, "Unexpected request fields");
-  return body as Record<string, unknown>;
-}
-function textValue(value: unknown, max: number): string {
-  if (
-    typeof value !== "string" ||
-    !value.trim() ||
-    value.trim().length > max ||
-    Array.from(value).some((char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)
-  )
-    throw new HttpError(400, "Invalid text value");
-  return value.trim();
 }
 async function hashToken(token: string): Promise<string> {
   return Array.from(
@@ -91,7 +58,12 @@ async function route(request: Request, env: ServiceEnv): Promise<Response> {
       throw new HttpError(403, "Use the configured service origin");
     if (!request.headers.get("content-type")?.startsWith("application/json"))
       throw new HttpError(415, "Use application/json");
-    request = await boundedBody(request);
+    request = await boundedBody(
+      request,
+      /^\/service\/api\/v1\/organizations\/[^/]+\/money\/statements$/.test(url.pathname)
+        ? 524288
+        : 32768,
+    );
   }
   const auth = createServiceAuth(env);
   if (url.pathname.startsWith("/service/api/auth/")) return auth.handler(request);
@@ -214,6 +186,13 @@ async function route(request: Request, env: ServiceEnv): Promise<Response> {
   if (!match?.[1]) throw new HttpError(404, "Not found");
   const org = await resolveOrganization(match[1]);
   const child = match[2] ?? "";
+  if (child === "money" || child.startsWith("money/"))
+    return handleReimbursements(
+      request,
+      env,
+      { organization: org, actorId, mfaEnabled: identity.user.twoFactorEnabled ?? false },
+      child === "money" ? "" : child.slice(6),
+    );
   if (!child && request.method === "GET") {
     const members =
       org.role === "admin"
@@ -349,6 +328,12 @@ async function route(request: Request, env: ServiceEnv): Promise<Response> {
         org.id,
         actorId,
       ),
+      env.SERVICE_DB.prepare(
+        "INSERT OR IGNORE INTO reimbursement_assignment_end (assignment_id,effective_until,created_by,created_at) SELECT a.id,max(a.effective_from,min(a.effective_until,?)),?,? FROM reimbursement_assignment a INNER JOIN membership m ON m.user_id = a.employee_id AND m.organization_id = a.organization_id WHERE m.id = ? AND a.organization_id = ? AND EXISTS (SELECT 1 FROM service_audit WHERE id = ?)",
+      ).bind(nowMs, actorId, nowMs, memberId, org.id, auditId),
+      env.SERVICE_DB.prepare(
+        "INSERT INTO service_audit (id,organization_id,actor_id,action,subject_id,created_at) SELECT lower(hex(randomblob(16))),?,?,'assignment.ended',e.assignment_id,? FROM reimbursement_assignment_end e INNER JOIN reimbursement_assignment a ON a.id = e.assignment_id INNER JOIN membership m ON m.user_id = a.employee_id AND m.organization_id = a.organization_id WHERE m.id = ? AND a.organization_id = ? AND e.created_by = ? AND e.created_at = ? AND EXISTS (SELECT 1 FROM service_audit WHERE id = ?) AND NOT EXISTS (SELECT 1 FROM service_audit previous WHERE previous.subject_id = e.assignment_id AND previous.action = 'assignment.ended')",
+      ).bind(org.id, actorId, nowMs, memberId, org.id, actorId, nowMs, auditId),
       env.SERVICE_DB.prepare(
         "DELETE FROM membership WHERE id = ? AND organization_id = ? AND EXISTS (SELECT 1 FROM service_audit WHERE id = ?)",
       ).bind(memberId, org.id, auditId),

@@ -1,3 +1,5 @@
+import { serviceRequest as request, ServiceRequestError } from "./client.js";
+import { ReimbursementWorkspace } from "./reimbursements.js";
 import { useSignal } from "@preact/signals";
 import { useEffect } from "preact/hooks";
 import type {
@@ -11,36 +13,6 @@ const api = "/service/api/v1";
 const auth = "/service/api/auth";
 type Page = "sign-in" | "sign-up" | "forgot" | "reset" | "challenge";
 type AuthResult = { twoFactorRedirect?: boolean; totpURI?: string; backupCodes?: string[] };
-class ServiceRequestError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-async function request<T>(
-  path: string,
-  body?: unknown,
-  method = body === undefined ? "GET" : "POST",
-): Promise<T> {
-  const response = await fetch(path, {
-    method,
-    credentials: "same-origin",
-    headers: body === undefined ? {} : { "Content-Type": "application/json" },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
-  const data: unknown = await response.json();
-  if (!response.ok) {
-    const error =
-      data && typeof data === "object" ? (data as { error?: string; message?: string }) : {};
-    throw new ServiceRequestError(
-      response.status,
-      error.error ?? error.message ?? "The service could not complete this request.",
-    );
-  }
-  return data as T;
-}
 function fields(form: HTMLFormElement) {
   return Object.fromEntries(new FormData(form).entries());
 }
@@ -627,11 +599,25 @@ export function ServiceWorkspace() {
                   </>
                 ) : (
                   <p>
-                    Your {current.organization.role} membership is active. Charging, financial
-                    approvals and payments are still being built.
+                    Your {current.organization.role} membership is active. Your reimbursement
+                    records are below. Charging controls and payments are still being built.
                   </p>
                 )}
               </section>
+            )}
+            {current && (
+              <ReimbursementWorkspace
+                key={current.organization.id}
+                organization={current.organization}
+                actorId={me.user.id}
+                mfaEnabled={me.user.twoFactorEnabled}
+                onSessionExpired={() => {
+                  account.value = null;
+                  workspace.value = null;
+                  setup.value = null;
+                  page.value = "sign-in";
+                }}
+              />
             )}
           </>
         )}

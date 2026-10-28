@@ -21,6 +21,10 @@ The separate local `/service` Worker uses Better Auth password/session, verifica
 
 Only configured loopback development runs. Local operator-outbox links are secret development material and do not prove real mailbox ownership. They are absent from application APIs and audits; trusted local Wrangler tooling/database access can read them. SQLite is not encrypted by this implementation, and a public mail/TLS/retention/recovery boundary remains required. See [Commercial service](commercial-service.md) and [ADR 0003](decisions/0003-separate-commercial-worker.md). These controls do not establish station tenancy, commercial disaster recovery or externally anchored audit integrity.
 
+## Commercial reimbursement review
+
+Dated assignments and immutable policies reference organization members and non-secret business aliases; they do not authorize a charger. Server-side import calculation ignores client totals and persists a byte-hashed, minimized snapshot. Driver reads/exports are employee-scoped; finance sees the organization’s business records. A new approval requires a different employee reviewer, enabled MFA plus a current TOTP, the exact snapshot digest, current finance membership, unchanged eligibility and no unresolved rows. Unique organization/station/session reservations, approval and audit commit together. Membership removal atomically closes future business eligibility without touching owner charging. Approved eligibility changes are flagged for correction review; no approved financial correction or payout implementation is implied. See [Reimbursement statements](reimbursement-statements.md).
+
 ## Primary threats and controls
 
 | Threat                          | Control                                                                                                                                                                                   |
