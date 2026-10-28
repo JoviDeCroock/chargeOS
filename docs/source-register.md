@@ -1,6 +1,17 @@
 # Source register
 
-Primary sources are preferred. Access/verification date: 2026-08-14. Current claims should be refreshed before publication or device work.
+Primary sources are preferred. Original entries were verified on 2026-08-14 unless otherwise stated. The charging-service replacement entries below were checked on 2026-10-28. Current claims should be refreshed before publication or device work.
+
+## Charging-service replacement: 2026-10-28
+
+The canonical [feature register](product-parity.json) contains provider-specific source IDs, URLs, verification dates and limitations. “Documented” records an advertised capability; it does not establish service quality or an entitlement in every package. Unverified does not mean absent.
+
+- [50five Belgium drivers](https://50five.com/be/nl/consumer), [subscriptions](https://50five.com/be/nl/solutions/subscription), [energy management](https://50five.com/be/nl/solutions/energy) and [business support](https://50five.com/be/nl/contact): driver/app, employer settlement, access, operational and service offerings. The driver page’s broad app start/stop claim conflicts with its restricted migrated-card FAQ; preserve that restriction until account-level verification.
+- LMS [station management](https://www.lastmilesolutions.com/station-management/), [billing](https://www.lastmilesolutions.com/billing-as-a-service/), [roaming](https://www.lastmilesolutions.com/roaming-as-a-service/), [smart energy](https://www.lastmilesolutions.com/smart-energy-management/), [helpdesk](https://www.lastmilesolutions.com/24-7-helpdesk/) and [data/APIs](https://www.lastmilesolutions.com/it-data-management/): platform and operational scope. Payment/compliance and performance descriptions remain provider claims.
+- LMS [branded environments](https://www.lastmilesolutions.com/branded-environments/), [payment services](https://www.lastmilesolutions.com/payment-as-a-service/) and [migration services](https://www.lastmilesolutions.com/migration-services/): ecosystem dependencies; an advertised API does not establish access for a particular customer.
+- D’Ieteren [apps/portals](https://www.dieterenenergy.be/portaal-apps), [employee home charging](https://www.dieterenenergy.be/laadoplossingen-werknemers-thuis), [card activation](https://www.dieterenenergy.be/activation-card), [workplace charging](https://www.dieterenenergy.be/b2b-charging-infrastructure) and [charging-service terms](https://www.dieterenenergy.be/terms-and-conditions): driver/fleet, installation and financial scope. The terms identify LMS/Threeforce for transaction, roaming and financial infrastructure; 50five’s Belgium driver page also identifies Threeforce as its financial partner.
+
+This research did not access a competitor’s authenticated customer portal, execute a payment, test a roaming agreement or establish charger compatibility. Financial/legal compliance claims need appropriate verification for the actual service before launch.
 
 ## Alfen Genesis
 

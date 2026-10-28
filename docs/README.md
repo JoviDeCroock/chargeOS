@@ -4,7 +4,7 @@ Choose the smallest relevant canonical layer. Read all documents in **Always** b
 
 ## Always
 
-- [Founder report](founder-report.md): current business and product verdict.
+- [Founder report](founder-report.md): original business research with the current strategy update linked at the top.
 - [Architecture](architecture.md): components, trust boundaries, and deployment modes.
 - [Security model](security-model.md): threats, controls, and dangerous operations.
 - [Offline invariants](offline-invariants.md): required behavior under failure.
@@ -18,6 +18,8 @@ Choose the smallest relevant canonical layer. Read all documents in **Always** b
 
 ## Strategy and evidence
 
+- [Charging-service replacement and feature parity](product-parity.md): current product target, UX brief and switching gates.
+- [Canonical feature register](product-parity.json): dated provider evidence, implementation gaps, delivery responsibilities and acceptance outcomes.
 - [European stack and standards](market-and-standards.md): actor boundaries, lock-in, protocol scope, and MVP capability map.
 - [Source register](source-register.md): primary evidence, dates, and limitations.
 - [ADR 0001](decisions/0001-edge-first-owner-root.md): edge-first, owner-root architecture.

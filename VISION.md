@@ -12,7 +12,17 @@ chargeOS makes ownership operational, not rhetorical. Owners receive:
 4. replaceable hosted or self-hosted control software;
 5. evidence showing which promises were actually tested on their model and firmware.
 
-## Genesis outcome
+## Charging-service replacement target
+
+Direction updated 2026-10-28: replace the charging-management services supplied by 50five, ThreeForce/Last Mile Solutions and D’Ieteren Energy with a polished product covering home, workplace and public charging.
+
+The target includes driver and employer experiences, station operations, reimbursement, billing and settlement, guest access, roaming, support and migration. Owner root, portable recovery and independent essential charging remain product constraints. Independent payment, roaming, installer and support partners may deliver parts of the service; a new interface still dependent on a provider being replaced is not independent parity.
+
+[Charging-service replacement and feature parity](docs/product-parity.md) defines the current scope, experience brief and switching gates. [The feature register](docs/product-parity.json) is the canonical requirement and evidence list. A customer switches only after every applicable feature in their existing package is implemented, externally proven and operationally supported, or they explicitly accept a recorded exception.
+
+Design and observation happen while the current provider remains connected. Engineering milestones do not reduce the replacement target or authorize a charger change.
+
+## Genesis engineering proof
 
 Liberate one privately owned Alfen Eve Single S/Pro line charger in Belgium from its existing Fifty5/TheeMileSolutions management path without impairing electrical safety or reimbursement evidence.
 

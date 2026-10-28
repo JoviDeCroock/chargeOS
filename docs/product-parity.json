@@ -1,0 +1,861 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-10-28",
+  "baselineCommit": "c840ef894c5a029e6c0942bd9a988e11068f0662",
+  "scope": "Replace charging-management services across home, workplace and public use, including independent financial and roaming delivery. Broader energy/platform offerings remain explicit catalogue items.",
+  "providersAreHandsOnVerified": false,
+  "statuses": {
+    "foundation": "Relevant code exists; complete product outcome and field parity remain unproven.",
+    "missing": "No implemented end-to-end outcome was found in the reviewed baseline."
+  },
+  "evidenceRule": "Documented means advertised in a primary source. Unverified means not established by the reviewed sources, never absent. Package/device restrictions and contradictory claims stay visible.",
+  "gates": [
+    {
+      "id": "G0",
+      "name": "Design and observation",
+      "description": "Polished role-based prototype and read-only historical reconciliation. ThreeForce remains the live manager. G0 proves product understanding and data handling, not replacement readiness."
+    },
+    {
+      "id": "G1",
+      "name": "Home/employer service",
+      "description": "Customer/employee accounts, charging, money, support, privacy and recovery work end to end. This is an engineering milestone; it does not authorize switching a customer who also needs G2 features."
+    },
+    {
+      "id": "G2",
+      "name": "Home, workplace and public replacement",
+      "description": "All applicable G1 and G2 features are proven, independent roaming/payment/installer arrangements exist, and the actual customer’s contract has a signed-off parity manifest. This is the broad charging-service replacement target."
+    },
+    {
+      "id": "G3",
+      "name": "Full platform and energy expansion",
+      "description": "Reseller platform, broad AC/DC/depot capability and additional energy products. Keep these in the register; include them in a customer’s gate whenever their existing service depends on them."
+    }
+  ],
+  "sources": [
+    {
+      "id": "F1",
+      "title": "50five Belgium driver app and FAQ",
+      "url": "https://50five.com/be/nl/consumer",
+      "note": "App, cards, support and reimbursement. Page contradicts its general start/stop promotion with a restricted-cohort FAQ; account-specific verification is required.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "F2",
+      "title": "50five Belgium subscription packages",
+      "url": "https://50five.com/be/nl/solutions/subscription",
+      "note": "Employee and business packages include reimbursement, guest access, remote management, firmware and monitoring; some functions depend on package.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "F3",
+      "title": "50five Belgium energy management",
+      "url": "https://50five.com/be/nl/solutions/energy",
+      "note": "Load distribution and charging coordination with solar and batteries.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "F4",
+      "title": "50five Belgium business support",
+      "url": "https://50five.com/be/nl/contact",
+      "note": "Fleet, Charge Manager, service arrangements and lease-provider workflows.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "L1",
+      "title": "LMS station management",
+      "url": "https://www.lastmilesolutions.com/station-management/",
+      "note": "Station control, remote commands, ticketing, grouping and operational reporting.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "L2",
+      "title": "LMS billing",
+      "url": "https://www.lastmilesolutions.com/billing-as-a-service/",
+      "note": "Tariffs, invoices, subscriptions, collection, payout and reimbursement. Financial/compliance statements are provider claims.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "L3",
+      "title": "LMS roaming",
+      "url": "https://www.lastmilesolutions.com/roaming-as-a-service/",
+      "note": "Both driver-card access to external networks and publication of operated chargers to roaming users.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "L4",
+      "title": "LMS smart energy management",
+      "url": "https://www.lastmilesolutions.com/smart-energy-management/",
+      "note": "Local edge load control, schedules, priorities and energy integrations; hardware-dependent.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "L5",
+      "title": "LMS helpdesk",
+      "url": "https://www.lastmilesolutions.com/24-7-helpdesk/",
+      "note": "Optional multilingual 24/7 support with technical escalation.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "L6",
+      "title": "LMS data and APIs",
+      "url": "https://www.lastmilesolutions.com/it-data-management/",
+      "note": "Transaction, customer, operational and financial reporting and integrations.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "L7",
+      "title": "LMS branded environments",
+      "url": "https://www.lastmilesolutions.com/branded-environments/",
+      "note": "Branded portal, app and card offering; exact reseller permissions require product access.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "L8",
+      "title": "LMS payment services",
+      "url": "https://www.lastmilesolutions.com/payment-as-a-service/",
+      "note": "Payment acceptance offering. A particular payment method and country require verification.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "L9",
+      "title": "LMS migration services",
+      "url": "https://www.lastmilesolutions.com/migration-services/",
+      "note": "Charger and token migrations; exact data and access guarantees require verification.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "D1",
+      "title": "D’Ieteren apps and portals",
+      "url": "https://www.dieterenenergy.be/portaal-apps",
+      "note": "Public charging app, fleet portal and an Alfen companion app for charging modes, scheduling and power.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "D2",
+      "title": "D’Ieteren employee home charging",
+      "url": "https://www.dieterenenergy.be/laadoplossingen-werknemers-thuis",
+      "note": "Employee invitation, installation approval, charging records, employer billing, reimbursement and fleet administration.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "D3",
+      "title": "D’Ieteren card activation and app",
+      "url": "https://www.dieterenenergy.be/activation-card",
+      "note": "Company-card linking, public discovery, prices, sessions, invoice downloads and app support.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "D4",
+      "title": "D’Ieteren charging-service terms",
+      "url": "https://www.dieterenenergy.be/terms-and-conditions",
+      "note": "Names LMS/Threeforce as transaction, roaming and financial service infrastructure. This review does not determine contractual rights.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "D5",
+      "title": "D’Ieteren workplace charging",
+      "url": "https://www.dieterenenergy.be/b2b-charging-infrastructure",
+      "note": "Employee/visitor/tenant use, installation, inspection, monitoring, maintenance and support.",
+      "verified": "2026-10-28"
+    },
+    {
+      "id": "A1",
+      "title": "Alfen transaction export",
+      "url": "https://aceservice.alfen.com/en-us/knowledgebase/article/KA-01122",
+      "note": "CSV exports support an observation phase without switching the backend.",
+      "verified": "2026-10-28"
+    }
+  ],
+  "features": [
+    {
+      "id": "P01",
+      "group": "Accounts",
+      "name": "Customer login, recovery and MFA",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Build",
+      "providers": {
+        "50five": "Unverified",
+        "LMS / ThreeForce": "Unverified",
+        "D’Ieteren": "Documented (D3)"
+      },
+      "currentEvidence": "Owner bearer token only; no account/session lifecycle.",
+      "acceptance": "Invite and recover an account; verify MFA, session expiry and revocation without leaking station authority."
+    },
+    {
+      "id": "P02",
+      "group": "Accounts",
+      "name": "Organizations and tenant isolation",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Build",
+      "providers": {
+        "50five": "Documented (F4)",
+        "LMS / ThreeForce": "Package/device dependent (L7)",
+        "D’Ieteren": "Documented (D2)"
+      },
+      "currentEvidence": "Fleet is one owner security domain.",
+      "acceptance": "Two unrelated employers and households cannot read or command one another’s stations; permission checks cover every route and export."
+    },
+    {
+      "id": "P03",
+      "group": "Accounts",
+      "name": "Employee invitations and assignments",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Build",
+      "providers": {
+        "50five": "Package/device dependent (F4)",
+        "LMS / ThreeForce": "Documented (L2)",
+        "D’Ieteren": "Documented (D2)"
+      },
+      "currentEvidence": "No employee, vehicle or employment-period records.",
+      "acceptance": "Assign employee, vehicle, card, charger and cost center with effective dates; joining/leaving changes future eligibility without rewriting history."
+    },
+    {
+      "id": "P04",
+      "group": "Accounts",
+      "name": "Card linking and business/private eligibility",
+      "status": "foundation",
+      "phase": "G1",
+      "delivery": "Build",
+      "providers": {
+        "50five": "Documented (F1)",
+        "LMS / ThreeForce": "Documented (L2)",
+        "D’Ieteren": "Documented (D3)"
+      },
+      "currentEvidence": "Owner RFID registry and expiring read delegates exist; no commercial employee/card mapping.",
+      "acceptance": "Separate household, employee and guest credentials; reimbursement applies only to eligible sessions and periods."
+    },
+    {
+      "id": "P05",
+      "group": "Charging",
+      "name": "Authenticated charger connectivity",
+      "status": "foundation",
+      "phase": "G1",
+      "delivery": "Extend",
+      "providers": {
+        "50five": "Documented (F2)",
+        "LMS / ThreeForce": "Documented (L1)",
+        "D’Ieteren": "Documented (D1)"
+      },
+      "currentEvidence": "server/gateway.ts: provisioned OCPP 1.6J stations and bounded connections.",
+      "acceptance": "Authenticate the declared device; reject unknown identities and duplicates; recover after network interruption with stable transaction identity."
+    },
+    {
+      "id": "P06",
+      "group": "Charging",
+      "name": "Session and meter history",
+      "status": "foundation",
+      "phase": "G1",
+      "delivery": "Extend",
+      "providers": {
+        "50five": "Documented (F1)",
+        "LMS / ThreeForce": "Documented (L1)",
+        "D’Ieteren": "Documented (D1)"
+      },
+      "currentEvidence": "server/events.ts and server/projections.ts: durable observations, replay collapse and stop conflicts.",
+      "acceptance": "Compare real start/meter/stop records to device exports; duplicates never create extra kWh or money; incomplete and conflicting records stay visible."
+    },
+    {
+      "id": "P07",
+      "group": "Charging",
+      "name": "Verified charging through outages",
+      "status": "foundation",
+      "phase": "G1",
+      "delivery": "Prove",
+      "providers": {
+        "50five": "Unverified",
+        "LMS / ThreeForce": "Package/device dependent (L4)",
+        "D’Ieteren": "Unverified"
+      },
+      "currentEvidence": "Local-list checks and Freedom recorder exist; exact-device field proof remains absent.",
+      "acceptance": "Known owner delivers real energy during WAN/backend/edge loss and isolated restart; unknown credentials fail; buffered data reconciles after reconnect."
+    },
+    {
+      "id": "P08",
+      "group": "Charging",
+      "name": "Remote session start and stop",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Build",
+      "providers": {
+        "50five": "Restricted / contradictory (F1)",
+        "LMS / ThreeForce": "Documented (L1)",
+        "D’Ieteren": "Documented (D1)"
+      },
+      "currentEvidence": "Not exposed by ChargeGateway or owner API.",
+      "acceptance": "Verify card ownership and authority; show requested, acknowledged and observed outcomes; reject stale/foreign commands and surface timeout uncertainty."
+    },
+    {
+      "id": "P09",
+      "group": "Charging",
+      "name": "Reset, connector unlock and availability",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Build",
+      "providers": {
+        "50five": "Package/device dependent (F2)",
+        "LMS / ThreeForce": "Documented (L1)",
+        "D’Ieteren": "Unverified"
+      },
+      "currentEvidence": "No operator command lifecycle.",
+      "acceptance": "Owner-authorized command on supported firmware; actual response/status is shown, affected users are informed, and safe recovery is demonstrated."
+    },
+    {
+      "id": "P10",
+      "group": "Charging",
+      "name": "Diagnostics and bounded configuration",
+      "status": "foundation",
+      "phase": "G1",
+      "delivery": "Extend",
+      "providers": {
+        "50five": "Documented (F2)",
+        "LMS / ThreeForce": "Documented (L1)",
+        "D’Ieteren": "Package/device dependent (D1)"
+      },
+      "currentEvidence": "Capability inspection and three-key continuity preparation only.",
+      "acceptance": "Retrieve redacted diagnostics; configure only supported writable settings with audit, confirmation and post-change inspection."
+    },
+    {
+      "id": "P11",
+      "group": "Charging",
+      "name": "Firmware maintenance",
+      "status": "missing",
+      "phase": "G2",
+      "delivery": "Build + hardware partner",
+      "providers": {
+        "50five": "Documented (F2)",
+        "LMS / ThreeForce": "Unverified",
+        "D’Ieteren": "Unverified"
+      },
+      "currentEvidence": "Firmware changes are explicitly outside Genesis.",
+      "acceptance": "Validate supported vendor artifact, authorization, maintenance window, failed-update handling and post-update offline behavior on each claimed device."
+    },
+    {
+      "id": "P12",
+      "group": "Charging",
+      "name": "Schedules and charging modes",
+      "status": "missing",
+      "phase": "G2",
+      "delivery": "Build / integrate",
+      "providers": {
+        "50five": "Package/device dependent (F3)",
+        "LMS / ThreeForce": "Documented (L4)",
+        "D’Ieteren": "Package/device dependent (D1)"
+      },
+      "currentEvidence": "No schedules or charging profiles.",
+      "acceptance": "Persist schedule with timezone/DST and manual override; show device acknowledgement, conflicts and offline behavior."
+    },
+    {
+      "id": "P13",
+      "group": "Charging",
+      "name": "Local dynamic load limits",
+      "status": "missing",
+      "phase": "G2",
+      "delivery": "Integrate + prove",
+      "providers": {
+        "50five": "Documented (F3)",
+        "LMS / ThreeForce": "Documented (L4)",
+        "D’Ieteren": "Package/device dependent (D5)"
+      },
+      "currentEvidence": "No site meter or power-control loop.",
+      "acceptance": "On a supported site, load remains within configured physical limits with multiple vehicles and cloud loss; preserve the existing local protection system."
+    },
+    {
+      "id": "P14",
+      "group": "Charging",
+      "name": "Solar and low-price optimization",
+      "status": "missing",
+      "phase": "G2",
+      "delivery": "Integrate",
+      "providers": {
+        "50five": "Documented (F3)",
+        "LMS / ThreeForce": "Documented (L4)",
+        "D’Ieteren": "Package/device dependent (D1)"
+      },
+      "currentEvidence": "Energy adapters are future architecture.",
+      "acceptance": "Use verified meter/tariff inputs; explain the selected plan, respect ready-by and power constraints, and support immediate owner override."
+    },
+    {
+      "id": "P15",
+      "group": "Money",
+      "name": "Versioned reimbursement policies and tariffs",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Build",
+      "providers": {
+        "50five": "Documented (F1)",
+        "LMS / ThreeForce": "Documented (L2)",
+        "D’Ieteren": "Documented (D4)"
+      },
+      "currentEvidence": "ChargeSession contains no monetary values or policy references.",
+      "acceptance": "Record employer-approved rate, region if applicable, eligibility, effective dates, rounding and currency; explain the exact rule used per session."
+    },
+    {
+      "id": "P16",
+      "group": "Money",
+      "name": "Calculation and finance approval",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Build",
+      "providers": {
+        "50five": "Documented (F2)",
+        "LMS / ThreeForce": "Documented (L2)",
+        "D’Ieteren": "Documented (D2)"
+      },
+      "currentEvidence": "Employer session export has no reimbursement calculations.",
+      "acceptance": "Approved kWh and monetary totals reproduce independently; exclude unresolved meter/identity conflicts; approval freezes a versioned statement."
+    },
+    {
+      "id": "P17",
+      "group": "Money",
+      "name": "Invoices, reimbursement statements and corrections",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Build + accounting review",
+      "providers": {
+        "50five": "Documented (F2)",
+        "LMS / ThreeForce": "Documented (L2)",
+        "D’Ieteren": "Documented (D2)"
+      },
+      "currentEvidence": "No invoice, statement, credit or monetary ledger.",
+      "acceptance": "Produce numbered documents with source-session traceability and reviewed applicable accounting treatment; corrections reference prior records and never silently replace them."
+    },
+    {
+      "id": "P18",
+      "group": "Money",
+      "name": "Collection, payouts and bank matching",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Independent payment partner",
+      "providers": {
+        "50five": "Documented (F1)",
+        "LMS / ThreeForce": "Documented (L2)",
+        "D’Ieteren": "Documented (D4)"
+      },
+      "currentEvidence": "No funding, banking or settlement integration.",
+      "acceptance": "Payment execution and funding are agreed; retries are idempotent, failures are handled, and Paid appears only after reliable settlement confirmation."
+    },
+    {
+      "id": "P19",
+      "group": "Money",
+      "name": "Subscriptions and service-fee billing",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Build + payment partner",
+      "providers": {
+        "50five": "Documented (F2)",
+        "LMS / ThreeForce": "Documented (L2)",
+        "D’Ieteren": "Documented (D4)"
+      },
+      "currentEvidence": "No subscription or billing lifecycle.",
+      "acceptance": "Enroll, change and cancel a plan with clear effective dates, transparent fees and reproducible invoices."
+    },
+    {
+      "id": "P20",
+      "group": "Money",
+      "name": "Financial exceptions and disputes",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Build + operate",
+      "providers": {
+        "50five": "Unverified",
+        "LMS / ThreeForce": "Unverified",
+        "D’Ieteren": "Package/device dependent (D4)"
+      },
+      "currentEvidence": "Session conflicts exist; no owned financial case workflow.",
+      "acceptance": "Missing session, wrong rate and failed payout each get an owner, evidence, next action and resolution; unaffected approved amounts can proceed."
+    },
+    {
+      "id": "P21",
+      "group": "Money",
+      "name": "Employer cost centers and reporting",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Build",
+      "providers": {
+        "50five": "Documented (F4)",
+        "LMS / ThreeForce": "Documented (L6)",
+        "D’Ieteren": "Documented (D2)"
+      },
+      "currentEvidence": "Fleet overview shows energy and readiness, not costs.",
+      "acceptance": "Reconcile driver, site, card, cost-center and invoice views to the same ledger; approved totals and exported totals agree."
+    },
+    {
+      "id": "P22",
+      "group": "Money",
+      "name": "Guest and third-party charging settlement",
+      "status": "missing",
+      "phase": "G2",
+      "delivery": "Build + roaming partner",
+      "providers": {
+        "50five": "Documented (F2)",
+        "LMS / ThreeForce": "Documented (L2)",
+        "D’Ieteren": "Documented (D5)"
+      },
+      "currentEvidence": "Unknown tags rejected; no guest commercial identity/tariff.",
+      "acceptance": "Owner opts in; guest rate is disclosed; reimburse the correct beneficiary; guest sessions never become employee reimbursement accidentally."
+    },
+    {
+      "id": "P23",
+      "group": "Experience",
+      "name": "Polished driver mobile experience",
+      "status": "foundation",
+      "phase": "G1",
+      "delivery": "Design + build",
+      "providers": {
+        "50five": "Documented (F1)",
+        "LMS / ThreeForce": "Documented (L7)",
+        "D’Ieteren": "Documented (D1)"
+      },
+      "currentEvidence": "Preact owner/engineering console; no consumer driver flow.",
+      "acceptance": "Phone-first home, charger, activity, money and help flows work with loading, empty, offline, pending, error and recovery states."
+    },
+    {
+      "id": "P24",
+      "group": "Experience",
+      "name": "Traceable reimbursement timeline",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Design + build",
+      "providers": {
+        "50five": "Package/device dependent (F1)",
+        "LMS / ThreeForce": "Package/device dependent (L2)",
+        "D’Ieteren": "Package/device dependent (D2)"
+      },
+      "currentEvidence": "No money lifecycle in UI or API.",
+      "acceptance": "Every amount links to sessions, policy, approval, funding, settlement and any exception; expected dates are labelled estimates."
+    },
+    {
+      "id": "P25",
+      "group": "Experience",
+      "name": "Notifications and actionable status",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Build",
+      "providers": {
+        "50five": "Documented (F1)",
+        "LMS / ThreeForce": "Package/device dependent (L1)",
+        "D’Ieteren": "Unverified"
+      },
+      "currentEvidence": "No notification delivery subsystem.",
+      "acceptance": "Deliver deduplicated session/fault/payment alerts with preferences, localization and a useful next action; retry without exposing private data."
+    },
+    {
+      "id": "P26",
+      "group": "Public charging",
+      "name": "Public map, filters, prices and availability",
+      "status": "missing",
+      "phase": "G2",
+      "delivery": "Data / roaming partner",
+      "providers": {
+        "50five": "Documented (F1)",
+        "LMS / ThreeForce": "Documented (L3)",
+        "D’Ieteren": "Documented (D3)"
+      },
+      "currentEvidence": "No public location or tariff catalogue.",
+      "acceptance": "Display licensed locations, connector compatibility, fresh status, full known price and navigation; show freshness and unsupported pricing explicitly."
+    },
+    {
+      "id": "P27",
+      "group": "Public charging",
+      "name": "Roaming card issuance and lifecycle",
+      "status": "missing",
+      "phase": "G2",
+      "delivery": "Independent eMSP partner",
+      "providers": {
+        "50five": "Documented (F1)",
+        "LMS / ThreeForce": "Documented (L3)",
+        "D’Ieteren": "Documented (D3)"
+      },
+      "currentEvidence": "Local owner RFID identifiers are not roaming tokens/contracts.",
+      "acceptance": "Issue, activate, link, block and replace a real interoperable card; track propagation; a blocked card cannot create a newly authorized online session."
+    },
+    {
+      "id": "P28",
+      "group": "Public charging",
+      "name": "Outbound roaming and imported charge records",
+      "status": "missing",
+      "phase": "G2",
+      "delivery": "Partner + integrate",
+      "providers": {
+        "50five": "Documented (F1)",
+        "LMS / ThreeForce": "Documented (L3)",
+        "D’Ieteren": "Documented (D3)"
+      },
+      "currentEvidence": "No OCPI/eMSP integration or external CDR pipeline.",
+      "acceptance": "Real card works on the agreed external network; final records, tariff changes, disputes and reversals reconcile to customer billing."
+    },
+    {
+      "id": "P29",
+      "group": "Public charging",
+      "name": "Inbound roaming for operated chargers",
+      "status": "missing",
+      "phase": "G2",
+      "delivery": "Partner + integrate",
+      "providers": {
+        "50five": "Package/device dependent (F2)",
+        "LMS / ThreeForce": "Documented (L3)",
+        "D’Ieteren": "Package/device dependent (D5)"
+      },
+      "currentEvidence": "No partner authorization or location/tariff publication.",
+      "acceptance": "Publish eligible locations and tariffs; accept an external card through a contracted partner; produce and settle the matching charge record."
+    },
+    {
+      "id": "P30",
+      "group": "Public charging",
+      "name": "Ad-hoc QR/card payments and receipts",
+      "status": "missing",
+      "phase": "G2",
+      "delivery": "Payment partner + build",
+      "providers": {
+        "50five": "Unverified",
+        "LMS / ThreeForce": "Documented (L8)",
+        "D’Ieteren": "Package/device dependent (D4)"
+      },
+      "currentEvidence": "No checkout, terminal or receipt flow.",
+      "acceptance": "On an eligible public deployment, disclose price, authorize payment, start charge, finalize actual cost, issue receipt and resolve failure/refund cases."
+    },
+    {
+      "id": "P31",
+      "group": "Public charging",
+      "name": "Public app start/stop and live session",
+      "status": "missing",
+      "phase": "G2",
+      "delivery": "Partner + build",
+      "providers": {
+        "50five": "Restricted / contradictory (F1)",
+        "LMS / ThreeForce": "Documented (L1)",
+        "D’Ieteren": "Documented (D1)"
+      },
+      "currentEvidence": "No public session commands or account authorization.",
+      "acceptance": "Start and stop on supported partner networks with correct user authorization, timeout reconciliation and final pricing."
+    },
+    {
+      "id": "P32",
+      "group": "Support",
+      "name": "Support tickets with accountable ownership",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Build / integrate + operate",
+      "providers": {
+        "50five": "Documented (F1)",
+        "LMS / ThreeForce": "Documented (L5)",
+        "D’Ieteren": "Documented (D3)"
+      },
+      "currentEvidence": "Delegate read tokens and diagnostics; no case management.",
+      "acceptance": "Create a case from a session/payment/charger; preserve context, assign a human owner, show updates and close with a verified resolution."
+    },
+    {
+      "id": "P33",
+      "group": "Support",
+      "name": "Urgent assistance and field escalation",
+      "status": "missing",
+      "phase": "G2",
+      "delivery": "Independent service partner",
+      "providers": {
+        "50five": "Package/device dependent (F2)",
+        "LMS / ThreeForce": "Documented (L5)",
+        "D’Ieteren": "Documented (D5)"
+      },
+      "currentEvidence": "No staffed support or field-service arrangements.",
+      "acceptance": "Contract response coverage and escalation; exercise a real blocked-cable/fault scenario and dispatch workflow before advertising that service."
+    },
+    {
+      "id": "P34",
+      "group": "Support",
+      "name": "Monitoring, alerts and incident operations",
+      "status": "foundation",
+      "phase": "G1",
+      "delivery": "Extend + operate",
+      "providers": {
+        "50five": "Documented (F2)",
+        "LMS / ThreeForce": "Documented (L1)",
+        "D’Ieteren": "Documented (D5)"
+      },
+      "currentEvidence": "Health and live station state exist; no alert routing, incident duty or service metrics.",
+      "acceptance": "Detect an outage, notify the responsible operator, record incident history and validate customer communication and recovery."
+    },
+    {
+      "id": "P35",
+      "group": "Migration",
+      "name": "Reversible migration and record continuity",
+      "status": "foundation",
+      "phase": "G1",
+      "delivery": "Prove + extend",
+      "providers": {
+        "50five": "Package/device dependent (F1)",
+        "LMS / ThreeForce": "Documented (L9)",
+        "D’Ieteren": "Unverified"
+      },
+      "currentEvidence": "Migration dossier, manifest and runbooks exist; external tooling performs the switch.",
+      "acceptance": "Preserve old records and financial cut-off, prove local rollback, switch only in an authorized window, and reconcile both sides without duplicates or gaps."
+    },
+    {
+      "id": "P36",
+      "group": "Trust",
+      "name": "Scoped access, privacy and audit",
+      "status": "foundation",
+      "phase": "G1",
+      "delivery": "Extend + review",
+      "providers": {
+        "50five": "Package/device dependent (F1)",
+        "LMS / ThreeForce": "Package/device dependent (L6)",
+        "D’Ieteren": "Package/device dependent (D4)"
+      },
+      "currentEvidence": "Owner root, pseudonymized audit and expiring read capabilities.",
+      "acceptance": "Verify account/tenant/session scopes, retention, access/export/deletion handling and support-access auditing; employer sees only eligible business data."
+    },
+    {
+      "id": "P37",
+      "group": "Trust",
+      "name": "Commercial backup and disaster recovery",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Build + operate",
+      "providers": {
+        "50five": "Unverified",
+        "LMS / ThreeForce": "Unverified",
+        "D’Ieteren": "Unverified"
+      },
+      "currentEvidence": "Single-station encrypted recovery exists; multi-station continuity explicitly blocked.",
+      "acceptance": "Restore every supported tenant/station, current credentials, authorization state, financial ledger and replay identities onto fresh infrastructure."
+    },
+    {
+      "id": "P38",
+      "group": "Migration",
+      "name": "Historical imports and shadow reconciliation",
+      "status": "missing",
+      "phase": "G0",
+      "delivery": "Build",
+      "providers": {
+        "50five": "Unverified",
+        "LMS / ThreeForce": "Package/device dependent (L9)",
+        "D’Ieteren": "Unverified"
+      },
+      "currentEvidence": "No CSV/backend import adapter.",
+      "acceptance": "Import authorized device/provider/statement data read-only; record provenance; detect source gaps; compare without contacting or modifying the live charger."
+    },
+    {
+      "id": "P39",
+      "group": "Integrations",
+      "name": "Documented API and accounting/payroll exports",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Build / integrate",
+      "providers": {
+        "50five": "Unverified",
+        "LMS / ThreeForce": "Documented (L6)",
+        "D’Ieteren": "Unverified"
+      },
+      "currentEvidence": "Typed owner API exists; no commercial integration contract.",
+      "acceptance": "Version APIs and exports; enforce narrow credentials; retry imports safely; validate a real customer accounting or payroll handoff."
+    },
+    {
+      "id": "P40",
+      "group": "Experience",
+      "name": "Languages, accessibility and mobile delivery",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Design + build",
+      "providers": {
+        "50five": "Package/device dependent (F1)",
+        "LMS / ThreeForce": "Package/device dependent (L5)",
+        "D’Ieteren": "Package/device dependent (D1)"
+      },
+      "currentEvidence": "No verified localization, accessibility or installed-app delivery contract.",
+      "acceptance": "Complete critical flows in agreed launch languages, initially NL/FR/EN; keyboard/screen-reader and phone QA; select native or PWA delivery against actual notification needs."
+    },
+    {
+      "id": "P41",
+      "group": "Installation",
+      "name": "Quotes, appointments, inspection and maintenance",
+      "status": "missing",
+      "phase": "G2",
+      "delivery": "Independent installer partner + build",
+      "providers": {
+        "50five": "Documented (F1)",
+        "LMS / ThreeForce": "Unverified",
+        "D’Ieteren": "Documented (D2)"
+      },
+      "currentEvidence": "Runbooks only; no order-to-install or field-service system.",
+      "acceptance": "Offer a priced scope, approve/schedule work, record installer handover and inspection evidence, and route maintenance/warranty cases to a responsible partner."
+    },
+    {
+      "id": "P42",
+      "group": "Trust",
+      "name": "Owner exit and portable recovery",
+      "status": "foundation",
+      "phase": "G1",
+      "delivery": "Prove + extend",
+      "providers": {
+        "50five": "Unverified",
+        "LMS / ThreeForce": "Unverified",
+        "D’Ieteren": "Unverified"
+      },
+      "currentEvidence": "Open source and encrypted continuity format; cross-host restore still needs field proof.",
+      "acceptance": "Owner exports usable state and moves to another supported deployment without losing essential authorization or evidence."
+    },
+    {
+      "id": "P43",
+      "group": "Accounts",
+      "name": "Employer change and ownership transfer",
+      "status": "missing",
+      "phase": "G1",
+      "delivery": "Build",
+      "providers": {
+        "50five": "Package/device dependent (F4)",
+        "LMS / ThreeForce": "Package/device dependent (L1)",
+        "D’Ieteren": "Package/device dependent (D2)"
+      },
+      "currentEvidence": "No authenticated commercial transfer or employment offboarding lifecycle.",
+      "acceptance": "Close financial periods, revoke employer rights, preserve household ownership and charging, and explicitly approve any ownership transfer."
+    },
+    {
+      "id": "P44",
+      "group": "Enterprise",
+      "name": "Reseller branding and delegated administration",
+      "status": "missing",
+      "phase": "G3",
+      "delivery": "Build",
+      "providers": {
+        "50five": "Unverified",
+        "LMS / ThreeForce": "Documented (L7)",
+        "D’Ieteren": "Unverified"
+      },
+      "currentEvidence": "No reseller/brand hierarchy.",
+      "acceptance": "Separate reseller, operator, employer and owner authority; branded domains/apps never grant cross-customer access."
+    },
+    {
+      "id": "P45",
+      "group": "Enterprise",
+      "name": "Broader hardware, protocols and depot operations",
+      "status": "missing",
+      "phase": "G3",
+      "delivery": "Integrate + exact-device proof",
+      "providers": {
+        "50five": "Package/device dependent (F4)",
+        "LMS / ThreeForce": "Package/device dependent (L4)",
+        "D’Ieteren": "Package/device dependent (D5)"
+      },
+      "currentEvidence": "Only the OCPP 1.6J owner-edge baseline; no verified broad hardware catalogue.",
+      "acceptance": "Add each exact AC/DC model, firmware and protocol with real interoperability, recovery and power-management evidence; no brand-wide compatibility claim."
+    },
+    {
+      "id": "P46",
+      "group": "Enterprise",
+      "name": "Extended energy products and flexibility",
+      "status": "missing",
+      "phase": "G3",
+      "delivery": "Partners + separate business scope",
+      "providers": {
+        "50five": "Documented (F3)",
+        "LMS / ThreeForce": "Package/device dependent (L4)",
+        "D’Ieteren": "Package/device dependent (D1)"
+      },
+      "currentEvidence": "No solar/battery commercial offering or flexibility services.",
+      "acceptance": "Define the separately sold energy outcome and integrations; prove controls, contracts, support and settlement before representing broader energy-company parity."
+    }
+  ]
+}

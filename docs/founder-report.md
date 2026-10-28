@@ -1,5 +1,13 @@
 # Founder report: chargeOS
 
+## Strategy update: 2026-10-28
+
+The founder’s current target is to replace the complete charging-management service supplied by 50five, ThreeForce/Last Mile Solutions and D’Ieteren Energy, including home/workplace/public use, money workflows, support and a polished driver/employer experience. The [replacement plan](product-parity.md) and [canonical feature register](product-parity.json) now govern delivery scope and customer switching acceptance.
+
+The sections below preserve the original August research and its narrower validation-first recommendation. In particular, the original “what not to build” list and 90-day commercial wedge are historical recommendations, not instructions to omit features from the current replacement target. Exact-device offline proof, reversible migration, customer demand and sustainable support economics remain required. The current strategy does not imply these gates or feature parity have been achieved.
+
+## Original founder research
+
 - Research cut-off: 2026-08-14
 - Stage: pre-Genesis experiment
 - Verdict: **conditional go**

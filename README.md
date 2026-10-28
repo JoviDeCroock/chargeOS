@@ -2,6 +2,8 @@
 
 chargeOS is an open, owner-controlled operating layer for privately owned EV chargers.
 
+The commercial target is a complete charging-management replacement for home, workplace and public use, with polished driver/employer experiences, traceable reimbursement and independent service delivery. The current code remains the owner-edge foundation. See the [replacement plan](docs/product-parity.md) and [feature register](docs/product-parity.json) for the gaps and customer switching gates.
+
 Its non-negotiable promise is narrow and testable:
 
 > If every company involved disappears, a previously authorized owner can still charge.
@@ -10,6 +12,7 @@ The first target is an Alfen Eve Single S/Pro line charger in Belgium. The first
 
 ## Start here
 
+- [Replacement plan and feature parity](docs/product-parity.md) — current product direction, UX brief, delivery boundaries, acceptance criteria and switching gates.
 - [Founder report](docs/founder-report.md) — verdict, market, product, economics, and 90-day plan.
 - [Architecture](docs/architecture.md) — owner root, local edge, hosted control plane, and protocol boundaries.
 - [Offline invariants](docs/offline-invariants.md) — exactly what must work during each failure mode.
