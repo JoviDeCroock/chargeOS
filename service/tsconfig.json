@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["@cloudflare/workers-types", "node", "@cloudflare/vitest-plugin/types"],
+    "noEmit": true,
+    "lib": ["ES2023"],
+    "skipLibCheck": true
+  },
+  "include": [
+    "./**/*.ts",
+    "../shared/service.ts",
+    "../test/service/**/*.ts",
+    "../vitest.service.config.ts"
+  ]
+}

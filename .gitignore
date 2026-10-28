@@ -7,3 +7,7 @@ secrets/
 .pnpm-store/
 coverage/
 *.log
+
+.wrangler/
+.dev.vars
+.dev.vars.*

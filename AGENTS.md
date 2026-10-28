@@ -15,6 +15,7 @@ Read [VISION.md](VISION.md) and [docs/README.md](docs/README.md) before changing
 
 ## Repository map
 
+- `service/`: separate commercial Worker/D1 accounts and organization boundary; local-only until delivery/deployment gates pass. Never infer physical station ownership from an organization role.
 - `server/`: OCPP gateway, integrity-checked evidence store, owner API, projections, and continuity recovery CLI.
 - `shared/`: typed API contracts plus canonical migration, Freedom Test, and delegate role/scope catalogs shared by server and owner UI.
 - `src/`: Preact owner dashboard and API client.

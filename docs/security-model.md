@@ -15,6 +15,12 @@ Protect owner authority, charging availability, station credentials, RFID identi
 
 The Genesis implementation exposes only the safe read subset of these future roles: installers can read station status, diagnostics, the redacted migration dossier, and unreviewed Freedom Test evidence; employers can read tag-free session records; energy providers can read station status. Configuration, scheduling/current control, reimbursement assertions, and charger commands remain unimplemented rather than being implied by a broad role. Fleet mode is one owner security domain: the owner token is root for every configured station. It is not an account or tenant boundary.
 
+## Commercial account boundary
+
+The separate local `/service` Worker uses Better Auth password/session, verification, recovery and authenticator/backup-code flows with D1 records. HttpOnly SameSite cookies are scoped to `/service/api`; the owner API still requires its independent bearer credential. Every organization route resolves explicit membership; privileged mutations recheck administration inside atomic statements. Invitation acceptance is verified-email-bound, expiring and one-use; removal ends membership access without changing physical owner credentials. No station claim or charger-control capability is implemented.
+
+Only configured loopback development runs. Local operator-outbox links are secret development material and do not prove real mailbox ownership. They are absent from application APIs and audits; trusted local Wrangler tooling/database access can read them. SQLite is not encrypted by this implementation, and a public mail/TLS/retention/recovery boundary remains required. See [Commercial service](commercial-service.md) and [ADR 0003](decisions/0003-separate-commercial-worker.md). These controls do not establish station tenancy, commercial disaster recovery or externally anchored audit integrity.
+
 ## Primary threats and controls
 
 | Threat                          | Control                                                                                                                                                                                   |

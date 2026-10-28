@@ -110,3 +110,7 @@ A model/firmware combination passes only after:
 7. connectivity returns and buffered records reconcile once;
 8. an unknown tag is rejected in both online and offline states;
 9. a documented rollback/continuity recovery succeeds.
+
+## Separate commercial accounts
+
+The local commercial Worker/D1 account service has no charger connection, owner credential, edge-ledger access or authorization-list mutation. Losing its process, database, login session, email-delivery path or an employer membership cannot change the previously acknowledged owner list or the OCPP endpoint. Its account/organization tests do not replace any offline or recovery proof above. Household grants and station claiming must preserve these boundaries when implemented; see [ADR 0003](decisions/0003-separate-commercial-worker.md).

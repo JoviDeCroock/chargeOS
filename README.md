@@ -29,6 +29,10 @@ Run `pnpm dev:web` and open `/preview` to explore the fictional driver, employer
 
 Open `/observe` to map an authorized session CSV, fingerprint its original bytes, apply an explicit policy and inspect an exact unapproved reimbursement draft. The tool processes files in browser memory and sends no upload, charger command or payment. See [Local observation](docs/local-observation.md) for supported formats, rounding, provenance, privacy and limitations.
 
+## Local commercial accounts
+
+The real `/service` workspace adds persistent verified-email accounts, authenticator MFA, password recovery, organizations and expiring role invitations in a separate locally runnable Cloudflare Worker with D1/SQLite. Start with `pnpm service:setup`, `pnpm service:migrate` and `pnpm service:dev`, then run the web app. Local delivery uses an operator-only database outbox and sends no email. See [Commercial service](docs/commercial-service.md) for the exact origin, verification flow, isolation and remaining deployment gates. This service has no charger or payment authority.
+
 ## Working owner-edge MVP
 
 The repository now contains a self-hostable owner-edge vertical slice:
@@ -50,7 +54,7 @@ The repository now contains a self-hostable owner-edge vertical slice:
 - a non-root container image, a production Compose boundary with automatic HTTPS/WSS and file-backed secrets, a CI-generated container SBOM, disaster-recovery simulator tests, and field runbooks.
 - a machine-readable Genesis plan shared by the owner UI and API, with explicit actors, evidence classes, safety boundaries, stop conditions, and ordered next actions.
 
-It is usable as a single-owner fleet edge for lab and migration work, but it is not yet a multi-tenant commercial CSMS and does not certify a charger. Accounts, claiming, billing, remote start/stop, schedules, and smart charging remain explicit future work. The physical Freedom Test remains the release gate.
+It is usable as a single-owner fleet edge for lab and migration work, but it is not yet a multi-tenant commercial CSMS and does not certify a charger. Public account delivery, station claiming, billing, remote start/stop, schedules, and smart charging remain explicit future work. The separate local commercial account service is a tested foundation, not a production multi-tenant CSMS. The physical Freedom Test remains the release gate.
 
 ```sh
 pnpm install

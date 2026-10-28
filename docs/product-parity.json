@@ -171,7 +171,7 @@
       "id": "P01",
       "group": "Accounts",
       "name": "Customer login, recovery and MFA",
-      "status": "missing",
+      "status": "foundation",
       "phase": "G1",
       "delivery": "Build",
       "providers": {
@@ -179,14 +179,14 @@
         "LMS / ThreeForce": "Unverified",
         "D’Ieteren": "Documented (D3)"
       },
-      "currentEvidence": "Owner bearer token only; no account/session lifecycle.",
+      "currentEvidence": "Real local Worker/D1 accounts at /service: verified-email development flow, MFA/recovery codes, password recovery, SQL rate limits, session expiry/revocation. Public delivery and production recovery remain unproven.",
       "acceptance": "Invite and recover an account; verify MFA, session expiry and revocation without leaking station authority."
     },
     {
       "id": "P02",
       "group": "Accounts",
       "name": "Organizations and tenant isolation",
-      "status": "missing",
+      "status": "foundation",
       "phase": "G1",
       "delivery": "Build",
       "providers": {
@@ -194,14 +194,14 @@
         "LMS / ThreeForce": "Package/device dependent (L7)",
         "D’Ieteren": "Documented (D2)"
       },
-      "currentEvidence": "Fleet is one owner security domain.",
+      "currentEvidence": "Separate SQL organization/membership boundary with cross-tenant read/write/audit and role tests. No commercial station claiming, household grants or tenant OCPP runtime yet.",
       "acceptance": "Two unrelated employers and households cannot read or command one another’s stations; permission checks cover every route and export."
     },
     {
       "id": "P03",
       "group": "Accounts",
       "name": "Employee invitations and assignments",
-      "status": "missing",
+      "status": "foundation",
       "phase": "G1",
       "delivery": "Build",
       "providers": {
@@ -209,7 +209,7 @@
         "LMS / ThreeForce": "Documented (L2)",
         "D’Ieteren": "Documented (D2)"
       },
-      "currentEvidence": "No employee, vehicle or employment-period records.",
+      "currentEvidence": "Persistent 72-hour driver/finance invitations with verified-email binding, revocation, one-use/race checks and membership removal. Vehicle/card/charger/cost-center assignments and effective dates remain missing.",
       "acceptance": "Assign employee, vehicle, card, charger and cost center with effective dates; joining/leaving changes future eligibility without rewriting history."
     },
     {
@@ -704,7 +704,7 @@
         "LMS / ThreeForce": "Package/device dependent (L6)",
         "D’Ieteren": "Package/device dependent (D4)"
       },
-      "currentEvidence": "Owner root, pseudonymized audit and expiring read capabilities.",
+      "currentEvidence": "Owner root, pseudonymized edge audit and expiring read capabilities; separate local account/session and organization isolation with resource-ID audit. Commercial retention/deletion, household grants and support-access audit remain incomplete.",
       "acceptance": "Verify account/tenant/session scopes, retention, access/export/deletion handling and support-access auditing; employer sees only eligible business data."
     },
     {
@@ -809,7 +809,7 @@
         "LMS / ThreeForce": "Package/device dependent (L1)",
         "D’Ieteren": "Package/device dependent (D2)"
       },
-      "currentEvidence": "No authenticated commercial transfer or employment offboarding lifecycle.",
+      "currentEvidence": "Local organization membership removal revokes service access. Effective-dated employment, financial cut-off and explicit physical ownership transfer remain unimplemented.",
       "acceptance": "Close financial periods, revoke employer rights, preserve household ownership and charging, and explicitly approve any ownership transfer."
     },
     {

@@ -1,10 +1,18 @@
 allowBuilds:
   esbuild: true
+  workerd: true
 minimumReleaseAgeExclude:
   - "@preact/signals@2.11.1"
+  - miniflare@5.20261023.1-beta
+  - wrangler@4.154.0
+  - "@cloudflare/vitest-plugin@1.4.9"
+  - "@cloudflare/workers-types@5.20261028.1"
 overrides:
   ajv: 8.20.0
   fast-uri: 3.1.9
+  undici: 8.12.3
+  source-map-js: 1.2.2
+  "@esbuild-kit/core-utils>esbuild": 0.28.2
 patchedDependencies:
   ocpp-rpc@2.2.1: patches/ocpp-rpc@2.2.1.patch
 verifyDepsBeforeRun: false

@@ -222,3 +222,5 @@ export type {
   ReimbursementObservation,
   DeclaredAmountComparison,
 } from "./observation.js";
+
+export type * from "./service.js";

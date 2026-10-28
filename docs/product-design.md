@@ -24,6 +24,8 @@ This completes an implemented design prototype, not commercial parity. Employer 
 
 ## Commercial domain boundaries to implement
 
+The [commercial account workspace](commercial-service.md) at `/service` now implements real local accounts, MFA/recovery, organizations and driver/finance invitations. These records use separate Worker/D1 persistence and typed contracts, rather than preview fixtures. Production delivery, household/station authority, effective-dated employment and the financial chain remain unfinished.
+
 | Record                                      | Authority and relationship                                                                                                                |
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | Account and session                         | A real authenticated person; recovery and MFA do not follow from possession of a charger ID.                                              |

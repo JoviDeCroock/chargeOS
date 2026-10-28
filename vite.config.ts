@@ -12,9 +12,11 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": "http://127.0.0.1:9080",
+      "/service/api": "http://127.0.0.1:9091",
     },
   },
   test: {
     environment: "node",
+    exclude: ["test/service/**", "node_modules/**"],
   },
 });

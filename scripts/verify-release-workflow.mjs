@@ -64,7 +64,7 @@ assert(
   "candidate build must rely on the explicit post-test GitHub attestations",
 );
 assert(
-  workspace.includes("ajv: 8.20.0") && workspace.includes("fast-uri: 3.1.5"),
+  workspace.includes("ajv: 8.20.0") && workspace.includes("fast-uri: 3.1.9"),
   "production validator overrides must remain on the audited versions",
 );
 assert(
