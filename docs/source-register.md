@@ -76,3 +76,12 @@ This research did not access a competitor’s authenticated customer portal, exe
 - [Transport & Environment private charging investment study](https://www.transportenvironment.org/uploads/files/202411_investment_needs_study-3.pdf) — advocacy scenario of roughly 37 million private EU chargers by 2030, not a current-stock fact.
 - [Plugchoice overview](https://support.plugchoice.com/en/articles/12930254-what-is-plugchoice) and [developer proposition](https://plugchoice.com/en/solutions/developers) — close competitor offering free management, an OCPP proxy/API, and broad backend compatibility; continued dependence on its cloud must be independently verified.
 - [OCA migration whitepaper](https://openchargealliance.org/ocpp-info-whitepapers/migrating-charging-stations/) — direct evidence that backend migration is a real operational category.
+
+## EnergyVision integrated competitor benchmark — checked 2026-10-28
+
+- [Residential bundle](https://www.energyvision.be/nl-be/energieoplossingen/een-thuislaadpunt-zonder-investering): energy, solar, installed charging, app and solar-aware charging modes. Advertised scope, not hands-on compatibility proof.
+- [Service pricing](https://support.energyvision.be/nl/support/solutions/articles/103000348894-wat-kost-een-thuislaadpunt-): €10/€30 monthly packages include hardware, installation, platform, billing, support and a card.
+- [April 2026 special terms](https://www.energyvision.be/sites/default/files/inline-files/EnergyVision-Bijzondere-Voorwaarden-Zonnepanelen-laadpunt_04-2026.pdf): provider ownership, initial ten-year charger term/renewal provisions, scheduled buyout, and continuing service fees after electricity-supplier change. Apply the actual signed package; no migration authority is inferred.
+- [January 2024 card/platform terms](https://www.energyvision.be/sites/default/files/2024-01/EnergyVision_EDrive_AlgemeneVoorwaarden_NL-2024.pdf): transaction processing, billing and reimbursement; historical wording requires current-package confirmation.
+
+Strategic inference: benchmark the financed energy/charging bundle separately from owner-controlled management of already owned hardware. An independent energy/roaming partnership is a possibility to investigate, not an established agreement. Back-office supplier, OCPP portability, owner admin credentials and offline behavior are unverified. EnergyVision is a comparator; the founder has not expanded the accepted replacement target to its entire electricity/solar business.
