@@ -18,6 +18,8 @@ Choose the smallest relevant canonical layer. Read all documents in **Always** b
 
 ## Strategy and evidence
 
+- [Product experience](product-design.md): implemented local preview, role workflows, commercial domain boundaries and verification.
+
 - [Charging-service replacement and feature parity](product-parity.md): current product target, UX brief and switching gates.
 - [Canonical feature register](product-parity.json): dated provider evidence, implementation gaps, delivery responsibilities and acceptance outcomes.
 - [European stack and standards](market-and-standards.md): actor boundaries, lock-in, protocol scope, and MVP capability map.

@@ -21,6 +21,10 @@ The first target is an Alfen Eve Single S/Pro line charger in Belgium. The first
 - [European stack and standards](docs/market-and-standards.md) — roles, lock-in points, and protocol capability boundaries.
 - [Documentation index](docs/README.md) — routing for agents and contributors.
 
+## Local product preview
+
+Run `pnpm dev:web` and open `/preview` to explore the fictional driver, employer/finance and operator/support workspaces. The preview is isolated from live charger APIs; it sends no charger commands, support messages or payments. See [the product experience](docs/product-design.md) for implemented interactions, domain boundaries and limitations. The existing authenticated owner console remains at `/`.
+
 ## Working owner-edge MVP
 
 The repository now contains a self-hostable owner-edge vertical slice:

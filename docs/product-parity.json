@@ -857,5 +857,13 @@
       "currentEvidence": "No solar/battery commercial offering or flexibility services.",
       "acceptance": "Define the separately sold energy outcome and integrations; prove controls, contracts, support and settlement before representing broader energy-company parity."
     }
-  ]
+  ],
+  "localImplementation": {
+    "updatedAt": "2026-10-28",
+    "previewEntry": "/preview",
+    "designDocument": "product-design.md",
+    "status": "Fictional interactive prototype; no production parity claimed",
+    "implemented": "21 role-based routes, sample filtering/detail/export, simulated approval, in-memory support cases, and offline/empty/loading/error states",
+    "isolation": "No owner API requests, charger commands, support messages or payments"
+  }
 }

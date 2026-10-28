@@ -20,6 +20,8 @@ For example, 50five Belgium promotes app start/stop but its FAQ restricts that f
 
 ## Product experience
 
+The implemented fictional preview is available at `/preview`; see [Product experience](product-design.md) for current interactions, isolation, domain design and verification. This is prototype evidence only; it does not close financial, identity, hardware or operational parity requirements.
+
 Design and build the following workspaces together around the same real domain model:
 
 1. **Driver:** Home shows charging state, current session, next schedule and a useful action. Charger handles credentials, authorized controls and recovery. Activity combines home/work/public sessions with clear location and business/private classification. Money explains sessions, rates, approval and payment. Help starts with the affected session, charger or payment and shows an accountable case owner.
