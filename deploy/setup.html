@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Set up chargeOS</title>
+    <link rel="stylesheet" href="/setup.css" />
+    <script type="module" src="/setup.js"></script>
+  </head>
+  <body>
+    <main>
+      <a class="brand" href="/">chargeOS</a>
+      <h1>Your charging.<br />Your infrastructure.</h1>
+      <p class="intro">
+        Choose where chargeOS runs. We’ll create private credentials and the deployment
+        configuration, then start it with one click.
+      </p>
+      <p class="note">
+        Setup starts server software. Connecting a live charger is a separate step, after you have
+        backed up its settings and arranged a safe migration window. Employer accounts and
+        reimbursements remain in the separate local service.
+      </p>
+      <form id="setup">
+        <fieldset>
+          <legend>Where will it run?</legend>
+          <label for="target">Deployment destination</label
+          ><select id="target" name="target">
+            <option value="docker">Docker on this computer or server</option>
+            <option value="coolify">Managed server through Coolify Cloud</option>
+          </select>
+          <p id="destination-help">
+            Docker and Compose must be installed and running here. Your server needs two DNS names
+            pointing to it and ports 80 and 443 available.
+          </p>
+          <label for="name">Name this installation</label
+          ><input
+            id="name"
+            name="name"
+            required
+            pattern="[a-z][a-z0-9-]{0,39}"
+            placeholder="company-home-charging"
+            maxlength="40"
+          /><small
+            >Use lowercase letters, numbers and hyphens. Existing installations are never
+            overwritten.</small
+          >
+        </fieldset>
+        <fieldset>
+          <legend>Connect the right charger</legend>
+          <label for="stationId">Charger OCPP identity</label
+          ><input
+            id="stationId"
+            name="stationId"
+            required
+            pattern="[a-zA-Z0-9_-]{1,64}"
+            maxlength="64"
+            autocomplete="off"
+          /><small
+            >Ask your installer for the exact charging-point identity. This is not proof of
+            ownership.</small
+          >
+          <label for="ownerTag">Owner’s RFID card identifier</label
+          ><input
+            id="ownerTag"
+            name="ownerTag"
+            required
+            pattern="[a-zA-Z0-9]{1,20}"
+            maxlength="20"
+            type="password"
+            autocomplete="off"
+          /><small
+            >Use the identifier reported by the charger, which can differ from the number printed on
+            the card. It stays in your private deployment configuration.</small
+          >
+        </fieldset>
+        <fieldset>
+          <legend>Your two secure addresses</legend>
+          <div class="fields">
+            <div>
+              <label for="ownerDomain">Console hostname</label
+              ><input
+                id="ownerDomain"
+                name="ownerDomain"
+                placeholder="charge.company.be"
+                required
+                autocomplete="off"
+              />
+            </div>
+            <div>
+              <label for="ocppDomain">Charger hostname</label
+              ><input
+                id="ocppDomain"
+                name="ocppDomain"
+                placeholder="ocpp.company.be"
+                required
+                autocomplete="off"
+              />
+            </div>
+          </div>
+          <label for="email">Certificate contact email</label
+          ><input id="email" name="email" type="email" required autocomplete="email" /><small
+            >Docker uses this for HTTPS certificate notices. Coolify manages cloud
+            certificates.</small
+          >
+        </fieldset>
+        <fieldset>
+          <legend>Software version</legend>
+          <label for="image"
+            >Verified container image <span id="image-optional">(optional for Docker)</span></label
+          ><input
+            id="image"
+            name="image"
+            placeholder="ghcr.io/your-company/chargeos@sha256:…"
+            autocomplete="off"
+          /><small
+            >Use the full verified image digest supplied by your operator. Leave blank on Docker to
+            build this checked-out source. Managed deployment needs a published image accessible to
+            your server.</small
+          >
+        </fieldset>
+        <fieldset id="cloud" hidden>
+          <legend>Your Coolify account</legend>
+          <p>
+            Coolify Cloud manages a server connected to your account; you pay for that service and
+            server. This creates a new private service. The platform receives bootstrap charger
+            credentials, never your AI key.
+          </p>
+          <label for="cloudOrigin">Trusted Coolify address</label
+          ><input
+            id="cloudOrigin"
+            name="cloudOrigin"
+            type="url"
+            value="https://app.coolify.io"
+          /><small
+            >Your API token is sent only to this HTTPS address. Use an installation you control or
+            trust.</small
+          >
+          <label for="cloudToken">Coolify API token</label
+          ><input id="cloudToken" name="cloudToken" type="password" autocomplete="off" />
+          <div class="fields">
+            <div>
+              <label for="projectId">Project ID</label
+              ><input id="projectId" name="projectId" autocomplete="off" />
+            </div>
+            <div>
+              <label for="serverId">Connected server ID</label
+              ><input id="serverId" name="serverId" autocomplete="off" />
+            </div>
+          </div>
+          <label for="environment">Environment name</label
+          ><input id="environment" name="environment" value="production" /><label
+            for="destinationId"
+            >Destination ID (if your server has several)</label
+          ><input id="destinationId" name="destinationId" autocomplete="off" />
+          <small
+            >Your administrator can copy these IDs from Coolify. The token stays in memory and is
+            cleared on submission. Do not use shared/public projects.</small
+          >
+          <label for="gitRepository">Trusted chargeOS repository</label
+          ><input
+            id="gitRepository"
+            name="gitRepository"
+            type="url"
+            value="https://github.com/JoviDeCroock/chargeOS"
+          />
+          <label for="gitBranch">Repository branch</label
+          ><input id="gitBranch" name="gitBranch" value="main" />
+          <label for="gitCommit">Reviewed repository commit</label
+          ><input id="gitCommit" name="gitCommit" pattern="[a-f0-9]{40}" maxlength="40" /><small
+            >Ask your operator for the 40-character commit containing compose.coolify.json. The
+            software image and deployment template both use reviewed versions.</small
+          >
+          <label for="githubAppId">Coolify GitHub App ID (private repository)</label
+          ><input id="githubAppId" name="githubAppId" /><small
+            >Connect the repository to Coolify first. Leave blank only for a public repository. This
+            path uses Raw Compose with Coolify’s standard Traefik proxy, coolify network and
+            letsencrypt certificate resolver.</small
+          >
+        </fieldset>
+        <label class="check"
+          ><input id="confirmed" type="checkbox" required />I control this server and these
+          addresses, and I’ve checked the deployment destination.</label
+        >
+        <div class="actions">
+          <button name="operation" value="deploy" type="submit">Deploy chargeOS</button
+          ><button name="operation" value="prepare" type="submit" class="secondary">
+            Prepare files only
+          </button>
+        </div>
+        <p id="status" role="status" aria-live="polite"></p>
+        <p id="error" role="alert" hidden></p>
+      </form>
+      <section id="result" hidden aria-live="polite">
+        <h2 id="result-title">Your setup is ready</h2>
+        <p id="result-message"></p>
+        <dl id="receipt"></dl>
+        <p>
+          Your owner token and charger password are in the private
+          <strong>credentials.json</strong> file. Keep them in your password manager. Do not send
+          the setup folder to support.
+        </p>
+        <p>
+          Next: check DNS and HTTPS, open the console, and follow the charger connection guide.
+          Create an encrypted recovery bundle after provisioning.
+        </p>
+      </section>
+      <footer>
+        Private setup runs on this computer. Stop it by closing its terminal after saving your
+        result.
+      </footer>
+    </main>
+  </body>
+</html>

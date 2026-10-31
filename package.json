@@ -30,7 +30,9 @@
     "service:migrate": "wrangler d1 migrations apply chargeos-commercial-local --local --config service/wrangler.jsonc",
     "service:build": "wrangler deploy --dry-run --config service/wrangler.jsonc --outdir ../dist/service",
     "test:service": "vitest run --config vitest.service.config.ts",
-    "verify:ai-relay": "node scripts/verify-ai-relay.mjs"
+    "verify:ai-relay": "node scripts/verify-ai-relay.mjs",
+    "deploy:setup": "node scripts/deploy.mjs",
+    "verify:managed-runtime": "node scripts/verify-managed-runtime.mjs"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.14",

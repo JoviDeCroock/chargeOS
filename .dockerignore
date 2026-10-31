@@ -1,4 +1,5 @@
 .chargeos
+.chargeos-deploy
 .env*
 .git
 .github

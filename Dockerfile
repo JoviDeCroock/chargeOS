@@ -22,7 +22,7 @@ ENV CHARGEOS_OCPP_HOST=0.0.0.0
 ENV CHARGEOS_PORT=9000
 ENV CHARGEOS_UI_DIRECTORY=/app/dist/ui
 
-RUN addgroup -S chargeos && adduser -S -G chargeos -h /app chargeos && mkdir /data && chown chargeos:chargeos /data
+RUN addgroup -S chargeos && adduser -S -G chargeos -h /app chargeos && mkdir -p /data /run/secrets && chown chargeos:chargeos /data
 COPY --from=build --chown=chargeos:chargeos /app/dist ./dist
 COPY --from=build --chown=chargeos:chargeos /app/node_modules ./node_modules
 COPY --from=build --chown=chargeos:chargeos /app/package.json ./package.json

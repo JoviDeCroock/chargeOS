@@ -1,0 +1,139 @@
+{
+  "name": "chargeos-${CHARGEOS_INSTALL_ID}",
+  "services": {
+    "chargeos": {
+      "image": "${CHARGEOS_IMAGE}",
+      "environment": {
+        "CHARGEOS_AI_RELAY_ORIGIN": "http://caddy:9092",
+        "CHARGEOS_OWNER_API_TOKEN_FILE": "/run/secrets/owner_api_token",
+        "CHARGEOS_OWNER_TAGS_FILE": "/run/secrets/owner_tags",
+        "CHARGEOS_STATION_SECRET_FILE": "/run/secrets/station_secret",
+        "CHARGEOS_STATION_ID": "${CHARGEOS_STATION_ID}",
+        "CHARGEOS_TRUST_PROXY_HEADERS": "false"
+      },
+      "expose": ["9000", "9080"],
+      "networks": ["chargeos-internal"],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "tmpfs": ["/tmp:size=16m,mode=1777"],
+      "volumes": [
+        "chargeos-data:/data",
+        {
+          "type": "volume",
+          "source": "chargeos-credentials",
+          "target": "/run/secrets",
+          "read_only": true,
+          "volume": {
+            "nocopy": true
+          }
+        }
+      ],
+      "depends_on": {
+        "credentials": {
+          "condition": "service_completed_successfully"
+        }
+      }
+    },
+    "caddy": {
+      "image": "caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+      "cap_add": ["NET_BIND_SERVICE"],
+      "cap_drop": ["ALL"],
+      "depends_on": {
+        "chargeos": {
+          "condition": "service_started"
+        },
+        "proxy-config": {
+          "condition": "service_completed_successfully"
+        }
+      },
+      "networks": ["coolify", "chargeos-internal"],
+      "expose": ["8080", "8081"],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "tmpfs": ["/tmp:size=16m,mode=1777"],
+      "volumes": [
+        "caddy-config:/config",
+        "caddy-data:/data",
+        {
+          "type": "volume",
+          "source": "chargeos-proxy-config",
+          "target": "/etc/caddy",
+          "read_only": true,
+          "volume": {
+            "nocopy": true
+          }
+        }
+      ],
+      "labels": [
+        "traefik.enable=true",
+        "traefik.docker.network=coolify",
+        "traefik.http.routers.chargeos-${CHARGEOS_INSTALL_ID}-owner.rule=Host(`${CHARGEOS_OWNER_DOMAIN}`)",
+        "traefik.http.routers.chargeos-${CHARGEOS_INSTALL_ID}-owner.entrypoints=https",
+        "traefik.http.routers.chargeos-${CHARGEOS_INSTALL_ID}-owner.tls=true",
+        "traefik.http.routers.chargeos-${CHARGEOS_INSTALL_ID}-owner.tls.certresolver=letsencrypt",
+        "traefik.http.routers.chargeos-${CHARGEOS_INSTALL_ID}-owner.service=chargeos-${CHARGEOS_INSTALL_ID}-owner",
+        "traefik.http.services.chargeos-${CHARGEOS_INSTALL_ID}-owner.loadbalancer.server.port=8080",
+        "traefik.http.routers.chargeos-${CHARGEOS_INSTALL_ID}-ocpp.rule=Host(`${CHARGEOS_OCPP_DOMAIN}`)",
+        "traefik.http.routers.chargeos-${CHARGEOS_INSTALL_ID}-ocpp.entrypoints=https",
+        "traefik.http.routers.chargeos-${CHARGEOS_INSTALL_ID}-ocpp.tls=true",
+        "traefik.http.routers.chargeos-${CHARGEOS_INSTALL_ID}-ocpp.tls.certresolver=letsencrypt",
+        "traefik.http.routers.chargeos-${CHARGEOS_INSTALL_ID}-ocpp.service=chargeos-${CHARGEOS_INSTALL_ID}-ocpp",
+        "traefik.http.services.chargeos-${CHARGEOS_INSTALL_ID}-ocpp.loadbalancer.server.port=8081"
+      ]
+    },
+    "credentials": {
+      "image": "${CHARGEOS_IMAGE}",
+      "network_mode": "none",
+      "read_only": true,
+      "restart": "no",
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": ["chargeos-credentials:/data"],
+      "environment": {
+        "CHARGEOS_SEED_owner_api_token": "${CHARGEOS_BOOTSTRAP_OWNER_TOKEN}",
+        "CHARGEOS_SEED_owner_tags": "${CHARGEOS_BOOTSTRAP_OWNER_TAG}",
+        "CHARGEOS_SEED_station_secret": "${CHARGEOS_BOOTSTRAP_STATION_SECRET}"
+      },
+      "command": [
+        "node",
+        "-e",
+        "const fs=require('node:fs');const path=require('node:path');const files=Object.fromEntries(Object.entries(process.env).filter(([key])=>key.startsWith('CHARGEOS_SEED_')).map(([key,value])=>[key.slice(14),value]));for(const [name,value] of Object.entries(files)){if(!/^[a-zA-Z0-9_]+$/.test(name)||!value)throw new Error('Invalid bootstrap file');const target=path.join('/data',name);try{const fd=fs.openSync(target,fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_WRONLY|fs.constants.O_NOFOLLOW,0o444);try{fs.writeFileSync(fd,value);fs.fsyncSync(fd)}finally{fs.closeSync(fd)}}catch(error){if(error.code!=='EEXIST')throw new Error('Could not create bootstrap file');const fd=fs.openSync(target,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW|fs.constants.O_NONBLOCK);try{const info=fs.fstatSync(fd);if(!info.isFile()||info.size>32768||(info.mode&511)!==292||fs.readFileSync(fd,'utf8')!==value)throw new Error('Existing bootstrap file differs; refusing replacement')}finally{fs.closeSync(fd)}}}console.log('Bootstrap files verified; existing values never replaced');"
+      ]
+    },
+    "proxy-config": {
+      "image": "${CHARGEOS_IMAGE}",
+      "network_mode": "none",
+      "read_only": true,
+      "restart": "no",
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": ["chargeos-proxy-config:/data"],
+      "environment": {
+        "CHARGEOS_SEED_Caddyfile": "{\n\tauto_https off\n\tadmin off\n}\n\nhttp://:8081 {\n\tlog {\n\t\tformat json\n\t\toutput stdout\n\t}\n\n\treverse_proxy chargeos:9000 {\n\t\ttransport http {\n\t\t\tmax_conns_per_host 8\n\t\t}\n\t}\n}\n\nhttp://:8080 {\n\tlog {\n\t\tformat json\n\t\toutput stdout\n\t}\n\n\theader {\n\t\t-Server\n\t\tContent-Security-Policy \"default-src 'self'; base-uri 'none'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'\"\n\t\tPermissions-Policy \"camera=(), geolocation=(), microphone=()\"\n\t\tReferrer-Policy \"no-referrer\"\n\t\tStrict-Transport-Security \"max-age=31536000\"\n\t\tX-Content-Type-Options \"nosniff\"\n\t}\n\n\treverse_proxy chargeos:9080\n}\n\n# Internal-only BYOK relay. No published port and no access logging. The edge\n# remains on its internal network; this fixed-destination relay adds no tools.\nhttp://:9092 {\n\t@openai {\n\t\tmethod POST\n\t\tpath /openai\n\t}\n\thandle @openai {\n\t\trewrite * /v1/responses\n\t\treverse_proxy https://api.openai.com {\n\t\t\theader_up Host api.openai.com\n\t\t\theader_up -Cookie\n\t\t\theader_up -Origin\n\t\t}\n\t}\n\t@anthropic {\n\t\tmethod POST\n\t\tpath /anthropic\n\t}\n\thandle @anthropic {\n\t\trewrite * /v1/messages\n\t\treverse_proxy https://api.anthropic.com {\n\t\t\theader_up Host api.anthropic.com\n\t\t\theader_up X-Api-Key {http.request.header.Authorization}\n\t\t\theader_up -Authorization\n\t\t\theader_up -Cookie\n\t\t\theader_up -Origin\n\t\t}\n\t}\n\thandle {\n\t\trespond 404\n\t}\n}\n"
+      },
+      "command": [
+        "node",
+        "-e",
+        "const fs=require('node:fs');const path=require('node:path');const files=Object.fromEntries(Object.entries(process.env).filter(([key])=>key.startsWith('CHARGEOS_SEED_')).map(([key,value])=>[key.slice(14),value]));for(const [name,value] of Object.entries(files)){if(!/^[a-zA-Z0-9_]+$/.test(name)||!value)throw new Error('Invalid bootstrap file');const target=path.join('/data',name);try{const fd=fs.openSync(target,fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_WRONLY|fs.constants.O_NOFOLLOW,0o444);try{fs.writeFileSync(fd,value);fs.fsyncSync(fd)}finally{fs.closeSync(fd)}}catch(error){if(error.code!=='EEXIST')throw new Error('Could not create bootstrap file');const fd=fs.openSync(target,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW|fs.constants.O_NONBLOCK);try{const info=fs.fstatSync(fd);if(!info.isFile()||info.size>32768||(info.mode&511)!==292||fs.readFileSync(fd,'utf8')!==value)throw new Error('Existing bootstrap file differs; refusing replacement')}finally{fs.closeSync(fd)}}}console.log('Bootstrap files verified; existing values never replaced');"
+      ]
+    }
+  },
+  "networks": {
+    "coolify": {
+      "external": true,
+      "name": "coolify"
+    },
+    "chargeos-internal": {
+      "internal": true
+    }
+  },
+  "volumes": {
+    "chargeos-data": {},
+    "caddy-config": {},
+    "caddy-data": {},
+    "chargeos-credentials": {},
+    "chargeos-proxy-config": {}
+  }
+}

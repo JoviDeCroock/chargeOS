@@ -3,6 +3,7 @@ dist/
 .env
 .env.production
 .chargeos/
+.chargeos-deploy/
 secrets/
 .pnpm-store/
 coverage/
