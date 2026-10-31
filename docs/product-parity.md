@@ -20,6 +20,8 @@ For example, 50five Belgium promotes app start/stop but its FAQ restricts that f
 
 ## Product experience
 
+The owner edge now has a [guided Docker/Raw Compose deployment setup](deployment-setup.md), [optional BYOK troubleshooting with provider web search](ai-troubleshooting.md), and [plain-language guides](guides/README.md) available at `/help`. These support the one-action deployment and self-service troubleshooting direction. Managed hosting still needs a real platform deployment and physical charger proof; the wizard does not deploy the separate local employer service or imply commercial readiness.
+
 The implemented fictional preview is available at `/preview`; see [Product experience](product-design.md) for current interactions, isolation, domain design and verification. This is prototype evidence only; it does not close financial, identity, hardware or operational parity requirements.
 
 Design and build the following workspaces together around the same real domain model:

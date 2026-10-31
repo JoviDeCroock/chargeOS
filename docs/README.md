@@ -11,6 +11,9 @@ Choose the smallest relevant canonical layer. Read all documents in **Always** b
 
 ## Device and operations
 
+- [Plain-language user guides](guides/README.md): task-based instructions served in-app at `/help`.
+- [Guided deployment](deployment-setup.md): local Docker and pinned Raw Compose cloud adapter, private setup files, retry boundaries and hosting prerequisites.
+
 - [Bring-your-own-key AI troubleshooting](ai-troubleshooting.md): reviewed diagnostic sharing, optional provider web search, transient keys and read-only advice.
 
 - [Owner-edge operations](owner-edge-operations.md): configure, run, inspect, back up, export, and recover the MVP.

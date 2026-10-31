@@ -5,7 +5,9 @@ import "./style.css";
 const root = document.getElementById("app");
 if (!root) throw new Error("Missing #app mount point");
 
-if (/^\/service\/?$/.test(window.location.pathname)) {
+if (/^\/help\/?$/.test(window.location.pathname)) {
+  void import("./help.js").then(({ HelpWorkspace }) => render(<HelpWorkspace />, root));
+} else if (/^\/service\/?$/.test(window.location.pathname)) {
   void import("./service/app.js").then(({ ServiceWorkspace }) =>
     render(<ServiceWorkspace />, root),
   );

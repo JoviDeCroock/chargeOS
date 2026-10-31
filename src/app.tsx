@@ -89,6 +89,9 @@ export function App() {
           <p class="eyebrow">Owner-controlled charging</p>
         </div>
         <div class="topbar-actions">
+          <a class="text-button" href="/help">
+            Help
+          </a>
           {hasMultipleStations && (
             <button
               class={`text-button ${showFleet ? "active" : ""}`}

@@ -26,6 +26,9 @@ Read [VISION.md](VISION.md) and [docs/README.md](docs/README.md) before changing
 
 ## Working rules
 
+- Keep plain-language task guides in `docs/guides/` aligned with every user-facing setup, deployment, account, RFID, AI/search or device workflow. Serve them through `/help`; label online operator references and unsupported or unverified steps honestly.
+- Run adversarial reviews at critical trust boundaries and before promoting deployment, credential, charger or financial changes. Fix concrete findings and add meaningful regression coverage. Make incremental commits for independently reviewable slices.
+
 - Use Preact and TypeScript for the frontend and TypeScript for the backend.
 - Prefer a small adapter over coupling the public domain model to a specific OCPP engine.
 - Add or update the relevant canonical document in the same change as behavior. New orphan docs are not a substitute.

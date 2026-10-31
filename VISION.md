@@ -14,6 +14,8 @@ chargeOS makes ownership operational, not rhetorical. Owners receive:
 
 ## Charging-service replacement target
 
+Setup must be approachable for non-technical users: guided deployment on owned infrastructure or an independent hosted platform, documented prerequisites and one explicit deployment action. Users can bring their own AI-provider keys for troubleshooting and optionally enable provider web search. AI advice never becomes essential charging infrastructure or charger-control authority. Plain-language, task-based guides cover installation, connection, deployment, accounts, cards, multiple brands, reimbursement and recovery.
+
 Direction updated 2026-10-28: replace the charging-management services supplied by 50five, ThreeForce/Last Mile Solutions and D’Ieteren Energy with a polished product covering home, workplace and public charging.
 
 The target includes driver and employer experiences, station operations, reimbursement, billing and settlement, guest access, roaming, support and migration. Owner root, portable recovery and independent essential charging remain product constraints. Independent payment, roaming, installer and support partners may deliver parts of the service; a new interface still dependent on a provider being replaced is not independent parity.

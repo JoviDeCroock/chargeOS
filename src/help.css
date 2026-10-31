@@ -1,0 +1,131 @@
+.help-root {
+  min-height: 100vh;
+  background: #f5f5ef;
+  color: #18352d;
+  color-scheme: light;
+}
+.help-root header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 24px;
+  padding: 24px clamp(20px, 5vw, 60px);
+  border-bottom: 1px solid #cbd5c9;
+}
+.help-root header > a:first-child {
+  font-weight: 800;
+  font-size: 1.2rem;
+  text-decoration: none;
+}
+.help-root header > span {
+  flex: 1;
+}
+.help-root a {
+  color: #28573b;
+  text-underline-offset: 3px;
+}
+.help-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 48px;
+  max-width: 1200px;
+  margin: auto;
+  padding: 48px 24px;
+}
+.help-root nav {
+  display: flex;
+  flex-direction: column;
+  align-self: start;
+  gap: 6px;
+}
+.help-root nav a {
+  padding: 12px;
+  border-radius: 7px;
+  text-decoration: none;
+  line-height: 1.5;
+}
+.help-root nav a:hover {
+  background: #eaf0de;
+}
+.help-root nav [aria-current="page"] {
+  background: #dce9c9;
+  font-weight: 650;
+}
+.help-root main {
+  max-width: 74ch;
+  min-width: 0;
+}
+.help-root h1 {
+  font-size: clamp(2rem, 4vw, 2.7rem);
+  margin: 0 0 24px;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.help-root h2 {
+  margin: 36px 0 12px;
+  font-size: 1.4rem;
+  letter-spacing: -0.02em;
+}
+.help-root p,
+.help-root li {
+  line-height: 1.8;
+}
+.help-root li {
+  padding-left: 4px;
+  margin-block: 12px;
+}
+.help-root code {
+  overflow-wrap: anywhere;
+  font-size: 0.9em;
+  background: #e5ebdc;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+.help-root footer {
+  border-top: 1px solid #cbd5c9;
+  margin-top: 40px;
+  padding-top: 20px;
+  color: #526651;
+  line-height: 1.6;
+  font-size: 0.85rem;
+}
+.help-root :focus-visible {
+  outline: 3px solid #3a6615;
+  outline-offset: 3px;
+}
+.help-root ::selection {
+  background: #c1dc9a;
+  color: #18352d;
+}
+.help-skip {
+  position: absolute;
+  top: -60px;
+  background: #fff;
+  padding: 12px;
+}
+.help-skip:focus {
+  top: 8px;
+  left: 8px;
+}
+@media (max-width: 760px) {
+  .help-layout {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding-top: 24px;
+  }
+  .help-root nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+    border-bottom: 1px solid #cbd5c9;
+    padding-bottom: 24px;
+  }
+  .help-root nav a {
+    font-size: 0.85rem;
+    padding: 8px 10px;
+  }
+  .help-root header {
+    gap: 16px;
+  }
+}

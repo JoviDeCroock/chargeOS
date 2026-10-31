@@ -622,6 +622,7 @@ export function ServiceWorkspace() {
           </>
         )}
         <footer class="cs-footer">
+          <a href="/help">Help and setup guides</a>
           <a href="/preview">Explore the fictional product preview</a>
           <a href="/observe">Open local CSV observation</a>
           <a href="/">Owner console</a>
