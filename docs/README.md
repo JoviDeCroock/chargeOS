@@ -11,6 +11,8 @@ Choose the smallest relevant canonical layer. Read all documents in **Always** b
 
 ## Device and operations
 
+- [Bring-your-own-key AI troubleshooting](ai-troubleshooting.md): reviewed diagnostic sharing, optional provider web search, transient keys and read-only advice.
+
 - [Owner-edge operations](owner-edge-operations.md): configure, run, inspect, back up, export, and recover the MVP.
 - [Alfen Genesis runbook](alfen-genesis-runbook.md): first physical migration and rollback.
 - [Charger Freedom Matrix](charger-freedom-matrix.md): versioned compatibility evidence.

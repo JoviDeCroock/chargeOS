@@ -228,3 +228,4 @@ export type * from "./service.js";
 export type * from "./reimbursement.js";
 
 export type * from "./reimbursement-corrections.js";
+export type * from "./troubleshooting.js";

@@ -39,6 +39,8 @@ The `/service` finance workspace now connects immutable policy versions, dated e
 
 ## Working owner-edge MVP
 
+The owner console includes [bring-your-own-key AI troubleshooting](docs/ai-troubleshooting.md) with OpenAI or Anthropic and optional internet search. Review the minimized diagnostic preview before sending it; the assistant explains evidence and has no charger-command or payment tools.
+
 The repository now contains a self-hostable owner-edge vertical slice:
 
 - a strict, payload- and rate-bounded OCPP 1.6J gateway that accepts one authenticated connection per explicitly provisioned charge point;

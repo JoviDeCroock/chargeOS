@@ -1,4 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
+import {
+  createTroubleshooter,
+  troubleshootingInput,
+  troubleshootingPreview,
+  TroubleshootingError,
+} from "./troubleshooting.js";
 import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { isIP } from "node:net";
@@ -92,7 +98,9 @@ export function createOwnerApi(
   gateway: ChargeGateway,
   evidence: EvidenceStore,
   ownerTags: OwnerTagRegistry | OwnerTagRegistries,
+  aiFetch: typeof fetch = fetch,
 ): OwnerApi {
+  const troubleshoot = createTroubleshooter(config.aiRelayOrigin, aiFetch);
   const failedAuthorizations = new Map<string, FailedAuthorization>();
   const server = createServer((request, response) => {
     void handle(request, response).catch((error: unknown) => {
@@ -143,6 +151,38 @@ export function createOwnerApi(
         const scoped = resolveStationRequest(config, url);
         if (!scoped) {
           sendError(response, 404, "station_not_found", "Charge point not found");
+          return;
+        }
+        if (
+          scoped.url.pathname === "/api/v1/troubleshooting" ||
+          scoped.url.pathname === "/api/v1/troubleshooting/preview"
+        ) {
+          try {
+            const preview = troubleshootingPreview(
+              buildOwnerSnapshot(scoped.config, gateway, await evidence.readEvents()),
+            );
+            if (request.method === "GET" && scoped.url.pathname.endsWith("/preview")) {
+              sendJson(response, 200, preview);
+            } else if (
+              request.method === "POST" &&
+              scoped.url.pathname === "/api/v1/troubleshooting"
+            ) {
+              const input = troubleshootingInput(await readJsonBody(request));
+              sendJson(response, 200, await troubleshoot(input, preview));
+            } else
+              sendError(
+                response,
+                405,
+                "method_not_allowed",
+                "Use GET for the preview or POST for advice",
+              );
+          } catch (error) {
+            if (error instanceof TroubleshootingError)
+              sendError(response, error.status, "troubleshooting_failed", error.message);
+            else if (error instanceof FreedomTestInputError)
+              sendError(response, 400, "invalid_request", error.message);
+            else throw error;
+          }
           return;
         }
         await handleOwnerApi(

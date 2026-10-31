@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { TroubleshootingPanel } from "./troubleshooting.js";
 
 import type {
   CapabilityAssessment,
@@ -167,6 +168,12 @@ export function App() {
             )}
 
             <GenesisPlanPanel plan={current.genesisPlan} />
+
+            <TroubleshootingPanel
+              key={current.station.id}
+              stationId={current.station.id}
+              token={ownerToken.value}
+            />
 
             <section class="dashboard-grid">
               <article class="panel station-panel">

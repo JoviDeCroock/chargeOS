@@ -19,6 +19,9 @@ import type {
   OwnerTagAddInput,
   OwnerTagMutationResult,
   OwnerTagRevokeInput,
+  TroubleshootingInput,
+  TroubleshootingPreview,
+  TroubleshootingResult,
 } from "../shared/contracts.js";
 
 export class OwnerApiError extends Error {
@@ -31,6 +34,21 @@ export class OwnerApiError extends Error {
     this.code = code;
     this.status = status;
   }
+}
+
+export function fetchTroubleshootingPreview(stationId: string, token: string) {
+  return requestJson<TroubleshootingPreview>(
+    stationPath(stationId, "/troubleshooting/preview"),
+    token,
+  );
+}
+
+export function askTroubleshooter(stationId: string, token: string, input: TroubleshootingInput) {
+  return requestJson<TroubleshootingResult>(stationPath(stationId, "/troubleshooting"), token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
 }
 
 export async function fetchFleet(token: string): Promise<FleetSnapshot> {

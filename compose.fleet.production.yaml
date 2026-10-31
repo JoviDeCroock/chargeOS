@@ -6,6 +6,7 @@ services:
       context: .
     image: ${CHARGEOS_IMAGE:-chargeos:local}
     environment:
+      CHARGEOS_AI_RELAY_ORIGIN: http://caddy:9092
       CHARGEOS_EVENT_LOG_MAX_BYTES: ${CHARGEOS_EVENT_LOG_MAX_BYTES:-268435456}
       CHARGEOS_OWNER_API_TOKEN_FILE: /run/secrets/owner_api_token
       CHARGEOS_OCPP_MAX_CONNECTIONS: ${CHARGEOS_OCPP_MAX_CONNECTIONS:-16}

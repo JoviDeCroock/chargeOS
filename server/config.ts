@@ -1,6 +1,7 @@
 import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync } from "node:fs";
 
 export interface GatewayConfig {
+  readonly aiRelayOrigin?: string;
   readonly apiHost: string;
   readonly apiPort: number;
   readonly eventLogPath: string;
@@ -30,6 +31,9 @@ export interface StationConfig {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig {
+  if (env.CHARGEOS_AI_RELAY_ORIGIN && env.CHARGEOS_AI_RELAY_ORIGIN !== "http://caddy:9092") {
+    throw new Error("CHARGEOS_AI_RELAY_ORIGIN must be the internal Caddy relay http://caddy:9092");
+  }
   const stations = loadStations(env);
   const primaryStation = stations[0]!;
   const stationId = primaryStation.id;
@@ -63,6 +67,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
   }
 
   return {
+    ...(env.CHARGEOS_AI_RELAY_ORIGIN ? { aiRelayOrigin: env.CHARGEOS_AI_RELAY_ORIGIN } : {}),
     apiHost: env.CHARGEOS_API_HOST?.trim() || "127.0.0.1",
     apiPort,
     eventLogPath: env.CHARGEOS_EVENT_LOG ?? ".chargeos/events.ndjson",

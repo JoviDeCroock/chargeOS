@@ -47,6 +47,10 @@ assert(
 );
 assert(!chargeos.ports, "chargeos must not publish host ports");
 assertSameMembers(chargeos.expose, ["9000", "9080"], "chargeos internal ports");
+assert(
+  chargeos.environment?.CHARGEOS_AI_RELAY_ORIGIN === "http://caddy:9092",
+  "AI calls must use the fixed internal relay",
+);
 assertSameMembers(Object.keys(chargeos.networks ?? {}), ["chargeos-internal"], "chargeos networks");
 assert(
   model.networks?.["chargeos-internal"]?.internal === true,

@@ -32,6 +32,8 @@ Configuration key names and writeability vary. Absence, ambiguity, or a device t
 
 ## Effect of the owner-edge MVP
 
+Optional BYOK AI troubleshooting is an owner-console convenience. Provider, search, relay, backend, WAN/DNS, edge, or permanent-company loss removes advice only and cannot change an acknowledged local list or essential settings. An isolated charge-point restart and week-long buffering still need exact-device evidence; AI output supplies none. Recovery does not contain provider keys or depend on an AI account. See [AI troubleshooting](ai-troubleshooting.md).
+
 The implemented gateway, owner API, and UI do not sit in the safety-critical authorization path once a local list is acknowledged:
 
 - hosted control-plane or WAN/DNS loss has no implemented cloud dependency;

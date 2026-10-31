@@ -33,3 +33,37 @@
 
 	reverse_proxy chargeos:9080
 }
+
+# Internal-only BYOK relay. No published port and no access logging. The edge
+# remains on its internal network; this fixed-destination relay adds no tools.
+http://:9092 {
+	@openai {
+		method POST
+		path /openai
+	}
+	handle @openai {
+		rewrite * /v1/responses
+		reverse_proxy https://api.openai.com {
+			header_up Host api.openai.com
+			header_up -Cookie
+			header_up -Origin
+		}
+	}
+	@anthropic {
+		method POST
+		path /anthropic
+	}
+	handle @anthropic {
+		rewrite * /v1/messages
+		reverse_proxy https://api.anthropic.com {
+			header_up Host api.anthropic.com
+			header_up X-Api-Key {http.request.header.Authorization}
+			header_up -Authorization
+			header_up -Cookie
+			header_up -Origin
+		}
+	}
+	handle {
+		respond 404
+	}
+}
