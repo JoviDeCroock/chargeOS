@@ -28,6 +28,8 @@ The AI helper's 45-second limit applies to provider work after reading the authe
 
 ## Verification
 
+The Verify workflow runs both the AI relay error-log redaction drill and the managed-template runtime drill after building and exercising the production image. They use synthetic data and never call a real cloud account or AI provider.
+
 Tests exercise malformed input/path/command values, unique installation IDs, private file modes, non-overwrite, symlink/shared parents, owner secret exclusion from image/environment/HTTP response, mock raw-mode create/readback/private-env/deploy sequencing, uncertain submission handling and setup Host/Origin/nonce enforcement. The existing production HTTPS/WSS and recovery drill remains the principal owner-edge runtime proof; the managed-template drill checks its bootstrap volumes, credential modes and network boundary without a cloud account. None is physical charger evidence.
 
 Primary platform references checked 2026-10-31: [Coolify Compose and raw mode](https://coolify.io/docs/applications/builds/docker-compose), [public Git application API](https://coolify.io/docs/api/endpoints/applications/create-public-application), [private GitHub App API](https://coolify.io/docs/api/endpoints/applications/create-private-github-app-application), [Docker configs](https://docs.docker.com/reference/compose-file/configs/). Network-parser findings were checked against [Coolify's parser source](https://github.com/coollabsio/coolify/blob/main/bootstrap/helpers/parsers.php).

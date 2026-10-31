@@ -45,6 +45,10 @@ jobs:
             caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
       - name: Exercise the production runtime boundary
         run: pnpm verify:runtime
+      - name: Verify AI relay credential redaction
+        run: pnpm verify:ai-relay
+      - name: Exercise the managed raw deployment template
+        run: pnpm verify:managed-runtime
       - name: Generate deployed-image SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
