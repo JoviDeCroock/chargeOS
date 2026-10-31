@@ -1422,6 +1422,11 @@ function TokenGate() {
           </button>
         </form>
         {notice.value && <div class="notice error">{notice.value.message}</div>}
+        <p>
+          <a class="text-button" href="/help">
+            Setup and help guides
+          </a>
+        </p>
       </div>
     </main>
   );

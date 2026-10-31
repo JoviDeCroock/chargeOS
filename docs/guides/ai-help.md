@@ -4,7 +4,7 @@ The owner console can help explain configuration checks using your own OpenAI or
 
 ## Get a key
 
-Sign in to your chosen provider's developer platform and create a dedicated API key for this use. Ask your administrator to help choose a model available to that account and set a spending limit. A chat subscription does not by itself establish API access or credit; check your provider account.
+Sign in to the [OpenAI developer platform](https://platform.openai.com/) or [Anthropic developer platform](https://platform.claude.com/) and create a dedicated API key for this use. Ask your administrator to help choose a model available to that account and set a spending limit. A chat subscription does not by itself establish API access or credit; check your provider account.
 
 Keep the key in your password manager. It is different from your chargeOS owner token and from the charger password. You never need to give a charger an AI key.
 
