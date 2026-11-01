@@ -26,6 +26,8 @@ interface Props {
   actorId: string;
   mfaEnabled: boolean;
   onSessionExpired: () => void;
+  initialStatementId?: string | null;
+  onAskSupport?: (id: string) => void;
 }
 const value = (form: FormData, key: string) => String(form.get(key) ?? "");
 const displayDate = (iso: string) =>
@@ -61,6 +63,8 @@ export function ReimbursementWorkspace({
   actorId,
   mfaEnabled,
   onSessionExpired,
+  initialStatementId,
+  onAskSupport,
 }: Props) {
   const root = `/service/api/v1/organizations/${org.id}/money`;
   const data = useSignal<ReimbursementWorkspaceData | null>(null);
@@ -104,8 +108,16 @@ export function ReimbursementWorkspace({
   useEffect(() => {
     let active = true;
     void serviceRequest<ReimbursementWorkspaceData>(root)
-      .then((result) => {
-        if (active) data.value = result;
+      .then(async (result) => {
+        if (active) {
+          data.value = result;
+          if (initialStatementId) {
+            const statement = await serviceRequest<ReimbursementStatement>(
+              `${root}/statements/${initialStatementId}`,
+            );
+            if (active) detail.value = statement;
+          }
+        }
       })
       .catch((problem: unknown) => {
         if (problem instanceof ServiceRequestError && problem.status === 401) onSessionExpired();
@@ -883,6 +895,15 @@ export function ReimbursementWorkspace({
               <button type="button" onClick={downloadStatement}>
                 Download statement evidence JSON
               </button>
+              {onAskSupport && selected.employeeId === actorId && (
+                <button
+                  type="button"
+                  disabled={busy.value}
+                  onClick={() => onAskSupport(selected.id)}
+                >
+                  Ask about this statement
+                </button>
+              )}
               {finance && selected.status === "approved" && !selected.supersededBy && (
                 <CancellationRequestForm
                   statement={selected}

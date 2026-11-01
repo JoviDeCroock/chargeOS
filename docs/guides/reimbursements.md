@@ -16,6 +16,10 @@ An administrator assigns the employee, vehicle/card aliases and cost center to a
 
 Duplicate-session reservations prevent the same sessions being approved twice within an organization. They do not reconcile a payment already made by a different provider. Agree the migration cut-off with the current provider and finance team.
 
+## Ask about a record
+
+Open your own statement and choose **Ask about this statement**. A [support case](support.md) keeps its original reference, shows the responsible colleague and preserves replies. Support does not change the amount or mark money paid.
+
 ## Correct a mistake
 
 Do not replace an approved snapshot by editing its historical values. Create a linked correction, show the difference and have it independently reviewed. A cancellation also needs a separate reviewer. The journal preserves prior decisions and adjustment receipts.

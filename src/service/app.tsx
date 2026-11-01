@@ -1,6 +1,7 @@
 import { BrandMark } from "../brand.js";
 import { serviceRequest as request, ServiceRequestError } from "./client.js";
 import { ReimbursementWorkspace } from "./reimbursements.js";
+import { SupportWorkspace } from "./support.js";
 import { useSignal } from "@preact/signals";
 import { useEffect } from "preact/hooks";
 import type {
@@ -30,11 +31,19 @@ export function ServiceWorkspace({ hostedPage = false }: { hostedPage?: boolean 
   const resetToken = useSignal("");
   const setup = useSignal<{ uri: string; backupCodes: string[] } | null>(null);
   const health = useSignal<ServiceHealth | null>(null);
+  const organizationTab = useSignal<"money" | "support">("money");
+  const supportStatement = useSignal<string | null>(null),
+    moneyStatement = useSignal<string | null>(null);
 
   async function refresh(selectedId?: string) {
     const me = await request<ServiceAccount>(`${api}/me`);
     account.value = me;
     const id = selectedId ?? workspace.value?.organization.id ?? me.organizations[0]?.id;
+    if (id !== workspace.value?.organization.id) {
+      organizationTab.value = "money";
+      supportStatement.value = null;
+      moneyStatement.value = null;
+    }
     workspace.value =
       id && me.organizations.some((org) => org.id === id)
         ? await request<OrganizationWorkspace>(`${api}/organizations/${id}`)
@@ -641,11 +650,58 @@ export function ServiceWorkspace({ hostedPage = false }: { hostedPage?: boolean 
               </section>
             )}
             {current && (
+              <nav class="cs-workspace-nav" aria-label="Company workspace">
+                <button
+                  type="button"
+                  aria-pressed={organizationTab.value === "money"}
+                  onClick={() => {
+                    organizationTab.value = "money";
+                    moneyStatement.value = null;
+                  }}
+                >
+                  Reimbursements
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={organizationTab.value === "support"}
+                  onClick={() => {
+                    organizationTab.value = "support";
+                    supportStatement.value = null;
+                  }}
+                >
+                  Support cases
+                </button>
+              </nav>
+            )}
+            {current && organizationTab.value === "support" && (
+              <SupportWorkspace
+                key={current.organization.id}
+                organization={current.organization}
+                actorId={me.user.id}
+                initialStatementId={supportStatement.value}
+                onOpenStatement={(id) => {
+                  moneyStatement.value = id;
+                  organizationTab.value = "money";
+                }}
+                onSessionExpired={() => {
+                  account.value = null;
+                  workspace.value = null;
+                  setup.value = null;
+                  page.value = "sign-in";
+                }}
+              />
+            )}
+            {current && organizationTab.value === "money" && (
               <ReimbursementWorkspace
                 key={current.organization.id}
                 organization={current.organization}
                 actorId={me.user.id}
                 mfaEnabled={me.user.twoFactorEnabled}
+                initialStatementId={moneyStatement.value}
+                onAskSupport={(id) => {
+                  supportStatement.value = id;
+                  organizationTab.value = "support";
+                }}
                 onSessionExpired={() => {
                   account.value = null;
                   workspace.value = null;

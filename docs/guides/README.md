@@ -14,6 +14,7 @@ chargeOS lets you run charging software on infrastructure you control. Start wit
 - [Add or remove an RFID card](rfid.md): manage a card and check whether the charger has accepted it.
 - [Review home-charging reimbursements](reimbursements.md): follow a statement from imported sessions to finance approval.
 - [Back up and recover](recovery.md): keep the information needed to move to another server.
+- [Get help with a company record](support.md): raise a question, follow its assigned colleague and confirm a resolution.
 
 If you are using chargeOS at work, your administrator can tell you which workspace you use. The **owner console** manages a physical charger. The separate **employer workspace** manages people and reimbursement records. An employer account does not grant control over a home charger.
 

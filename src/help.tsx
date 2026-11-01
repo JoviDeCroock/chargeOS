@@ -22,6 +22,7 @@ const order = [
   "rfid",
   "reimbursements",
   "recovery",
+  "support",
 ];
 const guides = order.map((id) => {
   const text = files[`../docs/guides/${id}.md`]!;
