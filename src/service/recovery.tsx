@@ -1,3 +1,4 @@
+import { BrandMark } from "../brand.js";
 import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
 import type {
@@ -180,7 +181,7 @@ export function RecoveryEnrollmentWorkspace() {
     <div class="cs-root cs-recovery">
       <header class="cs-topbar">
         <a class="cs-brand" href="/service/recovery">
-          chargeOS
+          <BrandMark />
         </a>
         <span class="cs-local">Private recovery setup</span>
         <a href="/help?guide=recovery">Recovery guide</a>

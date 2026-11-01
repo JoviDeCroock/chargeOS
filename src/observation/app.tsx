@@ -1,3 +1,4 @@
+import { BrandMark } from "../brand.js";
 import { useSignal } from "@preact/signals";
 import { useRef } from "preact/hooks";
 
@@ -169,17 +170,14 @@ export function ObservationWorkspace() {
       </div>
       <header class="obs-header">
         <a class="pv-brand" href="/preview">
-          <span class="pv-brand-symbol" aria-hidden="true">
-            ϟ
-          </span>
-          chargeOS
+          <BrandMark />
         </a>
         <a href="/">Owner console ↗</a>
       </header>
       <main class="obs-main">
         <div class="pv-page-heading">
           <div>
-            <p class="pv-eyebrow">OBSERVE WITHOUT SWITCHING</p>
+            <p class="pv-eyebrow">Observe without switching</p>
             <h1>Start with the records.</h1>
             <p>
               Reconstruct an expected home reimbursement using your own session export and an
@@ -224,7 +222,7 @@ export function ObservationWorkspace() {
           <section class="pv-panel">
             <div class="pv-section-title">
               <div>
-                <p class="pv-overline">01 · SOURCE EVIDENCE</p>
+                <p class="pv-overline">01 · Source evidence</p>
                 <h2>Choose a local CSV.</h2>
               </div>
               {sourceKind.value && (
@@ -397,7 +395,7 @@ export function ObservationWorkspace() {
           <section class="pv-panel">
             <div class="pv-section-title">
               <div>
-                <p class="pv-overline">02 · EXPLICIT ASSUMPTIONS</p>
+                <p class="pv-overline">02 · Explicit assumptions</p>
                 <h2>Use the agreed policy.</h2>
               </div>
             </div>
@@ -471,7 +469,7 @@ export function ObservationWorkspace() {
             <div class="pv-panel">
               <div class="pv-section-title">
                 <div>
-                  <p class="pv-overline">03 · REPRODUCIBLE DECISIONS</p>
+                  <p class="pv-overline">03 · Reproducible decisions</p>
                   <h2>Follow every record to the result.</h2>
                 </div>
                 <button
@@ -538,7 +536,7 @@ export function ObservationWorkspace() {
             </div>
             <div class="pv-panel obs-comparison">
               <div>
-                <p class="pv-overline">04 · OPTIONAL AMOUNT CHECK</p>
+                <p class="pv-overline">04 · Optional amount check</p>
                 <h2>Compare a declared statement amount.</h2>
                 <p>
                   Use a dot for amount decimals. This checks arithmetic against a number you enter.

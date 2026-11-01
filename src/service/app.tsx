@@ -1,3 +1,4 @@
+import { BrandMark } from "../brand.js";
 import { serviceRequest as request, ServiceRequestError } from "./client.js";
 import { ReimbursementWorkspace } from "./reimbursements.js";
 import { useSignal } from "@preact/signals";
@@ -159,7 +160,7 @@ export function ServiceWorkspace({ hostedPage = false }: { hostedPage?: boolean 
     <div class="cs-root">
       <header class="cs-topbar">
         <a class="cs-brand" href="/service">
-          <span aria-hidden="true">c</span>chargeOS
+          <BrandMark />
         </a>
         <span class="cs-local">
           {hosted

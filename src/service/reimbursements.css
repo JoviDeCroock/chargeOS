@@ -3,13 +3,13 @@
   gap: 0.5rem;
   flex-wrap: wrap;
   padding: 1.3rem 0;
-  border-bottom: 1px solid #e2e8db;
+  border-bottom: 1px solid var(--line-strong);
   margin-bottom: 1.5rem;
 }
 .cs-money-tabs button[aria-pressed="true"] {
-  background: #214b3d;
-  color: #fff;
-  border-color: #214b3d;
+  background: var(--current);
+  color: var(--current-ink);
+  border-color: var(--current);
 }
 .cs-money-fields {
   display: grid;
@@ -26,7 +26,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border-bottom: 1px solid #e2e8db;
+  border-bottom: 1px solid var(--line);
   padding: 1.2rem 0;
   min-width: 0;
 }
@@ -39,7 +39,7 @@
   overflow-wrap: anywhere;
 }
 .cs-money-records small {
-  color: #61745e;
+  color: var(--ink-2);
   overflow-wrap: anywhere;
 }
 .cs-money-records strong {
@@ -53,12 +53,14 @@
 }
 .cs-money-amount > strong {
   font-size: 1.3rem;
+  font-variant-numeric: tabular-nums;
 }
 .cs-money-form {
   margin-top: 1.5rem;
-  border: 1px solid #dce4d4;
-  border-radius: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
   padding: 1rem 1.2rem;
+  background: var(--idle-soft);
 }
 .cs-money-form > summary {
   cursor: pointer;
@@ -70,19 +72,21 @@
 }
 .cs-money-review {
   margin-top: 2rem;
-  border-top: 2px solid #c7d9ad;
+  border-top: 1px solid var(--line-strong);
   padding-top: 2rem;
 }
 .cs-money .cs-money-total {
+  font-family: var(--font-display);
   font-size: 2rem;
-  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
 }
 .cs-money-provenance {
   font-size: 0.8rem;
   line-height: 1.6;
 }
 .cs-money-provenance dt {
-  color: #61745e;
+  color: var(--ink-2);
   font-weight: 600;
   margin-top: 0.7rem;
 }
@@ -95,17 +99,17 @@
   align-items: start;
 }
 .cs-money-warning {
-  color: #7d4824;
+  color: var(--risk);
   font-weight: 600;
 }
 .cs-money-mapping {
-  border: 1px solid #dce4d4;
-  border-radius: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
   padding: 1rem;
   min-width: 0;
 }
 .cs-money-mapping legend {
-  color: #61745e;
+  color: var(--ink-2);
   font-size: 0.85rem;
   padding: 0 0.5rem;
 }
@@ -140,13 +144,15 @@
 .cs-money-balance,
 .cs-money-adjustment {
   padding: 1.1rem;
-  border: 1px solid #d4e1c6;
-  border-radius: 12px;
-  background: #f0f5e7;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--current-soft);
 }
 .cs-money-balance > strong {
+  font-family: var(--font-display);
   font-size: 1.7rem;
-  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
 }
 .cs-money-balance > p:not(.cs-eyebrow),
 .cs-money-hash {
@@ -158,6 +164,6 @@
 }
 
 .cs-root .cs-money-tabs button[aria-pressed="true"]:hover:enabled {
-  background: #153b2e;
-  color: #fff;
+  background: var(--current);
+  color: var(--current-ink);
 }

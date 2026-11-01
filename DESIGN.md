@@ -1,12 +1,12 @@
 # Interface design reference
 
-Scope: the owner console at `/` (first section) and the `/service` account interface with its `/service/recovery` extension (remaining sections). This reference records shipped code; the preview and observation workspaces retain their separate styles.
+Scope: every browser surface shares one identity: the owner console at `/`, the help guides at `/help`, the `/service` account workspace with its `/service/recovery` extension, the fictional product preview at `/preview` and the local observation tool at `/observe`. This reference records shipped code.
 
 ## Owner console
 
 Source: `src/style.css`, `src/app.tsx`, `src/troubleshooting.css`.
 
-Direction: frosted glass over soft colour fields, light by default with a token-for-token dark theme through `prefers-color-scheme`. Glass surfaces use a translucent fill, a bright one-pixel edge and `backdrop-filter` blur. `prefers-reduced-transparency` and browsers without backdrop filters fall back to opaque surfaces, and `prefers-reduced-motion` removes animation. Type uses the platform system stack (SF Pro, Segoe UI Variable, system-ui) with tight display tracking and tabular numerals. Monospace is reserved for real identifiers: pseudonyms, hashes, charge-point IDs and observed configuration values. No web fonts, external images, scripts or icon sets are loaded, so the console renders identically on an offline edge.
+Direction: frosted glass over soft colour fields, light by default with a token-for-token dark theme through `prefers-color-scheme`. Glass surfaces use a translucent fill, a bright one-pixel edge and a soft shadow. Only sticky chrome that content scrolls beneath (`.glass-chrome`: the console rail and status bar, the help header and topic rail, the account top bar) adds `backdrop-filter` blur; content panels stay unblurred because the backdrop field is already soft and stacked backdrop filters under a sticky bar render a dark halo. `prefers-reduced-transparency` and browsers without backdrop filters fall back to opaque surfaces, and `prefers-reduced-motion` removes animation. Type uses the platform system stack (SF Pro, Segoe UI Variable, system-ui) with tight display tracking and tabular numerals. Monospace is reserved for real identifiers: pseudonyms, hashes, charge-point IDs and observed configuration values. No web fonts, external images, scripts or icon sets are loaded, so the console renders identically on an offline edge.
 
 Palette (light): ground `#e3e9ed`, ink `#0f1f2b`, primary "current" teal `#0a6b73`, halo `#12b8a3`, ok `#11845a`, warn `#9a5a00`, risk `#bb3527`, live `#0b7f99`. The backdrop uses three blurred fields: teal, periwinkle and sand. Signal colours carry meaning only: green for passed/synchronized, amber for pending, red for stop conditions and destructive actions, blue-teal for live charging.
 
@@ -14,13 +14,25 @@ Hierarchy: a glass sidebar navigates hash-addressed pages (`#/overview`, `#/char
 
 Shape: radius encodes level (28 px hero/rail, 20 px panels, 14 px inner rows, 10–12 px controls, pills fully round). Rows inside panels are separated by hairlines rather than nested cards. Controls are at least 36 px, primary actions 44 px, with a visible focus ring.
 
-Scoping: `src/style.css` loads on every route, so element selectors are wrapped in `:where(.console-backdrop)` and the base font size is set on the console root, leaving `/help`, `/service`, `/preview` and `/observe` unaffected.
+Scoping: `src/style.css` loads on every route and owns the tokens, the shared backdrop field and the `BrandMark` styles. Console element selectors are wrapped in `:where(.console-backdrop)` and the console base font size is set on its root, so other surfaces take only the tokens and backdrop.
 
 Verified on the synthetic simulator at 1440×900 and 390×844 in light and dark: no horizontal overflow, keyboard skip link, `aria-current` on the active page and step. Rendered checks use synthetic credentials only and are not device evidence.
 
+## Shared identity
+
+Source: `src/brand.tsx`, `src/style.css` (tokens, `.console-backdrop, .help-root, .cs-root, .product-shell` backdrop), `src/help.css`, `src/service/*.css`, `src/product/style.css`, `src/observation/style.css`.
+
+Every surface opens with the same `BrandMark`: an inline SVG status ring around a bolt beside the word chargeOS, with no external asset. Every surface sits on the same backdrop field and reads colours, radii and fonts only from the shared tokens, so the dark theme follows automatically; the only literal colours left are shadows and the preview dialog scrim. Labels are sentence case with no tracked capitals. The observation tool's numbered steps keep their numbers because they are a real sequence. The `DEMO · 0028` print on the illustrated preview RFID card stays as card artwork.
+
+- Help: a sticky glass pill header and a sticky glass topic rail beside a glass reading panel capped at 72 characters. At 860 px and below the rail becomes a horizontally scrolling strip; at 520 px the "Help" label is dropped from the header.
+- Account workspace and recovery: a sticky glass pill top bar matching the help header, glass cards at the 20 px panel radius, pill buttons, tokenized fields and pill status tags. Secondary copy uses the secondary ink token. Money totals use the display face with tabular numerals.
+- Product preview and observation: the preview banner is a quiet tinted strip rather than a solid fill; the sidebar, metric tiles, panels and feature cards use the glass fill, edge and shadow at the 20 px radius.
+
+Verified in light and dark at 1280×800 and at 390×844 with no document-level horizontal overflow (the help topic strip and preview navigation scroll on purpose). The signed-in account view was checked with a synthetic `example.test` account on the local operator outbox. These rendered checks are interface evidence only.
+
 ## Account workspace
 
-The account workspace uses a light `#f5f5ef` ground, `#fffefa` surfaces, dark green `#18352d` text and `#214b3d` primary controls. Typography inherits the existing local Inter/system stack. Forms use explicit labels, controls at least 44 pixels high, green visible focus, restrained rounded borders and generous separation between tasks. Body copy explains pending, failed and completed states without equating a software result with physical or financial authority.
+Forms use explicit labels, controls at least 44 pixels high, a visible focus ring, restrained rounded borders and generous separation between tasks. Body copy explains pending, failed and completed states without equating a software result with physical or financial authority.
 
 The recovery extension keeps this language. Its main column is at most 740 pixels, form surface 600 pixels and phone layout remains fluid. The task heading has no eyebrow label. Setup keys are actual data in selectable wrapped code text; backup codes use two columns. No external imagery, fonts, scripts, analytics or new icon system is introduced. Private material is cleared on success/sign-out/user change; no persistent browser storage is used.
 

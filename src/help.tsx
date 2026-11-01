@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import "./help.css";
+import { BrandMark } from "./brand.js";
 
 const files = import.meta.glob<string>("../docs/guides/*.md", {
   query: "?raw",
@@ -91,7 +92,9 @@ export function HelpWorkspace({ hostedPage = false }: { hostedPage?: boolean } =
         Skip to guide
       </a>
       <header>
-        <a href={hostedPage ? "/service" : "/"}>chargeOS</a>
+        <a class="help-brand" href={hostedPage ? "/service" : "/"}>
+          <BrandMark />
+        </a>
         <span>Help</span>
         {!hostedPage && <a href="/">Owner console</a>}
         <a href="/service">Employer workspace</a>

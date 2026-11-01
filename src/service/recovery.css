@@ -2,25 +2,21 @@
   max-width: 740px;
 }
 .cs-recovery .cs-heading h1 {
-  letter-spacing: -0.035em;
   font-size: clamp(1.8rem, 4vw, 2.65rem);
   text-wrap: balance;
 }
 .cs-recovery-form {
   max-width: 600px;
 }
-.cs-recovery .cs-brand {
-  letter-spacing: -0.035em;
-}
 .cs-recovery a {
   text-underline-offset: 0.18em;
 }
 .cs-recovery input {
-  caret-color: #214b3d;
+  caret-color: var(--current);
 }
 .cs-recovery ::selection {
-  color: #18352d;
-  background: #d6f382;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--halo) 22%, transparent);
 }
 .cs-recovery-identity {
   overflow-wrap: anywhere;
@@ -32,8 +28,10 @@
 .cs-recovery-secret {
   display: block;
   padding: 1rem;
-  border: 1px solid #c7d1c8;
-  background: #eef2e7;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--idle-soft);
+  font-family: var(--font-mono);
   overflow-wrap: anywhere;
   line-height: 1.7;
   user-select: all;
@@ -57,7 +55,7 @@
   width: 20px;
   min-height: 20px;
   height: 20px;
-  accent-color: #214b3d;
+  accent-color: var(--current);
   flex: 0 0 auto;
 }
 @media (max-width: 500px) {
