@@ -84,7 +84,11 @@ export class NativeCommercialDatabase implements D1Database {
   readonly #database: DatabaseSync;
   constructor(
     directory: string,
-    options: { recoveryInspection?: boolean; recoverySecret?: string | undefined } = {},
+    options: {
+      recoveryInspection?: boolean;
+      recoverySecret?: string | undefined;
+      recoveryOrigin?: string | undefined;
+    } = {},
   ) {
     requireSqliteCapabilities();
     mkdirSync(directory, { recursive: true, mode: 0o700 });
@@ -102,7 +106,8 @@ export class NativeCommercialDatabase implements D1Database {
       this.checkIntegrity();
       if (
         !options.recoveryInspection &&
-        (this.recoveryState(options.recoverySecret) === "quarantined" ||
+        (this.recoveryState(options.recoverySecret, false, options.recoveryOrigin ?? "") ===
+          "quarantined" ||
           existsSync(join(directory, ".recovery-lifecycle")))
       )
         throw new Error("quarantined");
@@ -118,8 +123,12 @@ export class NativeCommercialDatabase implements D1Database {
   close(): void {
     this.#database.close();
   }
-  recoveryState(secret?: string, historical = false) {
-    return nativeRecoveryState(this.#database, secret, historical);
+  recoveryState(secret?: string, historical = false, origin?: string) {
+    return nativeRecoveryState(this.#database, secret, historical, origin);
+  }
+  assertServiceOrigin(secret: string, origin: string): void {
+    if (this.recoveryState(secret, false, origin) === "quarantined")
+      throw new Error("Commercial recovery remains quarantined");
   }
   /** Full logical state, including credentials, used only as an internal
    * optimistic guard under BEGIN IMMEDIATE. Never expose it as support data. */

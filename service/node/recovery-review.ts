@@ -241,7 +241,10 @@ export async function checkpointNativeCommercial(
   const staging = await mkdtemp(join(tmpdir(), "chargeos-commercial-checkpoint-"));
   let source: NativeCommercialDatabase | undefined, copy: NativeCommercialDatabase | undefined;
   try {
-    source = new NativeCommercialDatabase(directory, { recoverySecret: config.secret });
+    source = new NativeCommercialDatabase(directory, {
+      recoverySecret: config.secret,
+      recoveryOrigin: config.origin,
+    });
     const pages = (await source.prepare("PRAGMA page_count").first<number>("page_count"))!,
       pageSize = (await source.prepare("PRAGMA page_size").first<number>("page_size"))!;
     if (pages * pageSize > MAX_COMMERCIAL_DATABASE_BYTES)
@@ -249,7 +252,10 @@ export async function checkpointNativeCommercial(
     await source.snapshotTo(staging);
     source.close();
     source = undefined;
-    copy = new NativeCommercialDatabase(staging, { recoverySecret: config.secret });
+    copy = new NativeCommercialDatabase(staging, {
+      recoverySecret: config.secret,
+      recoveryOrigin: config.origin,
+    });
     await inspectNativeCommercialDatabase(
       copy,
       copy.recoveryState(config.secret) === "released" ? "released" : false,

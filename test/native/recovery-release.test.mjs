@@ -32,6 +32,8 @@ import {
 import { migrateNativeDatabase, readNativeMigrations } from "../../service/node/migrations.ts";
 import { nativeConfiguration } from "../../service/node/configuration.ts";
 import { fileURLToPath } from "node:url";
+import { nativeHosting } from "../../service/configuration.ts";
+import { deliverNativeAccountMail } from "../../service/node/mail.ts";
 
 let f,
   baseline,
@@ -141,6 +143,7 @@ it("atomically reopens the exact review with truthful operator attribution, then
   const result = await release();
   expect(result.status).toBe("released");
   const db = new NativeCommercialDatabase(f.data, {
+    recoveryOrigin: f.configuration.SERVICE_ORIGIN,
     recoverySecret: f.configuration.SERVICE_AUTH_SECRET,
   });
   try {
@@ -365,7 +368,10 @@ it("requires authentic same-restore receipts and preserves startup after review 
   }
   expect(
     () =>
-      new NativeCommercialDatabase(f.data, { recoverySecret: f.configuration.SERVICE_AUTH_SECRET }),
+      new NativeCommercialDatabase(f.data, {
+        recoveryOrigin: f.configuration.SERVICE_ORIGIN,
+        recoverySecret: f.configuration.SERVICE_AUTH_SECRET,
+      }),
   ).toThrow(/startup verification/);
   const change = open();
   try {
@@ -379,6 +385,7 @@ it("requires authentic same-restore receipts and preserves startup after review 
   vi.setSystemTime(Date.now() + 3 * 86400000);
   try {
     const restarted = new NativeCommercialDatabase(f.data, {
+      recoveryOrigin: f.configuration.SERVICE_ORIGIN,
       recoverySecret: f.configuration.SERVICE_AUTH_SECRET,
     });
     restarted.close();
@@ -393,13 +400,17 @@ it("requires authentic same-restore receipts and preserves startup after review 
   }
   expect(
     () =>
-      new NativeCommercialDatabase(f.data, { recoverySecret: f.configuration.SERVICE_AUTH_SECRET }),
+      new NativeCommercialDatabase(f.data, {
+        recoveryOrigin: f.configuration.SERVICE_ORIGIN,
+        recoverySecret: f.configuration.SERVICE_AUTH_SECRET,
+      }),
   ).toThrow(/startup verification/);
 });
 
 it("uses normal fresh-password MFA after reopening and rejects enrollment cookies", async () => {
   await release();
   const db = new NativeCommercialDatabase(f.data, {
+      recoveryOrigin: f.configuration.SERVICE_ORIGIN,
       recoverySecret: f.configuration.SERVICE_AUTH_SECRET,
     }),
     server = createNativeCommercialServer({ ...f.configuration, SERVICE_DB: db });
@@ -442,6 +453,84 @@ it("uses normal fresh-password MFA after reopening and rejects enrollment cookie
     db.close();
   }
 });
+it("requires an explicit exact reviewed origin for released startup, direct HTTP adapters and committed release retries", async () => {
+  await release();
+  const secret = f.configuration.SERVICE_AUTH_SECRET;
+  expect(() => new NativeCommercialDatabase(f.data, { recoverySecret: secret })).toThrow(
+    /startup verification/,
+  );
+  for (const origin of ["http://127.0.0.1:5174", "https://accounts.example.test"]) {
+    const configuration = origin.startsWith("https:")
+      ? {
+          ...f.configuration,
+          SERVICE_MODE: "production",
+          SERVICE_ORIGIN: origin,
+          SERVICE_DELIVERY: "smtp",
+          SERVICE_SIGNUP_DOMAINS: "example.test",
+          [nativeHosting]: true,
+        }
+      : { ...f.configuration, SERVICE_ORIGIN: origin };
+    expect(
+      () =>
+        new NativeCommercialDatabase(f.data, { recoverySecret: secret, recoveryOrigin: origin }),
+    ).toThrow(/startup verification/);
+    // Inspection remains possible, but an inspection connection cannot become
+    // a live HTTP capability for a different deployment origin.
+    const inspected = open();
+    try {
+      expect(inspected.recoveryState(undefined, true)).toBe("released");
+      expect(() =>
+        createNativeCommercialServer({ ...configuration, SERVICE_DB: inspected }),
+      ).toThrow(/origin/);
+    } finally {
+      inspected.close();
+    }
+  }
+  await expect(
+    releaseNativeCommercialRecovery(
+      { ...f.configuration, SERVICE_ORIGIN: "http://127.0.0.1:5174" },
+      f.data,
+      f.manifest,
+      RECOVERY_RELEASE_CONFIRMATION,
+    ),
+  ).rejects.toThrow(/origin/);
+});
+it("does not export, checkpoint or deliver mail under an unreviewed public origin", async () => {
+  await release();
+  const configuration = {
+    ...f.configuration,
+    SERVICE_MODE: "production",
+    SERVICE_ORIGIN: "https://accounts.example.test",
+    SERVICE_DELIVERY: "smtp",
+    SERVICE_SIGNUP_DOMAINS: "example.test",
+    [nativeHosting]: true,
+  };
+  await expect(
+    exportCommercialRecovery(
+      configuration,
+      f.data,
+      join(f.directory, "foreign-origin.bundle"),
+      "synthetic foreign origin passphrase!",
+    ),
+  ).rejects.toThrow(/startup verification/);
+  await expect(
+    checkpointNativeCommercial(
+      configuration,
+      f.data,
+      join(f.directory, "foreign-origin-checkpoint.json"),
+    ),
+  ).rejects.toThrow(/startup verification/);
+  await expect(
+    deliverNativeAccountMail(configuration, f.data, {
+      host: "smtp.example.test",
+      port: 587,
+      security: "starttls",
+      username: "synthetic",
+      password: "synthetic",
+      sender: "accounts@example.test",
+    }),
+  ).rejects.toThrow(/startup verification/);
+});
 
 it("backs up a released service and restores it without the old config into a new quarantined epoch with no release authority", async () => {
   const released = await release(),
@@ -478,7 +567,11 @@ it("backs up a released service and restores it without the old config into a ne
   }).configuration;
   expect(fresh.SERVICE_AUTH_SECRET).not.toBe(f.configuration.SERVICE_AUTH_SECRET);
   expect(
-    () => new NativeCommercialDatabase(data, { recoverySecret: fresh.SERVICE_AUTH_SECRET }),
+    () =>
+      new NativeCommercialDatabase(data, {
+        recoveryOrigin: fresh.SERVICE_ORIGIN,
+        recoverySecret: fresh.SERVICE_AUTH_SECRET,
+      }),
   ).toThrow(/quarantined/);
   await expect(restoreCommercialRecovery(bundle, target, phrase)).rejects.toThrow(/EEXIST/);
   const manifest = join(f.directory, "second-review.json");
@@ -532,7 +625,10 @@ it("backs up a released service and restores it without the old config into a ne
     manifest,
     RECOVERY_RELEASE_CONFIRMATION,
   );
-  const live = new NativeCommercialDatabase(data, { recoverySecret: fresh.SERVICE_AUTH_SECRET });
+  const live = new NativeCommercialDatabase(data, {
+    recoveryOrigin: fresh.SERVICE_ORIGIN,
+    recoverySecret: fresh.SERVICE_AUTH_SECRET,
+  });
   try {
     expect(
       await live.prepare("SELECT count(*) AS n FROM _chargeos_native_release_history").first("n"),
@@ -558,7 +654,11 @@ it("backs up a released service and restores it without the old config into a ne
     live.close();
   }
   expect(
-    () => new NativeCommercialDatabase(data, { recoverySecret: fresh.SERVICE_AUTH_SECRET }),
+    () =>
+      new NativeCommercialDatabase(data, {
+        recoveryOrigin: fresh.SERVICE_ORIGIN,
+        recoverySecret: fresh.SERVICE_AUTH_SECRET,
+      }),
   ).toThrow(/startup verification/);
 });
 
@@ -576,6 +676,7 @@ it("refuses partial recovery markers and preserves lifecycle custody even after 
       expect(
         () =>
           new NativeCommercialDatabase(f.data, {
+            recoveryOrigin: f.configuration.SERVICE_ORIGIN,
             recoverySecret: f.configuration.SERVICE_AUTH_SECRET,
           }),
       ).toThrow(/quarantined/);
@@ -598,6 +699,7 @@ it("refuses partial recovery markers and preserves lifecycle custody even after 
       expect(
         () =>
           new NativeCommercialDatabase(f.data, {
+            recoveryOrigin: f.configuration.SERVICE_ORIGIN,
             recoverySecret: f.configuration.SERVICE_AUTH_SECRET,
           }),
       ).toThrow(/startup verification|quarantined/);

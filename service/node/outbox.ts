@@ -21,6 +21,7 @@ const { configuration, directory } = nativeConfiguration();
 const { NativeCommercialDatabase } = await import("./sqlite.js");
 const database = new NativeCommercialDatabase(directory, {
   recoverySecret: configuration.SERVICE_AUTH_SECRET,
+  recoveryOrigin: configuration.SERVICE_ORIGIN,
 });
 try {
   const row = await database

@@ -135,6 +135,7 @@ export function nativeRecoveryState(
   database: DatabaseSync,
   secret?: string,
   historical = false,
+  origin?: string,
 ): "ordinary" | "quarantined" | "released" {
   const q = database
       .prepare("SELECT type,sql FROM sqlite_schema WHERE name='_chargeos_native_recovery'")
@@ -182,6 +183,10 @@ export function nativeRecoveryState(
     throw new Error("Recovery release provenance is unavailable");
   const root = JSON.parse(roots[0].provenance_json) as { restoreId?: unknown; status?: unknown };
   const receipt = parseReceipt(receipts[0].receipt_json, secret, historical);
+  // A reviewed local release authorizes that exact origin only. Copying the
+  // same database/secret into HTTPS configuration is not a public cutover.
+  if (origin !== undefined && (historical || receipt.origin !== origin))
+    throw new Error("Recovery release does not authorize this service origin");
   if (
     receipt.priorHistorySha256 !==
     recoveryHistoryDigest([...history].filter(([id]) => id !== receipt.releaseId))

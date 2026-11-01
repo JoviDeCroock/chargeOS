@@ -59,7 +59,10 @@ export async function deliverNativeAccountMail(
   if (!config || config.delivery !== "smtp")
     throw new Error("Explicit SMTP queue activation is required");
   await lstat(join(directory, "commercial.sqlite"));
-  const database = new NativeCommercialDatabase(directory, { recoverySecret: config.secret });
+  const database = new NativeCommercialDatabase(directory, {
+    recoverySecret: config.secret,
+    recoveryOrigin: config.origin,
+  });
   try {
     return await withNativeRecoveryCustody(directory, async () => {
       if (database.recoveryState(config.secret) === "quarantined")

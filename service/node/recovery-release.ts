@@ -41,7 +41,7 @@ export async function releaseNativeCommercialRecovery(
     const database = new NativeCommercialDatabase(directory, { recoveryInspection: true });
     let scratch: string | undefined, copy: NativeCommercialDatabase | undefined;
     try {
-      if (database.recoveryState(config.secret) === "released") {
+      if (database.recoveryState(config.secret, false, config.origin) === "released") {
         // A crash after COMMIT must never apply offboarding twice. The live
         // receipt authenticates this result without needing expired inputs.
         const stored = await database

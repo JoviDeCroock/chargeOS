@@ -9,6 +9,7 @@ const hosted = configuration.SERVICE_MODE === "production";
 const { NativeCommercialDatabase } = await import("./sqlite.js");
 const database = new NativeCommercialDatabase(directory, {
   recoverySecret: configuration.SERVICE_AUTH_SECRET,
+  recoveryOrigin: configuration.SERVICE_ORIGIN,
 });
 try {
   // Compiled service code and source code resolve their checked-in migrations

@@ -4,6 +4,7 @@ import { serviceConfiguration } from "../auth.js";
 import { isIP } from "node:net";
 import { commercialStatic } from "./static.js";
 import worker from "../index.js";
+import { NativeCommercialDatabase } from "./sqlite.js";
 
 class RequestError extends Error {
   constructor(
@@ -21,6 +22,11 @@ export function createNativeCommercialServer(
   const config = serviceConfiguration(env);
   if (!config)
     throw new Error("The native commercial service requires explicit native service configuration");
+  if (
+    (handler === worker || config.mode === "self-hosted") &&
+    env.SERVICE_DB instanceof NativeCommercialDatabase
+  )
+    env.SERVICE_DB.assertServiceOrigin(config.secret, config.origin);
   let listeningHost = "";
   let closing = false,
     closed: Promise<void> | undefined;

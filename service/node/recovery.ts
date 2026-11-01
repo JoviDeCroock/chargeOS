@@ -188,7 +188,10 @@ export async function exportCommercialRecovery(
   const staging = await mkdtemp(join(tmpdir(), "chargeos-commercial-backup-"));
   let source: NativeCommercialDatabase | undefined, snapshot: NativeCommercialDatabase | undefined;
   try {
-    source = new NativeCommercialDatabase(directory, { recoverySecret: config.secret });
+    source = new NativeCommercialDatabase(directory, {
+      recoverySecret: config.secret,
+      recoveryOrigin: config.origin,
+    });
     const pageCount = (await source.prepare("PRAGMA page_count").first<number>("page_count"))!;
     const pageSize = (await source.prepare("PRAGMA page_size").first<number>("page_size"))!;
     if (pageCount * pageSize > MAX_COMMERCIAL_DATABASE_BYTES)
@@ -196,7 +199,10 @@ export async function exportCommercialRecovery(
     await source.snapshotTo(staging);
     source.close();
     source = undefined;
-    snapshot = new NativeCommercialDatabase(staging, { recoverySecret: config.secret });
+    snapshot = new NativeCommercialDatabase(staging, {
+      recoverySecret: config.secret,
+      recoveryOrigin: config.origin,
+    });
     const summary = await inspectNativeCommercialDatabase(
       snapshot,
       snapshot.recoveryState(config.secret) === "released" ? "released" : false,
