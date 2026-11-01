@@ -794,7 +794,7 @@
         "LMS / ThreeForce": "Unverified",
         "D’Ieteren": "Unverified"
       },
-      "currentEvidence": "Open source and encrypted owner continuity with replacement-edge runtime proof; cross-host charger behavior still needs field proof. Native commercial encrypted backup, exact restore-bound financial/current-access reviews and private fresh password/TOTP enrollment are implemented locally. Ready enrollment does not release quarantine. Operational release, public delivery, D1 portability and complete fleet recovery remain unfinished.",
+      "currentEvidence": "Open source and encrypted owner continuity with replacement-edge runtime proof; cross-host charger behavior still needs field proof. Native commercial encrypted backup, exact restore-bound financial/current-access reviews and private fresh password/TOTP enrollment are implemented locally. Ready enrollment does not release quarantine. Reviewed local atomic release, normal fresh-MFA sign-in and released-source re-restore are implemented; public delivery, production recovery, D1 portability and complete fleet recovery remain unfinished.",
       "acceptance": "Owner exports usable state and moves to another supported deployment without losing essential authorization or evidence."
     },
     {

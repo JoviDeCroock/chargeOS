@@ -5,6 +5,13 @@ export const MAX_COMMERCIAL_DATABASE_BYTES = 64 * 1024 * 1024;
 export const MAX_COMMERCIAL_ENVELOPE_BYTES = 124 * 1024 * 1024;
 const MAX_PAYLOAD_BYTES = 92 * 1024 * 1024;
 const format = "chargeos-commercial-recovery";
+export function canonicalRecoveryJson(value: unknown): string {
+  return JSON.stringify(value, (_key, item: unknown) =>
+    item && typeof item === "object" && !Array.isArray(item)
+      ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : item,
+  );
+}
 const parameters = { algorithm: "aes-256-gcm", kdf: "scrypt", n: 32768, r: 8, p: 1 } as const;
 interface Envelope {
   format: typeof format;

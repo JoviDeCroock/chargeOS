@@ -19,7 +19,9 @@ if (
   throw new Error("Use an intended local recipient and a supported delivery kind");
 const { configuration, directory } = nativeConfiguration();
 const { NativeCommercialDatabase } = await import("./sqlite.js");
-const database = new NativeCommercialDatabase(directory);
+const database = new NativeCommercialDatabase(directory, {
+  recoverySecret: configuration.SERVICE_AUTH_SECRET,
+});
 try {
   const row = await database
     .prepare(

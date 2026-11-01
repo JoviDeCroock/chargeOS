@@ -38,3 +38,11 @@ export interface OrganizationWorkspace {
 export interface ServiceError {
   error: string;
 }
+export interface ServiceAuditEvent {
+  id: string;
+  actorId: string | null;
+  recoveryReleaseId: string | null;
+  action: string;
+  subjectId: string;
+  createdAt: number;
+}

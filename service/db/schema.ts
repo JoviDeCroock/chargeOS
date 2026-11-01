@@ -1,4 +1,5 @@
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 const timestamp = (name: string) => integer(name, { mode: "timestamp_ms" });
 
@@ -150,31 +151,40 @@ export const invitation = sqliteTable(
   (table) => [index("invitation_organization_idx").on(table.organizationId)],
 );
 
-export const serviceAudit = sqliteTable("service_audit", {
-  id: text("id").primaryKey(),
-  organizationId: text("organization_id")
-    .notNull()
-    .references(() => organization.id),
-  actorId: text("actor_id")
-    .notNull()
-    .references(() => user.id),
-  action: text("action", {
-    enum: [
-      "organization.created",
-      "invitation.created",
-      "invitation.accepted",
-      "invitation.revoked",
-      "membership.removed",
-      "policy.published",
-      "assignment.created",
-      "assignment.ended",
-      "statement.drafted",
-      "statement.approved",
-      "statement.rejected",
-      "statement.correction-drafted",
-      "statement.adjusted",
-    ],
-  }).notNull(),
-  subjectId: text("subject_id").notNull(),
-  createdAt: timestamp("created_at").notNull(),
-});
+export const serviceAudit = sqliteTable(
+  "service_audit",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id),
+    actorId: text("actor_id").references(() => user.id),
+    recoveryReleaseId: text("recovery_release_id"),
+    action: text("action", {
+      enum: [
+        "organization.created",
+        "invitation.created",
+        "invitation.accepted",
+        "invitation.revoked",
+        "membership.removed",
+        "policy.published",
+        "assignment.created",
+        "assignment.ended",
+        "statement.drafted",
+        "statement.approved",
+        "statement.rejected",
+        "statement.correction-drafted",
+        "statement.adjusted",
+        "recovery.released",
+      ],
+    }).notNull(),
+    subjectId: text("subject_id").notNull(),
+    createdAt: timestamp("created_at").notNull(),
+  },
+  (table) => [
+    check(
+      "service_audit_actor",
+      sql`(${table.actorId} IS NOT NULL AND ${table.recoveryReleaseId} IS NULL) OR (${table.actorId} IS NULL AND ${table.recoveryReleaseId} IS NOT NULL AND length(${table.recoveryReleaseId}) > 0)`,
+    ),
+  ],
+);

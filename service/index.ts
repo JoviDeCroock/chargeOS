@@ -8,6 +8,7 @@ import type {
   OrganizationWorkspace,
   ServiceAccount,
   ServiceOrganization,
+  ServiceAuditEvent,
 } from "../shared/contracts.js";
 
 const idPattern = /^[a-zA-Z0-9_-]{1,128}$/;
@@ -235,10 +236,10 @@ async function route(request: Request, env: ServiceEnv): Promise<Response> {
   if (org.role !== "admin") throw new HttpError(403, "Organization administrator access required");
   if (child === "audit" && request.method === "GET") {
     const events = await env.SERVICE_DB.prepare(
-      "SELECT id, actor_id AS actorId, action, subject_id AS subjectId, created_at AS createdAt FROM service_audit WHERE organization_id = ? ORDER BY created_at DESC LIMIT 100",
+      "SELECT id, actor_id AS actorId, recovery_release_id AS recoveryReleaseId, action, subject_id AS subjectId, created_at AS createdAt FROM service_audit WHERE organization_id = ? ORDER BY created_at DESC LIMIT 100",
     )
       .bind(org.id)
-      .all();
+      .all<ServiceAuditEvent>();
     return json({ events: events.results });
   }
   if (child === "invitations" && request.method === "POST") {

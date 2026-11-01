@@ -41,7 +41,8 @@
     "service:native:recovery-review": "tsx service/node/recovery-review-cli.ts",
     "service:native:recovery-enrollment": "tsx service/node/recovery-enrollment-cli.ts",
     "test:service:native": "vitest run --config vitest.service-native.config.mjs",
-    "verify:service-native-runtime": "node scripts/verify-native-service.mjs"
+    "verify:service-native-runtime": "node scripts/verify-native-service.mjs",
+    "service:native:recovery-release": "tsx service/node/recovery-release-cli.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.14",

@@ -1,4 +1,6 @@
+import { sql } from "drizzle-orm";
 import {
+  check,
   index,
   integer,
   primaryKey,
@@ -62,16 +64,24 @@ export const reimbursementAssignment = sqliteTable(
   ],
 );
 
-export const reimbursementAssignmentEnd = sqliteTable("reimbursement_assignment_end", {
-  assignmentId: text("assignment_id")
-    .primaryKey()
-    .references(() => reimbursementAssignment.id),
-  effectiveUntil: timestamp("effective_until").notNull(),
-  createdBy: text("created_by")
-    .notNull()
-    .references(() => user.id),
-  createdAt: timestamp("created_at").notNull(),
-});
+export const reimbursementAssignmentEnd = sqliteTable(
+  "reimbursement_assignment_end",
+  {
+    assignmentId: text("assignment_id")
+      .primaryKey()
+      .references(() => reimbursementAssignment.id),
+    effectiveUntil: timestamp("effective_until").notNull(),
+    createdBy: text("created_by").references(() => user.id),
+    recoveryReleaseId: text("recovery_release_id"),
+    createdAt: timestamp("created_at").notNull(),
+  },
+  (table) => [
+    check(
+      "assignment_end_actor",
+      sql`(${table.createdBy} IS NOT NULL AND ${table.recoveryReleaseId} IS NULL) OR (${table.createdBy} IS NULL AND ${table.recoveryReleaseId} IS NOT NULL AND length(${table.recoveryReleaseId}) > 0)`,
+    ),
+  ],
+);
 
 export const reimbursementStatement = sqliteTable(
   "reimbursement_statement",

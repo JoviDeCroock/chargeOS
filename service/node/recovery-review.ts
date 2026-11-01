@@ -4,7 +4,11 @@ import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { localConfiguration, type ServiceEnv } from "../auth.js";
 import { financialJournal, readFinancialData } from "../reimbursement-journal.js";
-import { exactObject, MAX_COMMERCIAL_DATABASE_BYTES } from "./recovery-crypto.js";
+import {
+  exactObject,
+  MAX_COMMERCIAL_DATABASE_BYTES,
+  canonicalRecoveryJson as canonical,
+} from "./recovery-crypto.js";
 import { readPrivateRecoveryFile, writePrivateRecoveryFile } from "./recovery-files.js";
 import { inspectNativeCommercialDatabase } from "./recovery.js";
 import { NativeCommercialDatabase } from "./sqlite.js";
@@ -172,12 +176,15 @@ async function financialFingerprints(database: NativeCommercialDatabase) {
   }
   return result;
 }
-async function businessFingerprint(database: NativeCommercialDatabase): Promise<string> {
+export async function businessFingerprint(
+  database: NativeCommercialDatabase,
+  omitReleaseId?: string,
+): Promise<string> {
   const digest = createHash("sha256");
   const tables = (
     await database
       .prepare(
-        "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT GLOB 'sqlite_*' AND name NOT GLOB '_chargeos_*' ORDER BY name",
+        "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT GLOB 'sqlite_*' AND (name NOT GLOB '_chargeos_*' OR name='_chargeos_native_release_history') ORDER BY name",
       )
       .all<{ name: string }>()
   ).results;
@@ -195,7 +202,11 @@ async function businessFingerprint(database: NativeCommercialDatabase): Promise<
       table.name === "user"
         ? "SELECT id,name,email,image,created_at FROM user"
         : `SELECT * FROM "${table.name}"`;
-    digest.update(JSON.stringify([table.name, await rows(database, sql)]));
+    const records =
+      table.name === "_chargeos_native_release_history" && omitReleaseId
+        ? await rows(database, `SELECT * FROM "${table.name}" WHERE release_id != ?`, omitReleaseId)
+        : await rows(database, sql);
+    digest.update(JSON.stringify([table.name, records]));
   }
   return digest.digest("hex");
 }
@@ -227,13 +238,13 @@ export async function checkpointNativeCommercial(
   directory: string,
   output: string,
 ) {
-  if (!localConfiguration(configuration))
-    throw new Error("Use a configured native commercial source");
+  const config = localConfiguration(configuration);
+  if (!config) throw new Error("Use a configured native commercial source");
   await lstat(join(directory, "commercial.sqlite"));
   const staging = await mkdtemp(join(tmpdir(), "chargeos-commercial-checkpoint-"));
   let source: NativeCommercialDatabase | undefined, copy: NativeCommercialDatabase | undefined;
   try {
-    source = new NativeCommercialDatabase(directory);
+    source = new NativeCommercialDatabase(directory, { recoverySecret: config.secret });
     const pages = (await source.prepare("PRAGMA page_count").first<number>("page_count"))!,
       pageSize = (await source.prepare("PRAGMA page_size").first<number>("page_size"))!;
     if (pages * pageSize > MAX_COMMERCIAL_DATABASE_BYTES)
@@ -241,8 +252,11 @@ export async function checkpointNativeCommercial(
     await source.snapshotTo(staging);
     source.close();
     source = undefined;
-    copy = new NativeCommercialDatabase(staging);
-    await inspectNativeCommercialDatabase(copy);
+    copy = new NativeCommercialDatabase(staging, { recoverySecret: config.secret });
+    await inspectNativeCommercialDatabase(
+      copy,
+      copy.recoveryState(config.secret) === "released" ? "released" : false,
+    );
     const checkpoint = {
       format: "chargeos-commercial-financial-checkpoint",
       schemaVersion: 1,
@@ -352,13 +366,6 @@ async function evidence(path: unknown): Promise<string> {
   const bytes = await readPrivateRecoveryFile(text(path), MAX_EVIDENCE_BYTES);
   if (!bytes.length) throw new Error("Recovery evidence must not be empty");
   return sha(bytes);
-}
-function canonical(value: unknown): string {
-  return JSON.stringify(value, (_key, item: unknown) =>
-    item && typeof item === "object" && !Array.isArray(item)
-      ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => compare(a, b)))
-      : item,
-  );
 }
 /** Caller must retain lifecycle custody until it has consumed this evaluation. */
 export async function evaluateNativeRecoveryReview(

@@ -6,7 +6,9 @@ import { nativeConfiguration } from "./configuration.js";
 
 const { configuration, directory, port } = nativeConfiguration();
 const { NativeCommercialDatabase } = await import("./sqlite.js");
-const database = new NativeCommercialDatabase(directory);
+const database = new NativeCommercialDatabase(directory, {
+  recoverySecret: configuration.SERVICE_AUTH_SECRET,
+});
 try {
   // Compiled service code and source code resolve their checked-in migrations
   // from their respective service root; the native build copies the SQL files.

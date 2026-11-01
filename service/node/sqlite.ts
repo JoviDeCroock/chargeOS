@@ -2,6 +2,9 @@ import { constants, closeSync, lstatSync, mkdirSync, openSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import * as sqlite from "node:sqlite";
+import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
+import { nativeRecoveryState } from "./recovery-marker.js";
 
 const connectionOptions = {
   enableForeignKeyConstraints: true,
@@ -79,7 +82,10 @@ function parameters(values: unknown[]): SQLInputValue[] {
 export class NativeCommercialDatabase implements D1Database {
   readonly path: string;
   readonly #database: DatabaseSync;
-  constructor(directory: string, options: { recoveryInspection?: boolean } = {}) {
+  constructor(
+    directory: string,
+    options: { recoveryInspection?: boolean; recoverySecret?: string | undefined } = {},
+  ) {
     requireSqliteCapabilities();
     mkdirSync(directory, { recursive: true, mode: 0o700 });
     const info = lstatSync(directory);
@@ -96,9 +102,8 @@ export class NativeCommercialDatabase implements D1Database {
       this.checkIntegrity();
       if (
         !options.recoveryInspection &&
-        this.#database
-          .prepare("SELECT 1 FROM sqlite_schema WHERE name='_chargeos_native_recovery'")
-          .get()
+        (this.recoveryState(options.recoverySecret) === "quarantined" ||
+          existsSync(join(directory, ".recovery-lifecycle")))
       )
         throw new Error("quarantined");
     } catch (error) {
@@ -112,6 +117,35 @@ export class NativeCommercialDatabase implements D1Database {
   }
   close(): void {
     this.#database.close();
+  }
+  recoveryState(secret?: string, historical = false) {
+    return nativeRecoveryState(this.#database, secret, historical);
+  }
+  /** Full logical state, including credentials, used only as an internal
+   * optimistic guard under BEGIN IMMEDIATE. Never expose it as support data. */
+  stateDigest(): string {
+    const hash = createHash("sha256");
+    for (const row of this.#database
+      .prepare(
+        "SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*' ORDER BY type,name",
+      )
+      .all()) {
+      hash.update(JSON.stringify(row));
+      if (row.type === "table") {
+        const name = String(row.name).replaceAll('"', '""');
+        const statement = this.#database.prepare(`SELECT * FROM "${name}"`);
+        statement.setReturnArrays(true);
+        hash.update(
+          JSON.stringify(
+            statement
+              .all()
+              .map((record) => JSON.stringify(record))
+              .sort(),
+          ),
+        );
+      }
+    }
+    return hash.digest("hex");
   }
   checkIntegrity(): void {
     const result = this.#database.prepare("PRAGMA quick_check").all();
@@ -144,6 +178,21 @@ export class NativeCommercialDatabase implements D1Database {
     return new NativeStatement(this, query, []);
   }
   async batch<T = unknown>(statements: D1PreparedStatement[]): Promise<D1Result<T>[]> {
+    return this.checkedBatch<T>(
+      statements,
+      statements.map(() => null),
+    );
+  }
+  checkedBatch<T = unknown>(
+    statements: D1PreparedStatement[],
+    expectedChanges: (number | null)[],
+    expectedState?: string,
+  ): D1Result<T>[] {
+    if (
+      expectedChanges.length !== statements.length ||
+      expectedChanges.some((count) => count !== null && (!Number.isSafeInteger(count) || count < 0))
+    )
+      throw new Error("Invalid atomic mutation expectations");
     if (!statements.length) return [];
     const local = statements.map((statement) => {
       if (!(statement instanceof NativeStatement) || statement.database !== this)
@@ -152,9 +201,18 @@ export class NativeCommercialDatabase implements D1Database {
     });
     this.#database.exec("BEGIN IMMEDIATE");
     try {
+      if (expectedState && this.stateDigest() !== expectedState)
+        throw new Error("Commercial state changed before the atomic recovery update");
       // No await may occur until commit/rollback; another request must never
       // interleave statements inside this financial or membership transaction.
       const result = local.map((statement) => this.execute<T>(statement.query, statement.values));
+      if (
+        result.some(
+          (entry, index) =>
+            expectedChanges[index] !== null && entry.meta.changes !== expectedChanges[index],
+        )
+      )
+        throw new Error("Atomic recovery mutation did not match the reviewed records");
       this.#database.exec("COMMIT");
       return result;
     } catch (error) {
