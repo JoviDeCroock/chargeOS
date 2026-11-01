@@ -26,14 +26,35 @@ describe("assessOwnerContinuity", () => {
       configuration({
         AllowOfflineTxForUnknownId: "FALSE",
         LocalAuthListEnabled: "True",
-        LocalAuthListMaxLength: " 32 ",
-        LocalAuthorizeOffline: "true ",
+        LocalAuthListMaxLength: "32",
+        LocalAuthorizeOffline: "true",
         SendLocalListMaxLength: "32",
       }),
       { listVersion: 0 },
       1,
     );
     expect(result.state).toBe("ready");
+  });
+
+  it("never trims a padded value into a pass and plans a canonical rewrite instead", () => {
+    const padded = configuration(
+      {
+        AllowOfflineTxForUnknownId: "false",
+        LocalAuthListEnabled: "true",
+        LocalAuthListMaxLength: " 32 ",
+        LocalAuthorizeOffline: "true ",
+        SendLocalListMaxLength: "32",
+      },
+      false,
+    );
+    const result = assessOwnerContinuity(padded, { listVersion: 0 }, 1);
+    expect(result.state).toBe("unknown");
+    expect(result.checks).toContainEqual(
+      expect.objectContaining({ id: "known-tags-offline", state: "unknown" }),
+    );
+    expect(planOwnerContinuityPreparation(padded)).toContainEqual(
+      expect.objectContaining({ key: "LocalAuthorizeOffline", state: "change-required" }),
+    );
   });
 
   it("blocks when local list storage cannot hold every owner tag", () => {

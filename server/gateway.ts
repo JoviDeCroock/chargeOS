@@ -116,13 +116,17 @@ export function createChargeGateway(config: GatewayConfig, evidence: EvidenceSto
 
     peers.set(stationId, peer);
     connectedAt.set(stationId, new Date().toISOString());
-    void record(evidence, stationConfig, stationId, "system", "Connected", {});
+    void record(evidence, stationConfig, stationId, "system", "Connected", {}).catch(
+      () => undefined,
+    );
     peer.once("disconnect", () => {
       if (peers.get(stationId) === peer) {
         peers.delete(stationId);
         connectedAt.delete(stationId);
       }
-      void record(evidence, stationConfig, stationId, "system", "Disconnected", {});
+      void record(evidence, stationConfig, stationId, "system", "Disconnected", {}).catch(
+        () => undefined,
+      );
     });
 
     const limiter = new TokenBucket(config.ocppMessagesPerMinute, config.ocppMessageBurst);
@@ -266,8 +270,8 @@ export function createChargeGateway(config: GatewayConfig, evidence: EvidenceSto
       const request = recordValue(params);
       await record(evidence, stationConfig, stationId, "station-to-csms", "DataTransfer", {
         dataDiscarded: request.data !== undefined,
-        messageId: boundedText(request.messageId, 50),
-        vendorId: boundedText(request.vendorId, 255),
+        messageIdHmac: keyedDigest(stationConfig, request.messageId),
+        vendorIdHmac: keyedDigest(stationConfig, request.vendorId),
       });
       return { status: "UnknownVendorId" };
     });
@@ -303,7 +307,7 @@ export function createChargeGateway(config: GatewayConfig, evidence: EvidenceSto
         {
           techInfoDiscarded: request.techInfo !== undefined,
           timestamp: boundedText(request.timestamp, 64),
-          type: boundedText(request.type, 50),
+          type: securityEventType(request.type),
         },
       );
       return {};
@@ -491,7 +495,7 @@ export function createChargeGateway(config: GatewayConfig, evidence: EvidenceSto
       );
       const params = {
         listVersion,
-        localAuthorizationList: [...stationConfig.ownerTags].map((idTag) => ({
+        localAuthorizationList: uniqueCaseInsensitive(stationConfig.ownerTags).map((idTag) => ({
           idTag,
           idTagInfo: { status: "Accepted" },
         })),
@@ -645,7 +649,7 @@ function describeProtocolRejection(failure: unknown): ProtocolRejection {
   const details = recordValue(error.details);
   const first = Array.isArray(details.errors) ? recordValue(details.errors[0]) : {};
   const method =
-    typeof value.method === "string" && /^[A-Za-z][A-Za-z0-9]{0,63}$/.test(value.method)
+    typeof value.method === "string" && OCPP_16_ACTIONS.has(value.method)
       ? value.method
       : "Unrecognized";
   const keyword =
@@ -674,6 +678,97 @@ function recordValue(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+// Every OCPP 1.6J action (core, profiles and the 1.6 security extension). Any other method name is
+// charger-chosen text and is recorded only as "Unrecognized".
+const OCPP_16_ACTIONS = new Set([
+  "Authorize",
+  "BootNotification",
+  "CancelReservation",
+  "CertificateSigned",
+  "ChangeAvailability",
+  "ChangeConfiguration",
+  "ClearCache",
+  "ClearChargingProfile",
+  "DataTransfer",
+  "DeleteCertificate",
+  "DiagnosticsStatusNotification",
+  "ExtendedTriggerMessage",
+  "FirmwareStatusNotification",
+  "GetCompositeSchedule",
+  "GetConfiguration",
+  "GetDiagnostics",
+  "GetInstalledCertificateIds",
+  "GetLocalListVersion",
+  "GetLog",
+  "Heartbeat",
+  "InstallCertificate",
+  "LogStatusNotification",
+  "MeterValues",
+  "RemoteStartTransaction",
+  "RemoteStopTransaction",
+  "ReserveNow",
+  "Reset",
+  "SecurityEventNotification",
+  "SendLocalList",
+  "SetChargingProfile",
+  "SignCertificate",
+  "SignedFirmwareStatusNotification",
+  "SignedUpdateFirmware",
+  "StartTransaction",
+  "StatusNotification",
+  "StopTransaction",
+  "TriggerMessage",
+  "UnlockConnector",
+  "UpdateFirmware",
+]);
+
+// Security event types defined by the OCPP 1.6 security whitepaper. Vendor-defined types are
+// free text and are recorded only as "VendorDefined".
+const SECURITY_EVENT_TYPES = new Set([
+  "AttemptedReplayAttacks",
+  "FailedToAuthenticateAtCentralSystem",
+  "FirmwareUpdated",
+  "InvalidCentralSystemCertificate",
+  "InvalidChargePointCertificate",
+  "InvalidFirmwareSignature",
+  "InvalidFirmwareSigningCertificate",
+  "InvalidMessages",
+  "InvalidTLSCipherSuite",
+  "InvalidTLSVersion",
+  "MemoryExhaustion",
+  "ReconfigurationOfSecurityParameters",
+  "ResetOrReboot",
+  "SecurityLogWasCleared",
+  "SettingSystemTime",
+  "StartupOfTheDevice",
+  "TamperDetectionActivated",
+]);
+
+function securityEventType(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  return SECURITY_EVENT_TYPES.has(value) ? value : "VendorDefined";
+}
+
+function keyedDigest(config: GatewayConfig, value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  return createHmac("sha256", config.stationSecret)
+    .update(`ocpp-text:${value}`, "utf8")
+    .digest("hex")
+    .slice(0, 24);
+}
+
+function uniqueCaseInsensitive(tags: Iterable<string>): string[] {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const tag of [...tags].sort()) {
+    const folded = foldIdTag(tag);
+    if (seen.has(folded)) continue;
+    seen.add(folded);
+    unique.push(tag);
+  }
+  return unique;
 }
 
 function boundedText(value: unknown, maximumLength: number): string | null {

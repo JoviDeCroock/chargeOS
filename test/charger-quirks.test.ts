@@ -99,7 +99,7 @@ describe("charger interoperability profiles", () => {
     await expect(
       charger.call("DataTransfer", {
         data: JSON.stringify({ idTag: OWNER_TAG, private: "vendor-diagnostic-blob" }),
-        messageId: "Diagnostics",
+        messageId: OWNER_TAG,
         vendorId: "com.example.vendor",
       }),
     ).resolves.toEqual({ status: "UnknownVendorId" });
@@ -107,9 +107,10 @@ describe("charger interoperability profiles", () => {
     const recorded = evidence.events.find((event) => event.message === "DataTransfer");
     expect(recorded?.payload).toEqual({
       dataDiscarded: true,
-      messageId: "Diagnostics",
-      vendorId: "com.example.vendor",
+      messageIdHmac: expect.stringMatching(/^[a-f0-9]{24}$/),
+      vendorIdHmac: expect.stringMatching(/^[a-f0-9]{24}$/),
     });
+    expect(JSON.stringify(evidence.events)).not.toContain("com.example.vendor");
     const serialized = JSON.stringify(evidence.events);
     expect(serialized).not.toContain("vendor-diagnostic-blob");
     expect(serialized).not.toContain(OWNER_TAG);
@@ -153,6 +154,13 @@ describe("charger interoperability profiles", () => {
     });
     expect(byMessage.get("LogStatusNotification")).toEqual({ requestId: 3, status: "Idle" });
     expect(JSON.stringify(evidence.events)).not.toContain("192.0.2.10");
+
+    await charger.call("SecurityEventNotification", {
+      timestamp: "2026-11-01T08:00:01.000Z",
+      type: `InvalidIdTag ${OWNER_TAG}`,
+    });
+    expect(evidence.events.at(-1)?.payload).toMatchObject({ type: "VendorDefined" });
+    expect(JSON.stringify(evidence.events)).not.toContain(OWNER_TAG);
   });
 
   it("profile zoneless-timestamps: keeps a timestamp without offset verbatim instead of guessing", async () => {
@@ -203,23 +211,27 @@ describe("charger interoperability profiles", () => {
     expect(JSON.stringify(evidence.events)).not.toContain(OWNER_TAG);
   });
 
-  it("profile unknown-action: records a sanitized method name for unsupported actions", async () => {
+  it("profile unknown-action: records only standard OCPP action names", async () => {
     const evidence = new MemoryEvidenceStore();
     const charger = await connect(evidence);
 
     await expect(charger.call("VendorBootstrap", { secret: "do-not-store" })).rejects.toThrow();
-    await expect(charger.call("bad method<script>", {})).rejects.toThrow();
+    await expect(charger.call(`A${OWNER_TAG}`, {})).rejects.toThrow();
+    await expect(charger.call("GetDiagnostics", { location: 42 })).rejects.toThrow();
 
     await vi.waitFor(() =>
       expect(
         evidence.events.filter((event) => event.message === "ProtocolMessageRejected"),
-      ).toHaveLength(2),
+      ).toHaveLength(3),
     );
     const methods = evidence.events
       .filter((event) => event.message === "ProtocolMessageRejected")
       .map((event) => (event.payload as { method: string }).method);
-    expect(methods).toEqual(["VendorBootstrap", "Unrecognized"]);
-    expect(JSON.stringify(evidence.events)).not.toContain("do-not-store");
+    expect(methods).toEqual(["Unrecognized", "Unrecognized", "GetDiagnostics"]);
+    const serialized = JSON.stringify(evidence.events);
+    expect(serialized).not.toContain("do-not-store");
+    expect(serialized).not.toContain("VendorBootstrap");
+    expect(serialized).not.toContain(OWNER_TAG);
   });
 
   it("profile invalid-flood: schema-invalid calls consume the rate limit and records stay bounded", async () => {
@@ -275,6 +287,17 @@ describe("charger interoperability profiles", () => {
       }),
     );
     await expect(gateway!.syncOwnerList(config.stationId)).rejects.toThrow(/blocked/i);
+  });
+
+  it("survives connect and disconnect audits failing when evidence capacity is exhausted", async () => {
+    const evidence = new MemoryEvidenceStore();
+    evidence.append = async () => {
+      throw new Error("synthetic evidence capacity exhausted");
+    };
+    const charger = await connect(evidence);
+    await charger.close({ force: true });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(gateway!.getRuntime(config.stationId).connected).toBe(false);
   });
 
   it("profile malformed-configuration-response: records a rejected charger reply", async () => {

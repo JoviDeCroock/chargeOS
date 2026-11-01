@@ -95,7 +95,7 @@ export function planOwnerContinuityPreparation(
   return CONTINUITY_SETTINGS.map(({ desiredValue, key }) => {
     const entry = entries.get(key);
     if (!entry) return { currentValue: null, desiredValue, key, state: "blocked" };
-    if (entry.value.trim().toLowerCase() === desiredValue) {
+    if (entry.value.toLowerCase() === desiredValue) {
       return { currentValue: entry.value, desiredValue, key, state: "already-safe" };
     }
     return {
@@ -159,7 +159,9 @@ function booleanCheck(
   if (observed === undefined && unsupported.has(key)) {
     return { id, label, observed: UNSUPPORTED_OBSERVATION, state: "fail" };
   }
-  const value = observed?.trim().toLowerCase();
+  // Letter case varies between firmwares; padding does not. A padded value may not be read as
+  // enabled by firmware that compares exactly, so it stays unknown and is not trimmed into a pass.
+  const value = observed?.toLowerCase();
   const parsed = value === "true" ? true : value === "false" ? false : null;
   return {
     id,
@@ -190,7 +192,7 @@ function capacityCheck(
 }
 
 function numberValue(value: string | undefined): number | null {
-  if (value === undefined || !/^\s*\d+\s*$/.test(value)) return null;
+  if (value === undefined || !/^\d+$/.test(value)) return null;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) ? parsed : null;
 }

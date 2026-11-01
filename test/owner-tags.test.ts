@@ -206,6 +206,45 @@ describe("owner-custodied RFID desired state", () => {
     expect(evidence.events).toEqual([]);
   });
 
+  it("revokes every legacy letter-case variant together so none stays accepted online", async () => {
+    const directory = await temporaryDirectory(directories);
+    const bootstrap = {
+      ...config(join(directory, "events.ndjson")),
+      ownerTags: new Set(["ABCD1234", "abcd1234", "other-owner-tag"]),
+    };
+    const registry = await OwnerTagRegistry.open(bootstrap);
+    const evidence = new MemoryEvidenceStore();
+    const liveConfig = withOwnerTagRegistry(bootstrap, registry);
+
+    const result = await registry.revoke(
+      liveConfig,
+      evidence,
+      createTagPseudonym("abcd1234", bootstrap.stationSecret),
+      { confirmation: OWNER_TAG_REVOCATION_CONFIRMATION },
+    );
+    expect(result.tagCount).toBe(1);
+    expect(registry.tags).toEqual(new Set(["other-owner-tag"]));
+    expect(evidence.events.at(-1)?.payload).toMatchObject({ caseVariantsRemoved: 1 });
+  });
+
+  it("refuses a revocation whose case variants would remove the final owner credential", async () => {
+    const directory = await temporaryDirectory(directories);
+    const bootstrap = {
+      ...config(join(directory, "events.ndjson")),
+      ownerTags: new Set(["ABCD1234", "abcd1234"]),
+    };
+    const registry = await OwnerTagRegistry.open(bootstrap);
+    await expect(
+      registry.revoke(
+        withOwnerTagRegistry(bootstrap, registry),
+        new MemoryEvidenceStore(),
+        createTagPseudonym("ABCD1234", bootstrap.stationSecret),
+        { confirmation: OWNER_TAG_REVOCATION_CONFIRMATION },
+      ),
+    ).rejects.toThrow(/one desired owner tag must remain/i);
+    expect(registry.tags.size).toBe(2);
+  });
+
   it("reconciles a durable state whose audit was interrupted before startup", async () => {
     const directory = await temporaryDirectory(directories);
     const bootstrap = config(join(directory, "events.ndjson"));
