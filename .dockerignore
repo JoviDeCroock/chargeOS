@@ -1,6 +1,10 @@
 .chargeos
 .chargeos-deploy
 .env*
+**/.env*
+**/.dev.vars*
+**/.DS_Store
+.gstack
 .git
 .github
 coverage
