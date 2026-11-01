@@ -10,6 +10,7 @@ export function assessOwnerContinuity(
 ): CapabilityAssessment {
   const configuration = configurationMap(configurationResponse);
   const unsupported = unknownKeys(configurationResponse);
+  const unknownOfflineNotOffered = reportsUnknownOfflineNotOffered(configurationResponse);
   const localListVersion = readNumber(localListResponse, "listVersion");
   const checks: CapabilityCheck[] = [
     booleanCheck(
@@ -35,6 +36,7 @@ export function assessOwnerContinuity(
       configuration,
       unsupported,
       false,
+      unknownOfflineNotOffered ? UNKNOWN_OFFLINE_AUTHORIZATION_NOT_OFFERED : undefined,
     ),
     capacityCheck(
       "local-list-capacity",
@@ -92,8 +94,13 @@ export function planOwnerContinuityPreparation(
   configurationResponse: unknown,
 ): readonly ContinuitySettingPlan[] {
   const entries = configurationEntries(configurationResponse);
+  const unknownOfflineNotOffered = reportsUnknownOfflineNotOffered(configurationResponse);
   return CONTINUITY_SETTINGS.map(({ desiredValue, key }) => {
     const entry = entries.get(key);
+    if (key === "AllowOfflineTxForUnknownId" && unknownOfflineNotOffered) {
+      // OCPP 1.6 section 9.1.1: the key exists only when Unknown Offline Authorization is supported.
+      return { currentValue: null, desiredValue, key, state: "already-safe" };
+    }
     if (!entry) return { currentValue: null, desiredValue, key, state: "blocked" };
     if (entry.value.toLowerCase() === desiredValue) {
       return { currentValue: entry.value, desiredValue, key, state: "already-safe" };
@@ -147,6 +154,24 @@ function configurationEntries(
 
 const UNSUPPORTED_OBSERVATION = "not supported by this charger";
 
+/**
+ * OCPP 1.6 edition 2, section 9.1.1: "If this key exists, the Charge Point supports Unknown Offline
+ * Authorization." A charger that explicitly reports `AllowOfflineTxForUnknownId` as an unknown key,
+ * and reports no configuration entry for it in any letter case (with or without a value), reports
+ * that it does not offer the capability, which is the safe state. A key that is merely missing from
+ * the answer, or a contradictory answer, never passes.
+ */
+const UNKNOWN_OFFLINE_AUTHORIZATION_NOT_OFFERED = {
+  observed: "not offered by this charger, so unknown cards are never authorized offline",
+  value: false,
+} as const;
+
+/** Fixed, data-free observation texts that may be shared in troubleshooting context. */
+export const FIXED_CAPABILITY_OBSERVATIONS: ReadonlySet<string> = new Set([
+  UNSUPPORTED_OBSERVATION,
+  UNKNOWN_OFFLINE_AUTHORIZATION_NOT_OFFERED.observed,
+]);
+
 function booleanCheck(
   id: string,
   label: string,
@@ -154,9 +179,18 @@ function booleanCheck(
   configuration: ReadonlyMap<string, string>,
   unsupported: ReadonlySet<string>,
   expected: boolean,
+  whenUnsupported?: { readonly observed: string; readonly value: boolean },
 ): CapabilityCheck {
   const observed = configuration.get(key);
   if (observed === undefined && unsupported.has(key)) {
+    if (whenUnsupported) {
+      return {
+        id,
+        label,
+        observed: whenUnsupported.observed,
+        state: whenUnsupported.value === expected ? "pass" : "fail",
+      };
+    }
     return { id, label, observed: UNSUPPORTED_OBSERVATION, state: "fail" };
   }
   // Letter case varies between firmwares; padding does not. A padded value may not be read as
@@ -195,6 +229,24 @@ function numberValue(value: string | undefined): number | null {
   if (value === undefined || !/^\d+$/.test(value)) return null;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+function reportsUnknownOfflineNotOffered(response: unknown): boolean {
+  const key = "AllowOfflineTxForUnknownId";
+  if (!unknownKeys(response).has(key)) return false;
+  const configurationKey = record(response).configurationKey;
+  if (!Array.isArray(configurationKey)) return true;
+  // Configuration keys are case-insensitive CiString50 values; any entry at all means the key exists.
+  return !configurationKey.some((entry) => {
+    const name = record(entry).key;
+    return typeof name === "string" && name.toLowerCase() === key.toLowerCase();
+  });
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function unknownKeys(response: unknown): ReadonlySet<string> {

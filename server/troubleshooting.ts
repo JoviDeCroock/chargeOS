@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+
+import { FIXED_CAPABILITY_OBSERVATIONS } from "./capabilities.js";
 import type {
   OwnerSnapshot,
   TroubleshootingContext,
@@ -37,14 +39,7 @@ export function troubleshootingPreview(snapshot: OwnerSnapshot): Troubleshooting
       .map((check) => ({
         id: check.id,
         state: check.state,
-        observed: (check.id === "local-list-capacity"
-          ? /^(not reported|\d{1,10} entries)$/
-          : check.id === "local-list-version"
-            ? /^(not reported|\d{1,10})$/
-            : /^(true|false|not reported)$/i
-        ).test(check.observed)
-          ? check.observed
-          : "unrecognized value (withheld)",
+        observed: shareableObservation(check.id, check.observed),
       })),
     authorization: {
       state: snapshot.authorization.syncState,
@@ -261,4 +256,16 @@ export function createTroubleshooter(relayOrigin?: string, fetcher: typeof fetch
       active = false;
     }
   };
+}
+
+/** Only fixed or strictly shaped readiness observations may leave the edge. */
+function shareableObservation(id: string, observed: string): string {
+  if (FIXED_CAPABILITY_OBSERVATIONS.has(observed)) return observed;
+  const shape =
+    id === "local-list-capacity"
+      ? /^(not reported|\d{1,10} entries)$/u
+      : id === "local-list-version"
+        ? /^(not reported|\d{1,10})$/u
+        : /^(true|false|not reported)$/iu;
+  return shape.test(observed) ? observed : "unrecognized value (withheld)";
 }
