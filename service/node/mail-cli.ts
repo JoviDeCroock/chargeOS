@@ -1,5 +1,6 @@
 import { nativeConfiguration } from "./configuration.js";
 import { writePrivateRecoveryFile } from "./recovery-files.js";
+import { mailHeartbeat, MAIL_HEALTH_FILE } from "./mail-health.js";
 const usage =
   "template --output new-private-smtp.json | once --smtp-config private-smtp.json | run --smtp-config private-smtp.json";
 async function main() {
@@ -46,6 +47,10 @@ async function main() {
     path,
     settings.configuration.SERVICE_MODE === "production",
   );
+  const healthPath = process.env.SERVICE_MAIL_HEALTH_FILE;
+  if (healthPath && healthPath !== MAIL_HEALTH_FILE)
+    throw new Error("Unsupported mail health path");
+  const heartbeat = healthPath ? mailHeartbeat(healthPath) : undefined;
   let stopping = false,
     wake: () => void = () => {};
   const stop = () => {
@@ -62,6 +67,7 @@ async function main() {
         settings.directory,
         smtp,
       );
+      await heartbeat?.pulse();
       if (command === "once" || Object.values(counts).some((value) => value > 0))
         console.log(JSON.stringify(counts));
       if (command === "once" || stopping) break;
@@ -77,6 +83,7 @@ async function main() {
   } finally {
     process.removeListener("SIGINT", stop);
     process.removeListener("SIGTERM", stop);
+    await heartbeat?.close();
   }
 }
 void main().catch(() => {

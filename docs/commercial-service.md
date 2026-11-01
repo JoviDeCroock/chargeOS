@@ -1,6 +1,6 @@
 # Commercial account service
 
-> Native HTTPS Docker pilot: the separate [company-hosting contract](company-hosting.md) now supports synthetic public-origin account verification and Secure sessions. Local commands below retain their loopback boundary. Company one-click, managed-cloud company deployment and complete public recovery/resumption are still pending.
+> Native HTTPS Docker pilot: the separate [company-hosting contract](company-hosting.md) now supports synthetic public-origin account verification and Secure sessions. Local commands below retain their loopback boundary. Managed-cloud company deployment and complete public recovery/resumption are still pending.
 
 Implemented 2026-10-28. This is a real local account/organization service with persistent SQLite/D1 records. It remains separate from the fictional `/preview`, browser-memory `/observe` and physical owner console `/`. [ADR 0003](decisions/0003-separate-commercial-worker.md) records the hosting/storage boundary.
 
@@ -255,3 +255,7 @@ Organization administration does not grant physical charger ownership. The [reim
 `pnpm test:service` runs Worker/D1 integration tests covering verified accounts, cookie boundaries, session expiry/revocation, one-use password recovery, MFA enrollment/challenge/recovery-code reuse, SQL rate limits, tenant isolation, role restrictions, protected creator, invitation expiry/revocation and concurrent acceptance. `pnpm verify` includes the owner/UI, Worker and native suites, both commercial builds and the compiled native runtime drill. The owner test suite remains separate because the existing Node filesystem/recovery tests have known Windows failures. Focused UI regressions cover same-tab invitation links, MFA challenge gating, and clearing stale account views after session expiry.
 
 Chrome validation additionally exercises real registration/verification, organization persistence, invitation acceptance in a second browser context, driver restrictions, removal, authenticator enrollment/login and phone layout. It uses synthetic accounts and confirms no owner API requests. These tests establish local behavior only. Public deployment, real mailbox ownership, commercial restore, data-retention/deletion operations, household/station isolation and end-to-end money workflows remain unproven.
+
+## Mail worker readiness
+
+The native mail CLI can publish a volatile, private `/tmp/chargeos-mail-ready` marker when `SERVICE_MAIL_HEALTH_FILE` selects that exact path. It pulses only after a complete delivery/queue pass has returned through socket closure, durable acknowledgement, custody release and database close. The health command requires a live PID and a private single-link marker refreshed within one minute. Creation is exclusive and shutdown removes only the inode the worker created. This is local process readiness, never provider acceptance, inbox delivery or recovery-release authority; the marker is not part of any backup. The company Docker profile configures it for Compose's readiness wait.
