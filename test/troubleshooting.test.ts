@@ -237,6 +237,7 @@ describe("BYOK troubleshooting boundary", () => {
       listen: command,
       inspectLocalAuthorization: command,
       prepareOwnerContinuity: command,
+      sendStationCommand: command,
       syncOwnerList: command,
     };
     const evidence = { readEvents: async () => [] } as unknown as EvidenceStore;

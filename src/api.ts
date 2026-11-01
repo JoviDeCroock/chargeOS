@@ -19,6 +19,8 @@ import type {
   OwnerTagAddInput,
   OwnerTagMutationResult,
   OwnerTagRevokeInput,
+  StationCommandInput,
+  StationCommandResult,
   TroubleshootingInput,
   TroubleshootingPreview,
   TroubleshootingResult,
@@ -168,6 +170,22 @@ export async function syncAuthorizations(
     `/api/v1/stations/${encodeURIComponent(stationId)}/sync-authorizations`,
     token,
     { method: "POST" },
+  );
+}
+
+export async function sendStationCommand(
+  stationId: string,
+  input: StationCommandInput,
+  token: string,
+): Promise<StationCommandResult> {
+  return requestJson<StationCommandResult>(
+    `/api/v1/stations/${encodeURIComponent(stationId)}/commands`,
+    token,
+    {
+      body: JSON.stringify(input),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    },
   );
 }
 

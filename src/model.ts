@@ -13,6 +13,8 @@ import type {
   OwnerTagAddInput,
   OwnerTagRevokeInput,
   ContinuityPreparationInput,
+  StationCommandInput,
+  StationCommandRecord,
 } from "../shared/contracts.js";
 import {
   addOwnerTag,
@@ -31,6 +33,7 @@ import {
   saveFreedomTestObservation,
   startFreedomTestRun,
   saveMigrationCheckpoint,
+  sendStationCommand,
   syncAuthorizations,
   revokeDelegation,
   revokeOwnerTag,
@@ -58,6 +61,7 @@ export const action = signal<
   | "migration-export"
   | "owner-tag-add"
   | "owner-tag-revoke"
+  | "station-command"
   | null
 >(null);
 export const notice = signal<{ kind: "error" | "success"; message: string } | null>(null);
@@ -265,6 +269,55 @@ export async function runContinuityPreparation(input: ContinuityPreparationInput
     action.value = null;
   }
 }
+
+export async function runStationCommand(input: StationCommandInput): Promise<boolean> {
+  const current = snapshot.value;
+  if (!current || !ownerToken.value) return false;
+  action.value = "station-command";
+  try {
+    const { command } = await sendStationCommand(current.station.id, input, ownerToken.value);
+    notice.value = {
+      kind: command.state === "accepted" ? "success" : "error",
+      message: stationCommandMessage(command),
+    };
+    await refreshSnapshot(false);
+    if (command.state === "accepted") {
+      // Observed outcomes arrive in later charger messages; look again once they are likely in.
+      setTimeout(() => void refreshSnapshot(false), 4_000);
+    }
+    return command.state === "accepted";
+  } catch (error) {
+    handleError(error);
+    await refreshSnapshot(false);
+    return false;
+  } finally {
+    action.value = null;
+  }
+}
+
+export function stationCommandMessage(command: StationCommandRecord): string {
+  const name = STATION_COMMAND_LABELS[command.type];
+  switch (command.state) {
+    case "accepted":
+      return `${name}: the charger accepted the command. Watch the observed result below; acceptance alone does not prove it happened.`;
+    case "rejected":
+      return `${name}: the charger refused (${command.status ?? "no reason"}). Nothing changed.`;
+    case "failed":
+      return `${name}: not carried out (${command.status ?? "unknown error"}). This charger may not support it.`;
+    case "uncertain":
+      return `${name}: no clear answer (${command.status ?? "unknown"}). The charger may or may not have acted; check its state before trying again.`;
+    case "pending":
+      return `${name}: sent, waiting for the charger.`;
+  }
+}
+
+export const STATION_COMMAND_LABELS: Readonly<Record<StationCommandRecord["type"], string>> = {
+  ChangeAvailability: "Make available",
+  RemoteStartTransaction: "Remote start",
+  RemoteStopTransaction: "Remote stop",
+  Reset: "Restart",
+  UnlockConnector: "Unlock connector",
+};
 
 export async function runAuthorizationSync(): Promise<void> {
   const current = snapshot.value;

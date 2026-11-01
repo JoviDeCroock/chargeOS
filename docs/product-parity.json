@@ -276,7 +276,7 @@
       "id": "P08",
       "group": "Charging",
       "name": "Remote session start and stop",
-      "status": "missing",
+      "status": "foundation",
       "phase": "G1",
       "delivery": "Build",
       "providers": {
@@ -284,14 +284,14 @@
         "LMS / ThreeForce": "Documented (L1)",
         "D’Ieteren": "Documented (D1)"
       },
-      "currentEvidence": "Not exposed by ChargeGateway or owner API.",
+      "currentEvidence": "Owner-only station-scoped command route and console panel (2026-11-01): remote start with a current desired owner card by pseudonym, remote stop of an active session only, requested/charger-answer/observed outcome history, stale and foreign (cross-station) refusal and explicit timeout/lost-connection uncertainty. Simulator-verified only; no exact-device or driver-facing delivery yet.",
       "acceptance": "Verify card ownership and authority; show requested, acknowledged and observed outcomes; reject stale/foreign commands and surface timeout uncertainty."
     },
     {
       "id": "P09",
       "group": "Charging",
       "name": "Reset, connector unlock and availability",
-      "status": "missing",
+      "status": "foundation",
       "phase": "G1",
       "delivery": "Build",
       "providers": {
@@ -299,7 +299,7 @@
         "LMS / ThreeForce": "Documented (L1)",
         "D’Ieteren": "Unverified"
       },
-      "currentEvidence": "No operator command lifecycle.",
+      "currentEvidence": "Owner command lifecycle (2026-11-01): soft/hard reset and connector unlock with exact confirmations, make-available (Operative) only; Inoperative is deliberately refused because it persists without chargeOS. Charger answers and observed Boot/Status outcomes are audited. Simulator-verified only; affected-user notification and exact-device recovery remain open.",
       "acceptance": "Owner-authorized command on supported firmware; actual response/status is shown, affected users are informed, and safe recovery is demonstrated."
     },
     {

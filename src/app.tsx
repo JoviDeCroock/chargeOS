@@ -16,7 +16,10 @@ import type {
   MigrationPhase,
   MigrationProjection,
   MigrationStepResult,
+  OwnerSnapshot,
 } from "../shared/contracts.js";
+import { STATION_RESET_PHRASE, STATION_UNLOCK_PHRASE } from "../shared/commands.js";
+import type { StationCommandRecord } from "../shared/commands.js";
 import { CONTINUITY_PREPARATION_PHRASE } from "../shared/continuity.js";
 import { FREEDOM_TEST_RUN_CONFIRMATION_PHRASE } from "../shared/freedom-test.js";
 import { OWNER_TAG_REVOCATION_CONFIRMATION } from "../shared/owner-tags.js";
@@ -47,6 +50,8 @@ import {
   runMigrationReportExport,
   runOwnerTagAdd,
   runOwnerTagRevoke,
+  runStationCommand,
+  STATION_COMMAND_LABELS,
   setOwnerToken,
   selectStation,
   selectedStationId,
@@ -428,6 +433,8 @@ export function App() {
               </article>
             </section>
 
+            <StationCommandPanel snapshot={current} />
+
             <FreedomTestPanel test={current.freedomTest} />
 
             <MigrationPanel migration={current.migration} />
@@ -453,6 +460,235 @@ export function App() {
           Snapshot {formatDate(showFleet ? fleetSnapshot.generatedAt : current.generatedAt)}
         </span>
       </footer>
+    </div>
+  );
+}
+
+function StationCommandPanel({ snapshot: current }: { snapshot: OwnerSnapshot }) {
+  const connectorIds = [
+    ...new Set([1, ...current.station.connectors.map(({ connectorId }) => connectorId)]),
+  ]
+    .filter((connectorId) => connectorId >= 1)
+    .sort((left, right) => left - right);
+  const [connectorId, setConnectorId] = useState(connectorIds[0] ?? 1);
+  const [tagPseudonym, setTagPseudonym] = useState(current.authorization.tagPseudonyms[0] ?? "");
+  const [resetType, setResetType] = useState<"Hard" | "Soft">("Soft");
+  const [resetConfirmation, setResetConfirmation] = useState("");
+  const [unlockConfirmation, setUnlockConfirmation] = useState("");
+  const busy = action.value !== null;
+  const offline = !current.station.connected;
+  const activeSessions = current.sessions.filter(({ status }) => status === "active");
+
+  return (
+    <section class="panel wide-panel command-panel">
+      <PanelHeading label="Charger controls" title="Remote commands" />
+      <p class="muted">
+        Only you can send these, and only while the charger is connected. A charger can accept a
+        command and still fail to carry it out, so each command shows the charger&rsquo;s answer and
+        what it actually did afterwards. chargeOS never switches a charger off
+        (&ldquo;Inoperative&rdquo;) because that would persist if chargeOS disappeared.
+      </p>
+      {offline && (
+        <p class="authorization-pending">
+          The charger is offline. Remote commands are unavailable.
+        </p>
+      )}
+
+      <div class="command-grid">
+        <form
+          class="command-form"
+          aria-label="Remote start"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void runStationCommand({ connectorId, tagPseudonym, type: "RemoteStartTransaction" });
+          }}
+        >
+          <h3>Start charging</h3>
+          <label>
+            Connector
+            <select
+              value={connectorId}
+              onChange={(event) => setConnectorId(Number(event.currentTarget.value))}
+            >
+              {connectorIds.map((id) => (
+                <option key={id} value={id}>
+                  Connector {id}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Owner card
+            <select
+              value={tagPseudonym}
+              onChange={(event) => setTagPseudonym(event.currentTarget.value)}
+            >
+              {current.authorization.tagPseudonyms.map((tag) => (
+                <option key={tag} value={tag}>
+                  {tag}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button class="button primary" type="submit" disabled={offline || busy || !tagPseudonym}>
+            Start remotely
+          </button>
+        </form>
+
+        <div class="command-form">
+          <h3>Stop charging</h3>
+          {activeSessions.length === 0 ? (
+            <p class="muted">No active session.</p>
+          ) : (
+            activeSessions.map((session) => (
+              <button
+                key={session.transactionId}
+                class="button secondary"
+                type="button"
+                disabled={offline || busy}
+                onClick={() =>
+                  void runStationCommand({
+                    transactionId: session.transactionId,
+                    type: "RemoteStopTransaction",
+                  })
+                }
+              >
+                Stop session #{session.transactionId} (connector {session.connectorId})
+              </button>
+            ))
+          )}
+          <button
+            class="button ghost"
+            type="button"
+            disabled={offline || busy}
+            onClick={() =>
+              void runStationCommand({
+                availability: "Operative",
+                connectorId,
+                type: "ChangeAvailability",
+              })
+            }
+          >
+            Make connector {connectorId} available
+          </button>
+        </div>
+
+        <form
+          class="command-form"
+          aria-label="Unlock connector"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void runStationCommand({
+              confirmation: unlockConfirmation,
+              connectorId,
+              type: "UnlockConnector",
+            }).then((done) => done && setUnlockConfirmation(""));
+          }}
+        >
+          <h3>Unlock connector {connectorId}</h3>
+          <label>
+            Type this exact phrase
+            <span>{STATION_UNLOCK_PHRASE}</span>
+            <input
+              value={unlockConfirmation}
+              autocomplete="off"
+              onInput={(event) => setUnlockConfirmation(event.currentTarget.value)}
+            />
+          </label>
+          <button
+            class="button danger"
+            type="submit"
+            disabled={offline || busy || unlockConfirmation !== STATION_UNLOCK_PHRASE}
+          >
+            Unlock
+          </button>
+        </form>
+
+        <form
+          class="command-form"
+          aria-label="Restart charger"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void runStationCommand({
+              confirmation: resetConfirmation,
+              resetType,
+              type: "Reset",
+            }).then((done) => done && setResetConfirmation(""));
+          }}
+        >
+          <h3>Restart charger</h3>
+          <label>
+            Restart type
+            <select
+              value={resetType}
+              onChange={(event) => setResetType(event.currentTarget.value as "Hard" | "Soft")}
+            >
+              <option value="Soft">Soft (ends sessions cleanly first)</option>
+              <option value="Hard">Hard (immediate)</option>
+            </select>
+          </label>
+          <label>
+            Type this exact phrase
+            <span>{STATION_RESET_PHRASE}</span>
+            <input
+              value={resetConfirmation}
+              autocomplete="off"
+              onInput={(event) => setResetConfirmation(event.currentTarget.value)}
+            />
+          </label>
+          <button
+            class="button danger"
+            type="submit"
+            disabled={offline || busy || resetConfirmation !== STATION_RESET_PHRASE}
+          >
+            Restart
+          </button>
+        </form>
+      </div>
+
+      <CommandHistory commands={current.commands} />
+    </section>
+  );
+}
+
+function CommandHistory({ commands }: { commands: readonly StationCommandRecord[] }) {
+  if (!commands.length) return <p class="empty-state">No remote commands sent yet.</p>;
+  return (
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Requested</th>
+            <th>Command</th>
+            <th>Charger answer</th>
+            <th>Observed afterwards</th>
+          </tr>
+        </thead>
+        <tbody>
+          {commands.map((command) => (
+            <tr key={command.commandId}>
+              <td>{formatDate(command.requestedAt)}</td>
+              <td>
+                {STATION_COMMAND_LABELS[command.type]}
+                {command.resetType ? ` (${command.resetType})` : ""}
+                {command.transactionId !== null ? ` #${command.transactionId}` : ""}
+                {command.connectorId !== null && command.type !== "RemoteStopTransaction"
+                  ? ` · connector ${command.connectorId}`
+                  : ""}
+              </td>
+              <td>
+                <span class={`table-status command-${command.state}`}>{command.state}</span>
+                {command.status && command.status.toLowerCase() !== command.state
+                  ? ` · ${command.status}`
+                  : ""}
+              </td>
+              <td>
+                {command.observed ?? (command.state === "accepted" ? "Not yet observed" : "—")}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

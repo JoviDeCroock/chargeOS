@@ -37,19 +37,19 @@ Dated assignments and immutable policies reference organization members and non-
 
 ## Primary threats and controls
 
-| Threat                          | Control                                                                                                                                                                                   |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Charge-point ID spoofing        | Provisioned allowlist, unique random credential, physical/local claim challenge; never auto-enroll by ID                                                                                  |
-| Backend impersonation/MITM      | WSS TLS 1.2+, valid hostname/certificates, mTLS where device supports it                                                                                                                  |
-| Stolen RFID                     | Tenant-scoped pseudonym, visible last sync, local incident/revocation procedure, unknown tags rejected                                                                                    |
-| Credential leakage              | Secret manager/encrypted edge store, no logs/exports, rotation path, least privilege                                                                                                      |
-| Malicious remote start or limit | Owner-defined connector/energy bounds, authorization checks, audit, rate limits                                                                                                           |
-| Firmware compromise             | Vendor-signed sources, owner-only approval, recorded version/hash; no opaque support upload                                                                                               |
-| Meter/reimbursement fraud       | Preserve raw observations and provenance, signed exports, flag clock gaps/duplicates; do not call unverified data fiscal-grade                                                            |
-| Protocol abuse/DoS              | Strict schemas, 1 MiB OCPP message cap, one socket per provisioned identity, bounded TCP/upstream connections, per-peer token bucket, malformed-message close, owner-API body/auth limits |
-| Insider/support abuse           | Expiring capabilities, reason/purpose, append-only audit, owner-visible access history                                                                                                    |
-| Recovery bundle theft           | Authenticated encryption, explicit export, separately held recovery secret; current raw owner tags are recovery authority inside the ciphertext                                           |
-| Compromised release path        | Tag/package identity check, SHA-pinned actions, exact-digest runtime drill, create-only version tag, GitHub/Sigstore provenance and SBOM attestations                                     |
+| Threat                          | Control                                                                                                                                                                                                                 |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Charge-point ID spoofing        | Provisioned allowlist, unique random credential, physical/local claim challenge; never auto-enroll by ID                                                                                                                |
+| Backend impersonation/MITM      | WSS TLS 1.2+, valid hostname/certificates, mTLS where device supports it                                                                                                                                                |
+| Stolen RFID                     | Tenant-scoped pseudonym, visible last sync, local incident/revocation procedure, unknown tags rejected                                                                                                                  |
+| Credential leakage              | Secret manager/encrypted edge store, no logs/exports, rotation path, least privilege                                                                                                                                    |
+| Malicious remote start or limit | Owner-only command route (no delegate scope), desired-owner-card-only remote start by pseudonym, active-session-only remote stop, exact confirmations for reset/unlock, no `Inoperative`, audited intent/answer/failure |
+| Firmware compromise             | Vendor-signed sources, owner-only approval, recorded version/hash; no opaque support upload                                                                                                                             |
+| Meter/reimbursement fraud       | Preserve raw observations and provenance, signed exports, flag clock gaps/duplicates; do not call unverified data fiscal-grade                                                                                          |
+| Protocol abuse/DoS              | Strict schemas, 1 MiB OCPP message cap, one socket per provisioned identity, bounded TCP/upstream connections, per-peer token bucket, malformed-message close, owner-API body/auth limits                               |
+| Insider/support abuse           | Expiring capabilities, reason/purpose, append-only audit, owner-visible access history                                                                                                                                  |
+| Recovery bundle theft           | Authenticated encryption, explicit export, separately held recovery secret; current raw owner tags are recovery authority inside the ciphertext                                                                         |
+| Compromised release path        | Tag/package identity check, SHA-pinned actions, exact-digest runtime drill, create-only version tag, GitHub/Sigstore provenance and SBOM attestations                                                                   |
 
 ## OCPP profile
 

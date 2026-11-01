@@ -205,6 +205,21 @@ describe("owner console", () => {
               tagCount: 1,
               tagPseudonyms: ["tag_1234567890abcdef"],
             },
+            commands: [
+              {
+                commandId: "command-1",
+                connectorId: null,
+                observed: null,
+                requestedAt: "2026-08-14T11:59:00.000Z",
+                resetType: "Soft",
+                resolvedAt: "2026-08-14T11:59:30.000Z",
+                state: "uncertain",
+                status: "timeout",
+                tagPseudonym: null,
+                transactionId: null,
+                type: "Reset",
+              },
+            ],
             delegations: [],
             evidence: [],
             evidenceHistory: {
@@ -348,6 +363,12 @@ describe("owner console", () => {
     expect(screen.getByText(/Locked until every pre-switch checkpoint passes/)).toBeTruthy();
     expect(screen.getByText("3 exact retries")).toBeTruthy();
     expect(screen.getByText("evidence conflict")).toBeTruthy();
+    expect(screen.getByText("Remote commands")).toBeTruthy();
+    expect(screen.getByText("uncertain")).toBeTruthy();
+    expect(screen.getByText(/never switches a charger off/)).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Restart" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
     expect(screen.getByText("Owner access changes are pending")).toBeTruthy();
     expect(screen.getByText(/1 removed owner tag may still authorize locally/)).toBeTruthy();
     expect(screen.getByText(/1 configured owner tag is not yet acknowledged/)).toBeTruthy();

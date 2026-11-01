@@ -1,7 +1,8 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import type { Socket } from "node:net";
 import { RPCServer, createRPCError, type IHandlersOption } from "ocpp-rpc";
 
+import type { StationCommandInput, StationCommandRecord } from "../shared/commands.js";
 import type {
   ContinuityPreparationInput,
   ContinuityPreparationResult,
@@ -12,13 +13,20 @@ import {
   planOwnerContinuityPreparation,
   type CapabilityAssessment,
 } from "./capabilities.js";
+import {
+  activeTransactions,
+  buildStationCommands,
+  occupiedConnectors,
+  STATION_COMMAND_TIMEOUT_MS,
+  StationCommandConflictError,
+} from "./commands.js";
 import { configForStation, configuredStations, type GatewayConfig } from "./config.js";
 import { evidenceEvent, type EvidenceEvent, type EvidenceStore } from "./events.js";
 import { foldIdTag, pseudonymizeTag } from "./tag.js";
 
 interface OcppPeer {
   readonly identity?: string;
-  call(method: string, params?: unknown): Promise<unknown>;
+  call(method: string, params?: unknown, options?: { callTimeoutMs?: number }): Promise<unknown>;
   close(options?: { code?: number; force?: boolean; reason?: string }): Promise<void>;
   readonly handshake: { readonly request: { readonly socket: Socket } };
   handle(
@@ -55,6 +63,7 @@ export interface ChargeGateway {
     stationId: string,
     input: ContinuityPreparationInput,
   ): Promise<ContinuityPreparationResult>;
+  sendStationCommand(stationId: string, input: StationCommandInput): Promise<StationCommandRecord>;
   syncOwnerList(stationId: string): Promise<AuthorizationSyncResult>;
 }
 
@@ -68,13 +77,24 @@ export interface AuthorizationSyncResult {
   readonly status: string;
 }
 
-export function createChargeGateway(config: GatewayConfig, evidence: EvidenceStore): ChargeGateway {
+export interface ChargeGatewayOptions {
+  /** Override the charger answer timeout for owner commands (tests only). */
+  readonly commandTimeoutMs?: number;
+}
+
+export function createChargeGateway(
+  config: GatewayConfig,
+  evidence: EvidenceStore,
+  options: ChargeGatewayOptions = {},
+): ChargeGateway {
+  const commandTimeoutMs = options.commandTimeoutMs ?? STATION_COMMAND_TIMEOUT_MS;
   const stationConfigs = new Map(
     configuredStations(config).map((station) => [station.id, configForStation(config, station.id)]),
   );
   const peers = new Map<string, OcppPeer>();
   const connectedAt = new Map<string, string>();
   const pendingConnections = new Map<string, Socket>();
+  const stationOperations = new Map<string, Promise<unknown>>();
 
   const server = new RPCServer({
     maxBadMessages: 3,
@@ -369,11 +389,122 @@ export function createChargeGateway(config: GatewayConfig, evidence: EvidenceSto
     return { assessment, configuration };
   }
 
+  async function sendCommand(
+    stationId: string,
+    input: StationCommandInput,
+  ): Promise<StationCommandRecord> {
+    const stationConfig = configForStation(config, stationId);
+    const peer = requirePeer(peers, stationId);
+    const stationEvents = (await evidence.readEvents()).filter(
+      (event) => event.stationId === stationId,
+    );
+    const active = activeTransactions(stationEvents);
+    let method: string = input.type;
+    let params: Record<string, unknown>;
+    let requested: Record<string, unknown>;
+    switch (input.type) {
+      case "RemoteStartTransaction": {
+        const idTag = [...stationConfig.ownerTags].find(
+          (tag) =>
+            `tag_${pseudonymizeTag(tag, stationConfig.stationSecret)}` === input.tagPseudonym,
+        );
+        if (!idTag) {
+          throw new StationCommandConflictError("Remote start needs a current desired owner card");
+        }
+        if (occupiedConnectors(stationEvents).has(input.connectorId)) {
+          throw new StationCommandConflictError("A session is already active on that connector");
+        }
+        params = { connectorId: input.connectorId, idTag };
+        requested = { connectorId: input.connectorId, tagPseudonym: input.tagPseudonym };
+        break;
+      }
+      case "RemoteStopTransaction":
+        if (!active.has(input.transactionId)) {
+          throw new StationCommandConflictError(
+            "That session is not active on this charger; refresh and choose a current session",
+          );
+        }
+        params = { transactionId: input.transactionId };
+        requested = {
+          connectorId: active.get(input.transactionId)!.connectorId,
+          transactionId: input.transactionId,
+        };
+        break;
+      case "Reset":
+        params = { type: input.resetType };
+        requested = { resetType: input.resetType };
+        break;
+      case "UnlockConnector":
+        params = { connectorId: input.connectorId };
+        requested = { connectorId: input.connectorId };
+        break;
+      case "ChangeAvailability":
+        method = "ChangeAvailability";
+        params = { connectorId: input.connectorId, type: "Operative" };
+        requested = { availability: "Operative", connectorId: input.connectorId };
+        break;
+    }
+
+    const commandId = randomUUID();
+    // Durable intent first: if this append fails nothing is sent.
+    await record(evidence, stationConfig, stationId, "system", "StationCommandRequested", {
+      commandId,
+      type: input.type,
+      ...requested,
+    });
+    const notSent = async () => {
+      await record(evidence, stationConfig, stationId, "system", "StationCommandFailed", {
+        commandId,
+        reason: "not-sent",
+      });
+    };
+    try {
+      await record(evidence, stationConfig, stationId, "csms-to-station", method, {
+        commandId,
+        ...params,
+      });
+    } catch (error) {
+      await notSent().catch(() => undefined);
+      throw error;
+    }
+    // The socket may have closed while evidence was being written.
+    const currentPeer = peers.get(stationId);
+    let outcome: { readonly reason: string } | { readonly status: string };
+    if (currentPeer !== peer) {
+      outcome = { reason: "not-sent" };
+    } else {
+      try {
+        const response = await peer.call(method, params, { callTimeoutMs: commandTimeoutMs });
+        outcome = { status: readStatus(response) };
+      } catch (error) {
+        outcome = { reason: commandFailureReason(error) };
+      }
+    }
+    // A failed write here propagates: the ledger then shows no answer (uncertain), never a
+    // fabricated failure reason.
+    if ("status" in outcome) {
+      await record(evidence, stationConfig, stationId, "station-to-csms", "StationCommandResult", {
+        commandId,
+        status: outcome.status,
+      });
+    } else {
+      await record(evidence, stationConfig, stationId, "system", "StationCommandFailed", {
+        commandId,
+        reason: outcome.reason,
+      });
+    }
+    const command = buildStationCommands(
+      (await evidence.readEvents()).filter((event) => event.stationId === stationId),
+    ).find((candidate) => candidate.commandId === commandId);
+    if (!command) throw new Error("Station command evidence could not be projected");
+    return command;
+  }
+
   async function inspect(stationId: string): Promise<CapabilityAssessment> {
     return (await inspectState(stationId)).assessment;
   }
 
-  return {
+  const gateway: ChargeGateway = {
     async close() {
       await server.close({ awaitPending: true });
     },
@@ -474,6 +605,7 @@ export function createChargeGateway(config: GatewayConfig, evidence: EvidenceSto
       });
       return { assessment, changes, state: "ready" };
     },
+    sendStationCommand: sendCommand,
     async syncOwnerList(stationId) {
       const stationConfig = configForStation(config, stationId);
       const assessment = await inspect(stationId);
@@ -513,6 +645,33 @@ export function createChargeGateway(config: GatewayConfig, evidence: EvidenceSto
       }
       return { listVersion, status };
     },
+  };
+
+  // Every chargeOS-initiated exchange with one charger runs one at a time, so a command's
+  // csms-to-station record is written only when it is actually about to be sent, never while it
+  // waits behind an inspection or synchronization in the OCPP library's call queue.
+  function serialized<T>(stationId: string, operation: () => Promise<T>): Promise<T> {
+    const previous = stationOperations.get(stationId) ?? Promise.resolve();
+    const run = previous.then(operation);
+    stationOperations.set(
+      stationId,
+      run.then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    return run;
+  }
+
+  return {
+    ...gateway,
+    inspectLocalAuthorization: (stationId) =>
+      serialized(stationId, () => gateway.inspectLocalAuthorization(stationId)),
+    prepareOwnerContinuity: (stationId, input) =>
+      serialized(stationId, () => gateway.prepareOwnerContinuity(stationId, input)),
+    sendStationCommand: (stationId, input) =>
+      serialized(stationId, () => gateway.sendStationCommand(stationId, input)),
+    syncOwnerList: (stationId) => serialized(stationId, () => gateway.syncOwnerList(stationId)),
   };
 }
 
@@ -609,6 +768,27 @@ function applyPendingRestart(
     restartRequired: true,
     state: "blocked",
   };
+}
+
+// A schema-type error may mean the charger acted but sent a reply chargeOS could not accept, so
+// those outcomes are uncertain rather than failed.
+const UNCERTAIN_RPC_ERRORS = new Set([
+  "FormatViolation",
+  "FormationViolation",
+  "OccurenceConstraintViolation",
+  "PropertyConstraintViolation",
+  "ProtocolError",
+  "TypeConstraintViolation",
+]);
+
+function commandFailureReason(error: unknown): string {
+  if (error instanceof Error && error.constructor.name === "TimeoutError") return "timeout";
+  if (error instanceof Error && /socket not open/i.test(error.message)) return "not-sent";
+  const code = recordValue(error).rpcErrorCode;
+  if (typeof code === "string" && /^[A-Za-z]{1,40}$/.test(code)) {
+    return UNCERTAIN_RPC_ERRORS.has(code) ? `unreadable-reply:${code}` : `call-error:${code}`;
+  }
+  return "connection-lost";
 }
 
 function requirePeer(peers: ReadonlyMap<string, OcppPeer>, stationId: string): OcppPeer {

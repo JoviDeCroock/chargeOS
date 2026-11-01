@@ -27,7 +27,26 @@ Several chargers on one installation need a private stations file. The setup wiz
 - **Station** shows **Connected** or **Offline**, the hardware and firmware the charger reported, and each connector's status.
 - **Owner authorization** manages owner cards; see [Add or remove an RFID card](rfid.md).
 - **Liberate my charger** and **Freedom Test** record migration and field-test evidence; see [Connect a charging station](connect-a-charger.md).
+- **Charger controls** sends remote commands while the charger is connected; see below.
 - **Energy history** lists sessions. **Latest owner ledger events** shows recent records from the evidence ledger, the tamper-evident log chargeOS keeps.
+
+## Control the charger remotely
+
+The **Charger controls** panel works only while the charger shows **Connected**, and only you (the owner) can use it.
+
+- **Start remotely**: pick a connector and one of your owner cards (shown by its pseudonym, never the card number). The charger starts a session as if that card had been presented.
+- **Stop session #…**: appears for each session that is currently charging.
+- **Make connector … available**: asks the charger to accept sessions again, for example after a previous provider disabled it. chargeOS never switches a charger off. Chargers remember "off" even after a restart, so if chargeOS stopped running you could be locked out.
+- **Unlock** releases the cable. Type the exact phrase shown first, and only do this when you are at the charger.
+- **Restart** restarts the charger. **Soft** lets it end sessions cleanly; **Hard** is immediate. Type the exact phrase shown first.
+
+Each command appears in the history with the charger's answer and, separately, what the charger reported afterwards:
+
+- **accepted** means the charger said yes. It is not proof; wait for **Observed afterwards** to show, for example, "Session #7 started".
+- **rejected** means the charger said no. **failed** means the command was not carried out; often this charger doesn't support it.
+- **uncertain** means chargeOS got no clear answer (a timeout or lost connection). The charger may or may not have acted. Check its status or the charger itself before trying again.
+
+None of these commands changes your owner card list or the settings that let you charge offline.
 
 ## Give someone temporary read access
 

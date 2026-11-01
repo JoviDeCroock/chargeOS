@@ -1356,6 +1356,52 @@ td {
   color: var(--red);
 }
 
+.table-status.command-accepted {
+  color: var(--green);
+}
+
+.table-status.command-rejected,
+.table-status.command-failed {
+  color: var(--red);
+}
+
+.command-panel > .muted {
+  max-width: 72ch;
+  line-height: 1.55;
+}
+
+.command-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin: 16px 0 20px;
+}
+
+.command-form {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.command-form h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.command-form label {
+  display: grid;
+  gap: 7px;
+  font-size: 0.78rem;
+}
+
+.command-form label span {
+  color: var(--amber);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 .continuity-preparation {
   display: grid;
   gap: 12px;

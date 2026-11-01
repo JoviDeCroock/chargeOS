@@ -63,9 +63,10 @@ The repository now contains a self-hostable owner-edge vertical slice:
 - a redacted support export plus an encrypted, restorable owner continuity bundle;
 - create-only schema-4 compacted replacement recovery that keeps full source evidence off-edge, carries replay-safe operational state with explicit provenance, and never silently claims complete history;
 - a non-root container image, a production Compose boundary with automatic HTTPS/WSS and file-backed secrets, a CI-generated container SBOM, disaster-recovery simulator tests, and field runbooks.
+- owner-only remote start/stop, restart, connector unlock and make-available commands with requested, charger-answer and observed-outcome history, explicit timeout uncertainty, and no `Inoperative` switch;
 - a machine-readable Genesis plan shared by the owner UI and API, with explicit actors, evidence classes, safety boundaries, stop conditions, and ordered next actions.
 
-It is usable as a single-owner fleet edge for lab and migration work, but it is not yet a multi-tenant commercial CSMS and does not certify a charger. Public account delivery, station claiming, billing, remote start/stop, schedules, and smart charging remain explicit future work. The separate local commercial account service is a tested foundation, not a production multi-tenant CSMS. The physical Freedom Test remains the release gate.
+It is usable as a single-owner fleet edge for lab and migration work, but it is not yet a multi-tenant commercial CSMS and does not certify a charger. Public account delivery, station claiming, billing, schedules, and smart charging remain explicit future work. The separate local commercial account service is a tested foundation, not a production multi-tenant CSMS. The physical Freedom Test remains the release gate.
 
 ```sh
 pnpm install
