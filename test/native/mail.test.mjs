@@ -437,7 +437,11 @@ it("preserves operator-only channel defaults when upgrading existing outbox rows
       fileURLToPath(new URL("../../service/migrations", import.meta.url)),
     );
   try {
-    await migrateNativeDatabase(db, migrations.slice(0, -1));
+    const smtpMigration = migrations.findIndex(
+      (migration) => migration.name === "0005_lyrical_carmella_unuscione",
+    );
+    expect(smtpMigration).toBeGreaterThan(0);
+    await migrateNativeDatabase(db, migrations.slice(0, smtpMigration));
     await db
       .prepare(
         "INSERT INTO local_outbox VALUES('historical','verify-email','person@example.test','http://127.0.0.1:5173/service',1,9999999999999)",

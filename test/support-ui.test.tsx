@@ -245,3 +245,31 @@ it("clears the original statement context when starting a general case", async (
   await waitFor(() => expect(writes).toHaveLength(1));
   expect(writes[0]!.statementId).toBeNull();
 });
+
+it("shows closed staff cases as reporter-controlled history without an unusable mutation form", async () => {
+  const closed = { ...saved, case: { ...saved.case, status: "closed", revision: 3 } };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) =>
+      path === root
+        ? reply({
+            cases: [closed.case],
+            assignees: [{ id: "finance-a", name: "Synthetic finance" }],
+            nextBefore: null,
+          })
+        : reply(closed),
+    ),
+  );
+  render(
+    <SupportWorkspace
+      organization={{ ...org, role: "finance" }}
+      actorId="finance-a"
+      initialStatementId={null}
+      onOpenStatement={() => {}}
+      onSessionExpired={() => {}}
+    />,
+  );
+  fireEvent.click(await screen.findByRole("button", { name: /September amount/ }));
+  await screen.findByText("The reporter confirmed closure. Only they can reopen this case.");
+  expect(screen.queryByRole("button", { name: "Save update" })).toBeNull();
+});

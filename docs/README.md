@@ -23,6 +23,8 @@ Choose the smallest relevant canonical layer. Read all documents in **Always** b
 
 ## Strategy and evidence
 
+- [Company support cases](support-cases.md): employee-scoped questions, accountable staff assignment, retained replies and reporter-confirmed closure.
+
 - [Approved corrections and journal](reimbursement-corrections.md): immutable replacement chains, separate-person review, cancellation, exact balances and retained session reservations.
 - [Reimbursement statements](reimbursement-statements.md): dated assignments, immutable policies, server-calculated drafts, fresh-MFA finance review and unpaid statements.
 - [Commercial service](commercial-service.md): real local accounts, MFA/recovery, organizations, invitations, role isolation and local delivery.

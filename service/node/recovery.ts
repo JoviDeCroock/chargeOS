@@ -97,7 +97,6 @@ export async function inspectNativeCommercialDatabase(
     )
       throw new Error("Commercial migration history differs from this software");
     database.checkIntegrity();
-    await validateSupportHistory({ SERVICE_DB: database });
     const organizations = await database
       .prepare("SELECT id FROM organization ORDER BY id")
       .all<{ id: string }>();
@@ -105,6 +104,7 @@ export async function inspectNativeCommercialDatabase(
       const data = await readFinancialData({ SERVICE_DB: database }, organization.id, "", true);
       financialJournal(data);
     }
+    await validateSupportHistory({ SERVICE_DB: database });
     const tables = await database
       .prepare(
         "SELECT name FROM sqlite_schema WHERE type='table' AND name GLOB 'reimbursement_*' ORDER BY name",

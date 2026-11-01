@@ -254,6 +254,16 @@ try {
     (await browser("/service/api/v1/me")).status === 200,
     "Recovered verified MFA session could not access its organization",
   );
+  const support = await browser(
+    `/service/api/v1/organizations/${login.organizationId}/support/${login.supportCaseId}`,
+  );
+  const retainedCase = JSON.parse(support.body);
+  assert(
+    support.status === 200 &&
+      retainedCase.case.status === "closed" &&
+      retainedCase.events.length === 3,
+    "Public recovery lost confirmed support history",
+  );
   const inode = compose([
     "exec",
     "-T",
@@ -383,7 +393,7 @@ try {
   ])
     assert(!logs.includes(secret), "Private recovered account material leaked into Docker logs");
   console.log(
-    "Company public recovery Docker passed: compiled review/fresh enrollment/release/source retirement, exact capsule transport and network-free create-only install, HTTPS fresh MFA/Secure cookies, old session rejection, live idempotent install and restart persistence, newly activated verified STARTTLS mail, public backup restored to fresh quarantine with retained history/auth scrub, and token-free stopped-upstream logs. Synthetic evidence only; no external customer/cloud/mail provider was used.",
+    "Company public recovery Docker passed: compiled review/fresh enrollment/release/source retirement, exact capsule transport and network-free create-only install, HTTPS fresh MFA/Secure cookies, old session rejection, retained confirmed support history, live idempotent install and restart persistence, newly activated verified STARTTLS mail, public backup restored to fresh quarantine with retained history/auth scrub, and token-free stopped-upstream logs. Synthetic evidence only; no external customer/cloud/mail provider was used.",
   );
 } finally {
   if (args.length)

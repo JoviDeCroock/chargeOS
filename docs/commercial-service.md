@@ -17,6 +17,10 @@ In another terminal run `pnpm dev:web`, then open `http://127.0.0.1:5173/service
 
 Only the explicit loopback development profile runs. Public hostnames, missing secrets and production mode return 503. `pnpm service:build` bundles the Worker with `--dry-run`; it creates no cloud resources. The Node owner build and production Compose boundary do not run this service.
 
+## Employee support cases
+
+The same `/service` workspace now provides [company support cases](support-cases.md) for reimbursement and account questions, linked only to the reporter’s own immutable statement snapshot. Current finance/admin colleagues handle replies and assignment; only the reporter confirms closure. Case actions never change money, eligibility or charger authority. See [the nontechnical support guide](guides/support.md). This remains a company-operated pilot without external SLA, notifications or retention operations.
+
 ## Native SQLite runtime
 
 The same account, organization and financial handlers can now run on Node.js **22.22.x** (the tested release line), using `node:sqlite` and the checked-in SQL migrations. Newer releases must provide the required SQLite APIs: before touching commercial state, an in-memory probe checks ordered array results, column metadata, foreign keys and the configured lock timeout. Version numbers alone do not establish compatibility because these APIs were backported unevenly. No Cloudflare account, Wrangler process or proprietary canonical storage is required for this local runtime. Node 22 currently labels SQLite experimental; the native entrypoint checks its minimum version before importing that module. This remains an explicitly loopback-only development profile, with the private operator outbox by default and optional native SMTP delivery for new local-trial links. Public hosting remains disabled. It does not enable production hosting or complete commercial self-host parity.

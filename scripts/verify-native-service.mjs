@@ -244,6 +244,29 @@ try {
   });
   assert(organization.status === 201, "Compiled native organization creation failed");
   const saved = await organization.json();
+  const supportRoot = `${api}/v1/organizations/${saved.id}/support`;
+  const openedCase = await request(supportRoot, {
+    mutationId: crypto.randomUUID(),
+    subject: "Synthetic native support recovery",
+    topic: "account",
+    statementId: null,
+    message: "Synthetic case text must not enter service logs.",
+  });
+  assert(openedCase.status === 201, "Compiled native support creation failed");
+  const createdCase = await openedCase.json();
+  const resolvedCase = await request(`${supportRoot}/${createdCase.case.id}/resolve`, {
+    mutationId: crypto.randomUUID(),
+    expectedRevision: 1,
+    message: "Synthetic account issue was checked.",
+    resolution: "answer-provided",
+  });
+  assert(resolvedCase.status === 200, "Compiled native support resolution failed");
+  const closedCase = await request(`${supportRoot}/${createdCase.case.id}/close`, {
+    mutationId: crypto.randomUUID(),
+    expectedRevision: 2,
+    confirmation: "I checked the answer and confirm this issue is resolved",
+  });
+  assert(closedCase.status === 200, "Compiled native reporter confirmation failed");
   const liveCheckpoint = JSON.parse(
     execFileSync(
       process.execPath,
@@ -262,7 +285,10 @@ try {
   );
   await drainStop(base, environment.SERVICE_NATIVE_DATA);
   assert(
-    !captured.includes(authSecret) && !captured.includes(delivery) && !captured.includes(password),
+    !captured.includes(authSecret) &&
+      !captured.includes(delivery) &&
+      !captured.includes(password) &&
+      !captured.includes("Synthetic case text must not enter service logs."),
     "Native runtime logged sensitive data",
   );
   base = await start();
@@ -323,6 +349,19 @@ try {
   assert(
     restored.status === "quarantined" && restored.snapshotSha256 === exported.snapshotSha256,
     "Compiled commercial restore did not retain snapshot identity/quarantine",
+  );
+  execFileSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `import{NativeCommercialDatabase}from'./dist/native-service/service/node/sqlite.js';import{validateSupportHistory}from'./dist/native-service/service/support-history.js';const db=new NativeCommercialDatabase(process.env.SERVICE_NATIVE_DATA,{recoveryInspection:true});try{await validateSupportHistory({SERVICE_DB:db});const c=await db.prepare("SELECT status,revision FROM support_case WHERE id=?").bind(${JSON.stringify(createdCase.case.id)}).first();if(c?.status!=='closed'||c.revision!==3)throw Error('Support recovery history lost');}finally{db.close()}`,
+    ],
+    {
+      cwd: root,
+      env: { ...freshHostEnvironment, SERVICE_NATIVE_DATA: join(target, "data") },
+      stdio: "pipe",
+    },
   );
   const reviewFile = join(directory, "review.json"),
     reportFile = join(directory, "reviewed.json"),
@@ -657,12 +696,14 @@ try {
         password: newPassword,
         totpURI: authenticator.totpURI,
         oldCookies: [...cookies],
+        supportCaseId: createdCase.case.id,
+        organizationId: saved.id,
       }),
       { mode: 0o600, flag: "wx" },
     );
   }
   console.log(
-    "Native commercial runtime passed: compiled process lease/duplicate exclusion, active-upload SIGTERM drain, online checkpoint, failed-start lease cleanup, origin-bound release/startup, boot and migrations, local verification, scoped-cookie login, organization/session persistence, clean restart, encrypted backup/inspection without source config, financial checkpoint, fresh-path quarantined restore, restore-bound recovery review, one-time fresh password/TOTP enrollment, cross-process lifecycle exclusion, atomic reviewed release, normal fresh-MFA sign-in and released-source backup restored into fresh quarantine, with no HTTP outbox or secret logging.",
+    "Native commercial runtime passed: compiled process lease/duplicate exclusion, active-upload SIGTERM drain, online checkpoint, failed-start lease cleanup, origin-bound release/startup, boot and migrations, local verification, scoped-cookie login, organization/session and confirmed support history persistence, clean restart, encrypted backup/inspection without source config, financial checkpoint, fresh-path quarantined restore, restore-bound recovery review, one-time fresh password/TOTP enrollment, cross-process lifecycle exclusion, atomic reviewed release, normal fresh-MFA sign-in and released-source backup restored into fresh quarantine, with no HTTP outbox or secret logging.",
   );
 } finally {
   await stop().catch(() => {});

@@ -636,7 +636,7 @@
       "id": "P32",
       "group": "Support",
       "name": "Support tickets with accountable ownership",
-      "status": "missing",
+      "status": "foundation",
       "phase": "G1",
       "delivery": "Build / integrate + operate",
       "providers": {
@@ -644,7 +644,7 @@
         "LMS / ThreeForce": "Documented (L5)",
         "D’Ieteren": "Documented (D3)"
       },
-      "currentEvidence": "Delegate read tokens and diagnostics; no case management.",
+      "currentEvidence": "Company-operated employee support cases in the real /service workspace (2026-11-01): own-statement snapshot links, current reporter/tenant/staff SQL isolation, responsible staff assignment, retained replies, proposed resolutions and reporter-confirmed closure/reopen. Both Worker/D1 and native SQLite tests cover concurrency, exact retries, offboarding, financial immutability, bounded content/pagination and history integrity. Compiled encrypted recovery retains confirmed cases; browser proof covers employee statement, administrator explanation, phone closure and unchanged financial snapshot. No outside operator/SLA, urgent dispatch, notifications, attachments, automatic AI upload or operational retention has been proven.",
       "acceptance": "Create a case from a session/payment/charger; preserve context, assign a human owner, show updates and close with a verified resolution."
     },
     {

@@ -121,7 +121,7 @@ export function SupportWorkspace({
           ? "reopen"
           : ""
         : "reply";
-    assignee.value = detail.value.case.assignee.id;
+    assignee.value = detail.value.case.assignee.available ? detail.value.case.assignee.id : "";
   }
   async function save(retry = false) {
     if (busy.value) return;
@@ -421,130 +421,137 @@ export function SupportWorkspace({
                     </li>
                   ))}
                 </ol>
-                <form
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void save();
-                  }}
-                >
-                  <h3>{c.status === "closed" ? "Need more help?" : "Next action"}</h3>
-                  <label>
-                    Action
-                    <select
-                      disabled={locked}
-                      value={action.value}
-                      onChange={(event) => {
-                        action.value = event.currentTarget.value;
-                        confirmed.value = false;
-                      }}
-                    >
-                      <option value="" disabled>
-                        Choose an action
-                      </option>
-                      {c.status !== "closed" && <option value="reply">Add a reply</option>}
-                      {staff && c.status !== "closed" && (
-                        <option value="assign">Assign a colleague</option>
-                      )}
-                      {responsible && c.status !== "closed" && (
-                        <>
-                          <option value="request-information">
-                            Ask the reporter for information
-                          </option>
-                          <option value="resolve">Propose a resolution</option>
-                        </>
-                      )}
-                      {reporter && c.status === "resolved" && (
-                        <option value="close">Confirm the resolution and close</option>
-                      )}
-                      {reporter && ["resolved", "closed"].includes(c.status) && (
-                        <option value="reopen">Reopen the case</option>
-                      )}
-                    </select>
-                  </label>
-                  {action.value === "assign" ? (
+                {c.status === "closed" && !reporter ? (
+                  <p>The reporter confirmed closure. Only they can reopen this case.</p>
+                ) : (
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void save();
+                    }}
+                  >
+                    <h3>{c.status === "closed" ? "Need more help?" : "Next action"}</h3>
                     <label>
-                      Assigned person
+                      Action
                       <select
-                        required
-                        value={assignee.value}
                         disabled={locked}
+                        value={action.value}
                         onChange={(event) => {
-                          assignee.value = event.currentTarget.value;
+                          action.value = event.currentTarget.value;
+                          confirmed.value = false;
                         }}
                       >
-                        {data.value.assignees.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : action.value === "close" ? (
-                    <label class="cs-support-confirm">
-                      <input
-                        type="checkbox"
-                        required
-                        checked={confirmed.value}
-                        disabled={locked}
-                        onChange={(event) => {
-                          confirmed.value = event.currentTarget.checked;
-                        }}
-                      />
-                      {SUPPORT_CLOSE_CONFIRMATION}
-                    </label>
-                  ) : (
-                    <label>
-                      {action.value === "resolve"
-                        ? "Explain what was checked and resolved"
-                        : "Message"}
-                      <textarea
-                        required
-                        maxLength={2000}
-                        rows={5}
-                        disabled={locked}
-                        value={message.value}
-                        onInput={(event) => {
-                          message.value = event.currentTarget.value;
-                        }}
-                      />
-                    </label>
-                  )}
-                  {action.value === "resolve" && (
-                    <label>
-                      Resolution
-                      <select
-                        value={resolution.value}
-                        disabled={locked}
-                        onChange={(event) => {
-                          resolution.value = event.currentTarget.value;
-                        }}
-                      >
-                        <option value="answer-provided">Answer provided</option>
-                        <option value="record-reviewed">Record reviewed</option>
-                        <option value="external-follow-up-complete">
-                          External follow-up completed
+                        <option value="" disabled>
+                          Choose an action
                         </option>
+                        {c.status !== "closed" && <option value="reply">Add a reply</option>}
+                        {staff && c.status !== "closed" && (
+                          <option value="assign">Assign a colleague</option>
+                        )}
+                        {responsible && c.status !== "closed" && (
+                          <>
+                            <option value="request-information">
+                              Ask the reporter for information
+                            </option>
+                            <option value="resolve">Propose a resolution</option>
+                          </>
+                        )}
+                        {reporter && c.status === "resolved" && (
+                          <option value="close">Confirm the resolution and close</option>
+                        )}
+                        {reporter && ["resolved", "closed"].includes(c.status) && (
+                          <option value="reopen">Reopen the case</option>
+                        )}
                       </select>
                     </label>
-                  )}
-                  <button
-                    type="submit"
-                    disabled={
-                      locked ||
-                      !action.value ||
-                      (c.status === "closed" && action.value !== "reopen")
-                    }
-                  >
-                    Save update
-                  </button>
-                  <button
-                    type="button"
-                    disabled={locked}
-                    onClick={() => void read(() => open(c.id))}
-                  >
-                    Reload current case
-                  </button>
-                </form>
+                    {action.value === "assign" ? (
+                      <label>
+                        Assigned person
+                        <select
+                          required
+                          value={assignee.value}
+                          disabled={locked}
+                          onChange={(event) => {
+                            assignee.value = event.currentTarget.value;
+                          }}
+                        >
+                          <option value="" disabled>
+                            Choose a current colleague
+                          </option>
+                          {data.value.assignees.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : action.value === "close" ? (
+                      <label class="cs-support-confirm">
+                        <input
+                          type="checkbox"
+                          required
+                          checked={confirmed.value}
+                          disabled={locked}
+                          onChange={(event) => {
+                            confirmed.value = event.currentTarget.checked;
+                          }}
+                        />
+                        {SUPPORT_CLOSE_CONFIRMATION}
+                      </label>
+                    ) : (
+                      <label>
+                        {action.value === "resolve"
+                          ? "Explain what was checked and resolved"
+                          : "Message"}
+                        <textarea
+                          required
+                          maxLength={2000}
+                          rows={5}
+                          disabled={locked}
+                          value={message.value}
+                          onInput={(event) => {
+                            message.value = event.currentTarget.value;
+                          }}
+                        />
+                      </label>
+                    )}
+                    {action.value === "resolve" && (
+                      <label>
+                        Resolution
+                        <select
+                          value={resolution.value}
+                          disabled={locked}
+                          onChange={(event) => {
+                            resolution.value = event.currentTarget.value;
+                          }}
+                        >
+                          <option value="answer-provided">Answer provided</option>
+                          <option value="record-reviewed">Record reviewed</option>
+                          <option value="external-follow-up-complete">
+                            External follow-up completed
+                          </option>
+                        </select>
+                      </label>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={
+                        locked ||
+                        !action.value ||
+                        (c.status === "closed" && action.value !== "reopen")
+                      }
+                    >
+                      Save update
+                    </button>
+                    <button
+                      type="button"
+                      disabled={locked}
+                      onClick={() => void read(() => open(c.id))}
+                    >
+                      Reload current case
+                    </button>
+                  </form>
+                )}
               </>
             ) : (
               <p>Select a case to read its history, or open a new one.</p>
