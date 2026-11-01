@@ -1,0 +1,31 @@
+{
+  admin off
+  auto_https off
+  # Account links contain credentials, even on errors. Platform logs must also
+  # discard request URLs; this config cannot control the platform proxy.
+  log default {
+    output discard
+  }
+  servers {
+    protocols h1 h2
+    max_header_size 16KB
+    timeouts {
+      read_header 5s
+      read_body 15s
+      write 30s
+      idle 30s
+    }
+  }
+}
+# Only the platform Traefik and this proxy may join the dedicated destination.
+# There is no host port or shared coolify network. Never trust forwarded client IP.
+http://{$COMPANY_DOMAIN}:8080 {
+  reverse_proxy 127.0.0.1:9091 {
+    header_up Host {$COMPANY_DOMAIN}
+    header_up X-Forwarded-Proto https
+    header_up X-ChargeOS-Client-IP {remote_host}
+    header_up -Forwarded
+    header_up -X-Real-IP
+    header_up -CF-Connecting-IP
+  }
+}

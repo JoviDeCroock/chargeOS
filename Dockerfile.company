@@ -10,6 +10,7 @@ COPY . .
 RUN pnpm build:web && pnpm service:native:build && pnpm prune --prod
 
 FROM caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648 AS proxy
+COPY --chmod=444 deploy/Caddyfile.company-managed /etc/caddy/Caddyfile.company-managed
 RUN setcap -r /usr/bin/caddy && chown -R 1000:1000 /data /config && chmod 700 /data /config
 USER 1000:1000
 
@@ -23,7 +24,7 @@ ENV SERVICE_UI_DIRECTORY=/app/dist/ui
 ENV SERVICE_PROXY_ONLY=loopback
 ENV SERVICE_DELIVERY=smtp
 ENV SERVICE_AUTH_SECRET_FILE=/run/secrets/company_auth
-RUN mkdir -p /data /run/secrets && chown 1000:1000 /data && chmod 700 /data
+RUN mkdir -p /data /smtp /run/secrets/auth /run/secrets/smtp && chown 1000:1000 /data /smtp && chmod 700 /data /smtp
 COPY --from=build --chown=1000:1000 /app/dist/native-service ./dist/native-service
 COPY --from=build --chown=1000:1000 /app/dist/ui ./dist/ui
 COPY --from=build --chown=1000:1000 /app/node_modules ./node_modules

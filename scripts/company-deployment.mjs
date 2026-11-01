@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { mkdir, lstat, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { DeploymentError, repositoryRoot, dockerComposeCommand } from "./deployment.mjs";
+import { companyCloudFields, companyCloudInput } from "./company-cloud.mjs";
 
 const dns = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 const domain = (value) =>
@@ -10,6 +11,8 @@ const email =
   /^[A-Za-z0-9._+-]+@(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$/;
 export function companyDeploymentInput(value) {
   const allowed = [
+    "target",
+    ...companyCloudFields,
     "name",
     "companyDomain",
     "signupDomains",
@@ -35,6 +38,12 @@ export function companyDeploymentInput(value) {
     );
   if (typeof value.deploy !== "boolean")
     throw new DeploymentError("Choose whether to prepare or deploy.");
+  const target = value.target ?? "docker";
+  if (!["docker", "coolify"].includes(target))
+    throw new DeploymentError("Choose local Docker or managed Coolify deployment.");
+  if (target === "docker" && companyCloudFields.some((name) => value[name] !== undefined))
+    throw new DeploymentError("Cloud settings require the managed Coolify destination.");
+  const cloud = target === "coolify" ? companyCloudInput(value) : {};
   if (!domain(value.companyDomain))
     throw new DeploymentError(
       "Enter the company accounts hostname, such as accounts.company.be, without https:// or a path.",
@@ -98,6 +107,8 @@ export function companyDeploymentInput(value) {
       "The email settings are too large. Ask your administrator for supported SMTP credentials.",
     );
   return {
+    ...cloud,
+    target,
     name: value.name,
     companyDomain: value.companyDomain,
     signupDomains,
@@ -129,13 +140,27 @@ export async function prepareCompanyDeployment(
   const save = (name, content, mode = 0o600) =>
     writeFile(join(directory, name), content, { mode, flag: "wx" });
   const installId = `${input.name}-${randomBytes(6).toString("hex")}`;
-  const model = JSON.parse(await readFile(join(repositoryRoot, "compose.company.json"), "utf8"));
+  const managed = input.target === "coolify";
+  const model = JSON.parse(
+    await readFile(
+      join(repositoryRoot, managed ? "compose.company.coolify.json" : "compose.company.json"),
+      "utf8",
+    ),
+  );
   const values = {
     COMPANY_DOMAIN: input.companyDomain,
     COMPANY_ACME_EMAIL: input.email,
     COMPANY_SIGNUP_DOMAINS: input.signupDomains.join(","),
     COMPANY_AUTH_FILE: "./secrets/company_auth",
     COMPANY_SMTP_FILE: "./secrets/company_smtp",
+    COMPANY_INSTALL_ID: installId,
+    COMPANY_INGRESS_NETWORK: `chargeos-company-${installId}`,
+    COMPANY_IMAGE: input.image,
+    COMPANY_PROXY_IMAGE: input.proxyImage,
+    // Kept as runtime placeholders in saved Compose; actual secrets stay in
+    // private files and are sent only after cloud resource readback.
+    COMPANY_BOOTSTRAP_AUTH: "${COMPANY_BOOTSTRAP_AUTH}",
+    COMPANY_BOOTSTRAP_SMTP: "${COMPANY_BOOTSTRAP_SMTP}",
   };
   function expand(item) {
     if (typeof item === "string")
@@ -151,25 +176,33 @@ export async function prepareCompanyDeployment(
   }
   const prepared = expand(model);
   prepared.name = `chargeos-company-${installId}`;
-  for (const service of ["proxy", "accounts"])
-    prepared.services[service].build.context = repositoryRoot;
-  prepared.services.proxy.image = `chargeos-company-proxy-${installId}:local`;
-  prepared.services.accounts.image = `chargeos-company-${installId}:local`;
-  prepared.services.mailer.image = prepared.services.accounts.image;
-  prepared.services.proxy.volumes[0] = "./Caddyfile:/etc/caddy/Caddyfile:ro";
+  if (!managed) {
+    for (const service of ["proxy", "accounts"])
+      prepared.services[service].build.context = repositoryRoot;
+    prepared.services.proxy.image = `chargeos-company-proxy-${installId}:local`;
+    prepared.services.accounts.image = `chargeos-company-${installId}:local`;
+    prepared.services.mailer.image = prepared.services.accounts.image;
+    prepared.services.proxy.volumes[0] = "./Caddyfile:/etc/caddy/Caddyfile:ro";
+  }
   await mkdir(join(directory, "secrets"), { mode: 0o700 });
   await save("secrets/company_auth", randomBytes(48).toString("base64url"), 0o444);
   await save("secrets/company_smtp", JSON.stringify(input.smtp), 0o444);
   await save(
     "Caddyfile",
-    await readFile(join(repositoryRoot, "deploy/Caddyfile.company"), "utf8"),
+    await readFile(
+      join(
+        repositoryRoot,
+        managed ? "deploy/Caddyfile.company-managed" : "deploy/Caddyfile.company",
+      ),
+      "utf8",
+    ),
     0o444,
   );
   await save("compose.json", JSON.stringify(prepared, null, 2));
   const receipt = {
     schemaVersion: 1,
     workspace: "company",
-    target: "docker",
+    target: managed ? "coolify" : "docker",
     name: input.name,
     installId,
     companyUrl: `https://${input.companyDomain}/service`,
@@ -177,9 +210,16 @@ export async function prepareCompanyDeployment(
     ...(input.dockerContext ? { dockerContext: input.dockerContext } : {}),
   };
   await save("setup.json", JSON.stringify(receipt, null, 2));
+  if (managed) {
+    await save(
+      "START-HERE.txt",
+      `chargeOS managed company setup: ${input.name}\n\nWorkspace: ${receipt.companyUrl}\nInstallation: ${installId}\n\nSynthetic pilot only. This fresh company workspace never connects a charger or opens recovered data.\n\nDeploy through the local wizard once. It creates a fresh standalone Coolify destination, then a pinned Git Raw Compose application. Prepare-only files are review/export artifacts, not a resumable cloud installation. If the wizard explicitly returned prepared and this folder has no cloud-intent.json, no cloud request was made: retain these review files, reopen the full terminal setup link and submit the reviewed values with a new installation name. Once any cloud intent/submission exists, this exception does not apply; inspect existing resources before any next action. No deployment is submitted in prepare-only mode; no cloud API token is saved. Inspect cloud-*.json and the existing Coolify resources after any uncertain result. Never repeat a create or choose a new name to bypass a failure. Do not run this cloud package as a second local installation.\n\nYour operator must use Traefik, keep request/access/error URL logging and traffic analytics off, and leave ONLY the platform proxy and this company proxy on its dedicated ingress network. No shared coolify network, HTTP account router, extra proxy/CDN, Cloudflare Tunnel or additional workload/destination is supported. A destination receipt does not prove actual proxy attachment. Confirm public HTTPS, actual network membership, secret-free logs, verified signup/email/login and persistent records before evaluating test accounts.\n\nThe two image digests must come from this reviewed source revision and pass the company runtime drills. Coolify/registry access, DNS, provider TLS and retention/backup policy are operator prerequisites. Cloud submitted means API acknowledgement, not health or delivery.\n\nPrivate settings: secrets/. Keep this folder off shared drives and out of support messages. SMTP credentials and the generated key are also retained in trusted Coolify environment/configuration and initializer container metadata; clearing the process environment does not erase them there. Never change bootstrap credentials to rotate a live installation: exact existing files are preserved and mismatches stop. Only the initializer receives inline credentials, with no network; account/mail workers use read-only files.\n\nUse Coolify to inspect/start/stop the SAME application and all its services together. Stopping keeps volumes; never delete data/credential volumes for a retained company. Never copy a live database, import it here or enable restored accounts. Public recovery/resumption remains unavailable: restore into fresh local quarantine for current review and new credentials.\n\nManaged rate limits identify the platform proxy, not individual users: only a small synthetic pilot is supported. Read /help (Share the company workspace and Send account emails) and docs/company-hosting.md.\n`,
+    );
+    return { directory, model: prepared, receipt };
+  }
   await save(
     "START-HERE.txt",
-    `chargeOS company account setup: ${input.name}\n\nWorkspace: ${receipt.companyUrl}\n\nThis synthetic HTTPS pilot has its own account database, secure entrance and email worker. It does not connect to a charger. Point the hostname at this Docker server and allow ports 80/443. Use a dedicated public entrance, without an extra proxy or CDN.\n\nPrivate mail settings and the generated service key are in secrets/. Keep this entire folder private, off shared drives and out of support messages. Create synthetic accounts with approved work emails, open their verification mail, then sign in and invite colleagues. Provider acceptance is not inbox delivery.\n\nResume (from this folder): ${dockerComposeCommand(prepared.name, input.dockerContext)} up --detach --build --wait --wait-timeout 180\nStop without deleting records: ${dockerComposeCommand(prepared.name, input.dockerContext)} stop\nStatus: ${dockerComposeCommand(prepared.name, input.dockerContext)} ps\nNever use down --volumes for retained company data. Stop/recreate all services together when replacing the proxy.\n\nDo not retry an uncertain deployment under a different name or copy a live database into another installation. A restored backup must remain quarantined through current review and fresh credentials; public recovery/resumption is not yet verified.\n\nRead the in-app Help at /help, especially Share the company workspace and Send account emails. Node/Docker, DNS and mail-provider access are prerequisites. Managed-cloud company setup and public recovery/resumption remain pending.\n`,
+    `chargeOS company account setup: ${input.name}\n\nWorkspace: ${receipt.companyUrl}\n\nThis synthetic HTTPS pilot has its own account database, secure entrance and email worker. It does not connect to a charger. Point the hostname at this Docker server and allow ports 80/443. Use a dedicated public entrance, without an extra proxy or CDN.\n\nPrivate mail settings and the generated service key are in secrets/. Keep this entire folder private, off shared drives and out of support messages. Create synthetic accounts with approved work emails, open their verification mail, then sign in and invite colleagues. Provider acceptance is not inbox delivery.\n\nResume (from this folder): ${dockerComposeCommand(prepared.name, input.dockerContext)} up --detach --build --wait --wait-timeout 180\nStop without deleting records: ${dockerComposeCommand(prepared.name, input.dockerContext)} stop\nStatus: ${dockerComposeCommand(prepared.name, input.dockerContext)} ps\nNever use down --volumes for retained company data. Stop/recreate all services together when replacing the proxy.\n\nDo not retry an uncertain deployment under a different name or copy a live database into another installation. A restored backup must remain quarantined through current review and fresh credentials; public recovery/resumption is not yet verified.\n\nRead the in-app Help at /help, especially Share the company workspace and Send account emails. Node/Docker, DNS and mail-provider access are prerequisites. Live managed-platform acceptance and public recovery/resumption remain pending.\n`,
   );
   return { directory, model: prepared, receipt };
 }

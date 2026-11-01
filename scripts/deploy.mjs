@@ -12,6 +12,7 @@ import {
   repositoryRoot,
 } from "./deployment.mjs";
 import { companyDeploymentInput, prepareCompanyDeployment } from "./company-deployment.mjs";
+import { deployCompanyToCoolify } from "./company-cloud.mjs";
 import {
   inspectLocalDocker,
   proveLocalDocker,
@@ -23,6 +24,7 @@ export function createSetupServer({
   cloud = deployToCoolify,
   docker = runDocker,
   companyPrepare = prepareCompanyDeployment,
+  companyCloud = deployCompanyToCoolify,
   dockerDestination = inspectLocalDocker,
   dockerProbe = proveLocalDocker,
 } = {}) {
@@ -91,8 +93,7 @@ export function createSetupServer({
           return reply(response, 400, { error: "Setup data must be valid JSON." });
         }
         const input = company ? companyDeploymentInput(raw) : deploymentInput(raw);
-        const destination =
-          company || input.target === "docker" ? await dockerDestination() : undefined;
+        const destination = input.target === "docker" ? await dockerDestination() : undefined;
         if (destination) {
           if (input.deploy) await dockerProbe(destination);
           input.dockerContext = destination.context;
@@ -100,7 +101,8 @@ export function createSetupServer({
         const prepared = company ? await companyPrepare(input) : await prepare(input);
         let receipt = prepared.receipt;
         if (input.deploy) {
-          if (!company && input.target === "coolify") receipt = await cloud(input, prepared);
+          if (input.target === "coolify")
+            receipt = await (company ? companyCloud : cloud)(input, prepared);
           else {
             await docker(prepared.directory, {
               project: prepared.model.name,

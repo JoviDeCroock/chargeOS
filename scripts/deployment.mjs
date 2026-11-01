@@ -103,64 +103,71 @@ export function deploymentInput(value) {
       throw new DeploymentError(
         "Managed deployment needs a published, verified chargeOS image digest.",
       );
-    let origin;
-    try {
-      origin = new URL(value.cloudOrigin);
-    } catch {
-      throw new DeploymentError("Enter your trusted Coolify HTTPS address.");
-    }
-    if (
-      origin.protocol !== "https:" ||
-      origin.origin !== value.cloudOrigin ||
-      origin.username ||
-      origin.password
-    )
-      throw new DeploymentError(
-        "Use your trusted Coolify HTTPS origin without a path, for example https://app.coolify.io.",
-      );
-    result.cloudOrigin = origin.origin;
-    result.cloudToken = field(
-      "cloudToken",
-      /^[\x21-\x7e]{16,512}$/,
-      "Enter a Coolify API token with permission to create and deploy services.",
-    );
-    result.projectId = field(
-      "projectId",
-      /^[a-zA-Z0-9_-]{1,128}$/,
-      "Enter the Coolify project ID.",
-    );
-    result.serverId = field(
-      "serverId",
-      /^[a-zA-Z0-9_-]{1,128}$/,
-      "Enter the connected Coolify server ID.",
-    );
-    result.environment = field(
-      "environment",
-      /^[a-zA-Z0-9_-]{1,64}$/,
-      "Enter the Coolify environment name.",
-    );
-    result.gitRepository = field(
-      "gitRepository",
-      /^https:\/\/github\.com\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+$/,
-      "Enter the trusted GitHub repository HTTPS URL containing chargeOS's raw deployment template.",
-    );
-    result.gitBranch = field(
-      "gitBranch",
-      /^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,127}$/,
-      "Enter the repository branch containing the deployment template.",
-    );
-    result.gitCommit = field(
-      "gitCommit",
-      /^[a-f0-9]{40}$/,
-      "Enter the reviewed 40-character repository commit SHA.",
-    );
-    result.githubAppId = value.githubAppId || "";
-    if (!/^[a-zA-Z0-9_-]{0,128}$/.test(result.githubAppId))
-      throw new DeploymentError("Invalid Coolify GitHub App ID.");
+    Object.assign(result, cloudDeploymentInput(value));
     result.destinationId = value.destinationId || "";
     if (!/^[a-zA-Z0-9_-]{0,128}$/.test(result.destinationId))
       throw new DeploymentError("Invalid destination ID.");
   }
+  return result;
+}
+
+export function cloudDeploymentInput(value) {
+  const result = {};
+  const field = (name, expression, message) => {
+    if (typeof value[name] !== "string" || !expression.test(value[name]))
+      throw new DeploymentError(message);
+    return value[name];
+  };
+  let origin;
+  try {
+    origin = new URL(value.cloudOrigin);
+  } catch {
+    throw new DeploymentError("Enter your trusted Coolify HTTPS address.");
+  }
+  if (
+    origin.protocol !== "https:" ||
+    origin.origin !== value.cloudOrigin ||
+    origin.username ||
+    origin.password
+  )
+    throw new DeploymentError(
+      "Use your trusted Coolify HTTPS origin without a path, for example https://app.coolify.io.",
+    );
+  result.cloudOrigin = origin.origin;
+  result.cloudToken = field(
+    "cloudToken",
+    /^[\x21-\x7e]{16,512}$/,
+    "Enter a Coolify API token with permission to create and deploy services.",
+  );
+  result.projectId = field("projectId", /^[a-zA-Z0-9_-]{1,128}$/, "Enter the Coolify project ID.");
+  result.serverId = field(
+    "serverId",
+    /^[a-zA-Z0-9_-]{1,128}$/,
+    "Enter the connected Coolify server ID.",
+  );
+  result.environment = field(
+    "environment",
+    /^[a-zA-Z0-9_-]{1,64}$/,
+    "Enter the Coolify environment name.",
+  );
+  result.gitRepository = field(
+    "gitRepository",
+    /^https:\/\/github\.com\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+$/,
+    "Enter the trusted GitHub repository HTTPS URL containing chargeOS's raw deployment template.",
+  );
+  result.gitBranch = field(
+    "gitBranch",
+    /^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,127}$/,
+    "Enter the repository branch containing the deployment template.",
+  );
+  result.gitCommit = field(
+    "gitCommit",
+    /^[a-f0-9]{40}$/,
+    "Enter the reviewed 40-character repository commit SHA.",
+  );
+  result.githubAppId = value.githubAppId || "";
+  if (!/^[a-zA-Z0-9_-]{0,128}$/.test(result.githubAppId))
+    throw new DeploymentError("Invalid Coolify GitHub App ID.");
   return result;
 }
 

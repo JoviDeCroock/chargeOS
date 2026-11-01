@@ -12,9 +12,13 @@ The wizard uses a verified immutable image when supplied, otherwise builds the c
 
 ## Company Docker accounts
 
-Select **set up company accounts instead** on the setup page. The separate form generates a new native company HTTPS package from the canonical JSON model, with private SMTP settings and an independent random service key. It has prepare-only and one explicit Deploy action. It never imports a database or releases restored data. See [company hosting](company-hosting.md) for exact state, network, delivery and remaining public-recovery gates. Managed-cloud company deployment remains pending; the existing Coolify form below continues to deploy the owner edge only.
+Select **set up company accounts instead** on the setup page. The separate form generates a new native company HTTPS package from the canonical JSON model, with private SMTP settings and an independent random service key. It has prepare-only and one explicit Deploy action. It never imports a database or releases restored data. See [company hosting](company-hosting.md) for exact state, network, delivery and remaining public-recovery gates. Select local Docker or managed Coolify in the company form. The managed company adapter has its own isolated-destination contract below; the owner Coolify profile still uses its existing topology.
 
-## Managed Coolify Cloud
+## Managed company accounts
+
+The company form's **Managed through Coolify** target creates a fresh dedicated standalone destination, checks actual server/destination and pinned Raw application settings before sharing auth/SMTP bootstrap variables, and submits `/compose.company.coolify.json`. It requires verified company runtime/proxy digests from the reviewed source revision. Only the company Caddy joins that destination; the account/mail backend stays loopback-only and auth/SMTP file volumes remain separate. The operator must confirm disabled platform URL logging and actual ingress/network readiness. No local Docker is required. Prepare-only sends no cloud request. See [the company deployment contract](company-hosting.md#managed-company-deployment) for exact API capabilities, privacy/capacity limits, image preparation and live acceptance gates, and [Share the company workspace](guides/company-hosting.md) for plain-language steps.
+
+## Managed owner-edge Coolify Cloud
 
 The managed adapter requires an existing account and connected server, its project/environment/destination IDs, a published verified image accessible to the server, and a trusted GitHub repository containing `compose.coolify.json` at an explicitly reviewed 40-character commit. A private repository additionally requires an already connected Coolify GitHub App ID; making this repository public is a separate owner action. This path assumes Coolify's standard Traefik proxy, external `coolify` network, HTTPS entrypoint and `letsencrypt` resolver. It does not purchase hosting or register DNS.
 
@@ -33,6 +37,8 @@ The AI helper's 45-second limit applies to provider work after reading the authe
 ## Verification
 
 The Verify workflow runs both the AI relay error-log redaction drill and the managed-template runtime drill after building and exercising the production image. They use synthetic data and never call a real cloud account or AI provider.
+
+The company profile additionally runs `pnpm verify:company-managed-runtime`: a real pinned Traefik Docker-provider HTTPS route to the dedicated company bridge, rogue shared-network numeric-IP attempts at 8080/9091, isolated auth/SMTP mounts and create-only initialization, verified STARTTLS account mail, Secure session/restart persistence and secret-free platform/Caddy errors. ACME is replaced only by synthetic test certificates; no actual Coolify account, public DNS or mailbox is used.
 
 Tests exercise the real setup scripts and generated company package, including nonce navigation, SMTP erasure, remote-context refusal, bind-file visibility and pinned project behavior with an existing sentinel. Tests also exercise malformed input/path/command values, unique installation IDs, private file modes, non-overwrite, symlink/shared parents, owner secret exclusion from image/environment/HTTP response, mock raw-mode create/readback/private-env/deploy sequencing, uncertain submission handling and setup Host/Origin/nonce enforcement. The existing production HTTPS/WSS and recovery drill remains the principal owner-edge runtime proof; the managed-template drill checks its bootstrap volumes, credential modes and network boundary without a cloud account. None is physical charger evidence.
 

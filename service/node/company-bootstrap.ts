@@ -73,30 +73,43 @@ function matchingFile(path: string, value: string): boolean {
 /** Fresh empty secret volume only; exact restarts are safe, rotation is separate.
  * A private lock also refuses concurrent initializers and interrupted custody.
  * Never remove a partial credential or stale lock after an uncertain write. */
-export function initializeCompanyCredentials(directory: string, auth: string, smtp: string): void {
+export function initializeCompanyCredentials(
+  directory: string,
+  auth: string,
+  smtp: string,
+  smtpDirectory = directory,
+): void {
   validate(auth, smtp);
   directory = resolve(directory);
-  const info = lstatSync(directory);
-  if (
-    !info.isDirectory() ||
-    info.isSymbolicLink() ||
-    realpathSync(directory) !== directory ||
-    info.uid !== process.getuid?.() ||
-    (info.mode & 0o777) !== 0o700
-  )
-    throw refused();
-  const lock = join(directory, ".company-bootstrap");
-  mkdirSync(lock, { mode: 0o700 });
+  smtpDirectory = resolve(smtpDirectory);
+  const directories = [...new Set([directory, smtpDirectory])];
+  for (const current of directories) {
+    const info = lstatSync(current);
+    if (
+      !info.isDirectory() ||
+      info.isSymbolicLink() ||
+      realpathSync(current) !== current ||
+      info.uid !== process.getuid?.() ||
+      (info.mode & 0o777) !== 0o700
+    )
+      throw refused();
+  }
+  const locks: string[] = [];
   try {
+    for (const current of directories) {
+      const lock = join(current, ".company-bootstrap");
+      mkdirSync(lock, { mode: 0o700 });
+      locks.push(lock);
+    }
     const entries = [
-      ["company_auth", auth],
-      ["company_smtp", smtp],
+      [join(directory, "company_auth"), auth],
+      [join(smtpDirectory, "company_smtp"), smtp],
     ] as const;
     // Validate ALL existing bytes before filling any missing file.
-    const missing = entries.filter(([name, value]) => !matchingFile(join(directory, name), value));
+    const missing = entries.filter(([path, value]) => !matchingFile(path, value));
     for (const [name, value] of missing) {
       const fd = openSync(
-        join(directory, name),
+        name,
         constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
         0o600,
       );
@@ -109,14 +122,16 @@ export function initializeCompanyCredentials(directory: string, auth: string, sm
         closeSync(fd);
       }
     }
-    const fd = openSync(directory, constants.O_RDONLY | constants.O_DIRECTORY);
-    try {
-      fsyncSync(fd);
-    } finally {
-      closeSync(fd);
+    for (const current of directories) {
+      const fd = openSync(current, constants.O_RDONLY | constants.O_DIRECTORY);
+      try {
+        fsyncSync(fd);
+      } finally {
+        closeSync(fd);
+      }
     }
   } finally {
-    rmdirSync(lock);
+    for (const lock of locks.reverse()) rmdirSync(lock);
   }
 }
 
@@ -127,7 +142,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     delete process.env.COMPANY_BOOTSTRAP_AUTH;
     delete process.env.COMPANY_BOOTSTRAP_SMTP;
     validate(auth, smtp);
-    initializeCompanyCredentials("/data", auth, smtp as string);
+    initializeCompanyCredentials("/data", auth, smtp as string, "/smtp");
     console.log("Company credentials initialized");
   } catch {
     console.error(

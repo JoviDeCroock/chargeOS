@@ -55,6 +55,19 @@ it("creates durable read-only files and preserves their identity on exact restar
     expect(lstatSync(join(root, name)).mode & 0o777).toBe(0o444);
   }
 });
+it("keeps auth and SMTP on separate private volumes and checks both before filling a partial pair", () => {
+  const authRoot = directory(),
+    smtpRoot = directory();
+  initializeCompanyCredentials(authRoot, auth, smtp, smtpRoot);
+  expect(readFileSync(join(authRoot, "company_auth"), "utf8")).toBe(auth);
+  expect(() => lstatSync(join(authRoot, "company_smtp"))).toThrow();
+  expect(readFileSync(join(smtpRoot, "company_smtp"), "utf8")).toBe(smtp);
+  expect(() => lstatSync(join(smtpRoot, "company_auth"))).toThrow();
+  initializeCompanyCredentials(authRoot, auth, smtp, smtpRoot);
+  const empty = directory();
+  expect(() => initializeCompanyCredentials(empty, auth, smtp + " ", smtpRoot)).toThrow();
+  expect(() => lstatSync(join(empty, "company_auth"))).toThrow();
+});
 it("completes an interrupted pair only when every surviving file matches", () => {
   for (const [name, value] of [
     ["company_auth", auth],

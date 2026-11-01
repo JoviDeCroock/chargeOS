@@ -1,0 +1,163 @@
+{
+  "name": "chargeos-company-${COMPANY_INSTALL_ID}",
+  "services": {
+    "proxy": {
+      "image": "${COMPANY_PROXY_IMAGE:?Set the verified company proxy image digest}",
+      "user": "1000:1000",
+      "cap_drop": ["ALL"],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "environment": {
+        "COMPANY_DOMAIN": "${COMPANY_DOMAIN:?Set the company accounts DNS name}"
+      },
+      "tmpfs": ["/tmp:size=16m,mode=1777"],
+      "volumes": [],
+      "expose": ["8080"],
+      "networks": ["company-ingress"],
+      "command": [
+        "caddy",
+        "run",
+        "--config",
+        "/etc/caddy/Caddyfile.company-managed",
+        "--adapter",
+        "caddyfile"
+      ],
+      "labels": [
+        "traefik.enable=true",
+        "traefik.docker.network=${COMPANY_INGRESS_NETWORK}",
+        "traefik.http.routers.chargeos-company-${COMPANY_INSTALL_ID}.rule=Host(`${COMPANY_DOMAIN}`)",
+        "traefik.http.routers.chargeos-company-${COMPANY_INSTALL_ID}.entrypoints=https",
+        "traefik.http.routers.chargeos-company-${COMPANY_INSTALL_ID}.tls=true",
+        "traefik.http.routers.chargeos-company-${COMPANY_INSTALL_ID}.tls.certresolver=letsencrypt",
+        "traefik.http.routers.chargeos-company-${COMPANY_INSTALL_ID}.service=chargeos-company-${COMPANY_INSTALL_ID}",
+        "traefik.http.services.chargeos-company-${COMPANY_INSTALL_ID}.loadbalancer.server.port=8080"
+      ]
+    },
+    "accounts": {
+      "image": "${COMPANY_IMAGE:?Set the verified company runtime image digest}",
+      "network_mode": "service:proxy",
+      "depends_on": {
+        "proxy": {
+          "condition": "service_started"
+        },
+        "credentials": {
+          "condition": "service_completed_successfully"
+        }
+      },
+      "user": "1000:1000",
+      "cap_drop": ["ALL"],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "environment": {
+        "SERVICE_ORIGIN": "https://${COMPANY_DOMAIN:?Set the company accounts DNS name}",
+        "SERVICE_SIGNUP_DOMAINS": "${COMPANY_SIGNUP_DOMAINS:?Set approved work email domains}",
+        "SERVICE_AUTH_SECRET_FILE": "/run/secrets/auth/company_auth"
+      },
+      "tmpfs": ["/tmp:size=512m,mode=1777"],
+      "volumes": [
+        "company-data:/data",
+        {
+          "type": "volume",
+          "source": "company-credentials",
+          "target": "/run/secrets/auth",
+          "read_only": true,
+          "volume": {
+            "nocopy": true
+          }
+        }
+      ],
+      "stop_grace_period": "90s"
+    },
+    "mailer": {
+      "image": "${COMPANY_IMAGE:?Set the verified company runtime image digest}",
+      "network_mode": "service:proxy",
+      "depends_on": {
+        "accounts": {
+          "condition": "service_healthy"
+        },
+        "credentials": {
+          "condition": "service_completed_successfully"
+        }
+      },
+      "user": "1000:1000",
+      "cap_drop": ["ALL"],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "command": [
+        "node",
+        "dist/native-service/service/node/mail-cli.js",
+        "run",
+        "--smtp-config",
+        "/run/secrets/smtp/company_smtp"
+      ],
+      "healthcheck": {
+        "test": ["CMD", "node", "dist/native-service/service/node/mail-health.js"],
+        "interval": "10s",
+        "timeout": "3s",
+        "start_period": "15s",
+        "retries": 6
+      },
+      "environment": {
+        "SERVICE_MAIL_HEALTH_FILE": "/tmp/chargeos-mail-ready",
+        "SERVICE_ORIGIN": "https://${COMPANY_DOMAIN:?Set the company accounts DNS name}",
+        "SERVICE_SIGNUP_DOMAINS": "${COMPANY_SIGNUP_DOMAINS:?Set approved work email domains}",
+        "SERVICE_AUTH_SECRET_FILE": "/run/secrets/auth/company_auth"
+      },
+      "tmpfs": ["/tmp:size=32m,mode=1777"],
+      "volumes": [
+        "company-data:/data",
+        {
+          "type": "volume",
+          "source": "company-credentials",
+          "target": "/run/secrets/auth",
+          "read_only": true,
+          "volume": {
+            "nocopy": true
+          }
+        },
+        {
+          "type": "volume",
+          "source": "company-smtp",
+          "target": "/run/secrets/smtp",
+          "read_only": true,
+          "volume": {
+            "nocopy": true
+          }
+        }
+      ],
+      "stop_grace_period": "90s"
+    },
+    "credentials": {
+      "image": "${COMPANY_IMAGE:?Set the verified company runtime image digest}",
+      "network_mode": "none",
+      "user": "1000:1000",
+      "read_only": true,
+      "restart": "no",
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": ["company-credentials:/data", "company-smtp:/smtp"],
+      "environment": {
+        "COMPANY_BOOTSTRAP_AUTH": "${COMPANY_BOOTSTRAP_AUTH:?Set the generated authentication key}",
+        "COMPANY_BOOTSTRAP_SMTP": "${COMPANY_BOOTSTRAP_SMTP:?Set the private mail settings}"
+      },
+      "command": ["node", "dist/native-service/service/node/company-bootstrap.js"],
+      "healthcheck": {
+        "disable": true
+      }
+    }
+  },
+  "volumes": {
+    "company-data": {},
+    "company-credentials": {},
+    "company-smtp": {}
+  },
+  "networks": {
+    "company-ingress": {
+      "external": true,
+      "name": "${COMPANY_INGRESS_NETWORK:?Set the fresh dedicated company destination network}"
+    }
+  }
+}
