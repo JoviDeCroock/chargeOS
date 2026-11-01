@@ -1,5 +1,7 @@
 import { execFileSync, spawn } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { request as rawRequest } from "node:http";
+import { createServer as createTcpServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -60,6 +62,69 @@ async function stop() {
     clearTimeout(timer);
   }
 }
+async function drainStop(base, runtimeDirectory) {
+  const body = '{"synthetic":true}';
+  let continueUpload, failedUpload;
+  const continued = new Promise((resolve, reject) => {
+    continueUpload = resolve;
+    failedUpload = reject;
+  });
+  const request = rawRequest(new URL("/service/api/v1/health", base), {
+    method: "POST",
+    headers: {
+      Origin: origin,
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(body),
+      Expect: "100-continue",
+    },
+  });
+  const complete = new Promise((resolve, reject) => {
+    request.once("continue", () => {
+      request.write(body.slice(0, 1));
+      continueUpload();
+    });
+    request.once("response", (response) => {
+      response.resume();
+      response.once("end", resolve);
+      response.once("error", reject);
+    });
+    request.once("error", (error) => {
+      failedUpload(error);
+      reject(error);
+    });
+  });
+  void complete.catch(() => {});
+  const timer = setTimeout(() => {
+    const error = new Error("Compiled HTTP drain deadline");
+    failedUpload(error);
+    request.destroy(error);
+    child.kill("SIGKILL");
+  }, 5000);
+  try {
+    request.flushHeaders();
+    await continued;
+    const exit = once(child, "exit");
+    child.kill("SIGTERM");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert(child.exitCode === null, "Native main exited before the active HTTP upload drained");
+    assert(
+      (await lstat(join(runtimeDirectory, ".service-runtime"))).isDirectory(),
+      "Native main released process custody during HTTP drain",
+    );
+    request.end(body.slice(1));
+    await complete;
+    const [code, signal] = await exit;
+    assert(code === 0 && !signal, "Native main did not finish its drained shutdown cleanly");
+    const remaining = await lstat(join(runtimeDirectory, ".service-runtime")).catch((error) => {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    });
+    assert(!remaining, "Native main retained process custody after database closure");
+  } finally {
+    clearTimeout(timer);
+    request.destroy();
+  }
+}
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
 };
@@ -80,6 +145,36 @@ function authenticatorCode(uri) {
 }
 try {
   let base = await start();
+  const runtimeLease = JSON.parse(
+    await readFile(join(environment.SERVICE_NATIVE_DATA, ".service-runtime/operator.json"), "utf8"),
+  );
+  assert(runtimeLease.pid === child.pid, "Compiled main did not retain its own process lease");
+  let duplicateRefused = false;
+  try {
+    execFileSync(process.execPath, ["dist/native-service/service/node/main.js"], {
+      cwd: root,
+      env: environment,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 5000,
+    });
+  } catch (error) {
+    duplicateRefused = error.status === 1 && !error.signal;
+    assert(
+      !String(error.stderr).includes(authSecret),
+      "Duplicate startup disclosed the auth secret",
+    );
+  }
+  assert(duplicateRefused, "A second compiled main acquired the same service data");
+  assert(
+    JSON.parse(
+      await readFile(
+        join(environment.SERVICE_NATIVE_DATA, ".service-runtime/operator.json"),
+        "utf8",
+      ),
+    ).pid === child.pid,
+    "Rejected duplicate startup removed the live process lease",
+  );
   const cookies = new Map();
   const request = async (path, body) => {
     const response = await fetch(`${base}${path}`, {
@@ -148,7 +243,23 @@ try {
   });
   assert(organization.status === 201, "Compiled native organization creation failed");
   const saved = await organization.json();
-  await stop();
+  const liveCheckpoint = JSON.parse(
+    execFileSync(
+      process.execPath,
+      [
+        "dist/native-service/service/node/recovery-review-cli.js",
+        "checkpoint",
+        "--output",
+        join(directory, "online-checkpoint.json"),
+      ],
+      { cwd: root, env: environment, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    ),
+  );
+  assert(
+    liveCheckpoint.status === "checkpoint-created",
+    "Online checkpoint was incorrectly blocked by normal process custody",
+  );
+  await drainStop(base, environment.SERVICE_NATIVE_DATA);
   assert(
     !captured.includes(authSecret) && !captured.includes(delivery) && !captured.includes(password),
     "Native runtime logged sensitive data",
@@ -360,7 +471,7 @@ try {
       !captured.includes(authenticator.totpURI),
     "Compiled enrollment logged private material",
   );
-  async function assertQuarantined(restoredEnvironment) {
+  async function assertRefusedStartup(restoredEnvironment) {
     const failedStart = spawn(process.execPath, ["dist/native-service/service/node/main.js"], {
       cwd: root,
       env: restoredEnvironment,
@@ -383,7 +494,7 @@ try {
     assert(
       failedCode !== 0 &&
         !failedSignal &&
-        recoveryOutput.includes("quarantined") &&
+        recoveryOutput.includes("failed startup or shutdown verification") &&
         !recoveryOutput.includes("listening on"),
       "Compiled native service did not refuse quarantined startup before listening",
     );
@@ -393,8 +504,15 @@ try {
         !recoveryOutput.includes(passphrase),
       "Compiled recovery/startup exposed secret material",
     );
+    const lease = await lstat(
+      join(restoredEnvironment.SERVICE_NATIVE_DATA, ".service-runtime"),
+    ).catch((error) => {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    });
+    assert(!lease, "Failed compiled startup retained its own newly-created runtime lease");
   }
-  await assertQuarantined(enrollmentEnvironment);
+  await assertRefusedStartup(enrollmentEnvironment);
   const releaseCommand = () =>
     execFileSync(
       process.execPath,
@@ -414,6 +532,29 @@ try {
     );
   const released = JSON.parse(releaseCommand());
   assert(released.status === "released", "Compiled reviewed release failed");
+  const foreignOriginConfiguration = join(directory, "foreign-origin.vars");
+  await writeFile(
+    foreignOriginConfiguration,
+    (await readFile(enrollmentEnvironment.SERVICE_NATIVE_CONFIG, "utf8")).replace(
+      /^SERVICE_ORIGIN=.*$/m,
+      "SERVICE_ORIGIN=http://127.0.0.1:5174",
+    ),
+    { mode: 0o600 },
+  );
+  await assertRefusedStartup({
+    ...enrollmentEnvironment,
+    SERVICE_NATIVE_CONFIG: foreignOriginConfiguration,
+  });
+  const occupied = createTcpServer();
+  await new Promise((resolve) => occupied.listen(0, "127.0.0.1", resolve));
+  try {
+    await assertRefusedStartup({
+      ...enrollmentEnvironment,
+      SERVICE_NATIVE_PORT: String(occupied.address().port),
+    });
+  } finally {
+    await new Promise((resolve) => occupied.close(resolve));
+  }
   assert(
     JSON.parse(releaseCommand()).status === "already-released",
     "Compiled committed-release retry failed",
@@ -471,13 +612,13 @@ try {
       secondRestore.snapshotSha256 === releasedExport.snapshotSha256,
     "Released-source restore retained old authority",
   );
-  await assertQuarantined({
+  await assertRefusedStartup({
     ...enrollmentEnvironment,
     SERVICE_NATIVE_CONFIG: join(secondTarget, "service.vars"),
     SERVICE_NATIVE_DATA: join(secondTarget, "data"),
   });
   console.log(
-    "Native commercial runtime passed: compiled boot and migrations, local verification, scoped-cookie login, organization/session persistence, clean restart, encrypted backup/inspection without source config, financial checkpoint, fresh-path quarantined restore, restore-bound recovery review, one-time fresh password/TOTP enrollment, cross-process lifecycle exclusion, atomic reviewed release, normal fresh-MFA sign-in and released-source backup restored into fresh quarantine, with no HTTP outbox or secret logging.",
+    "Native commercial runtime passed: compiled process lease/duplicate exclusion, active-upload SIGTERM drain, online checkpoint, failed-start lease cleanup, origin-bound release/startup, boot and migrations, local verification, scoped-cookie login, organization/session persistence, clean restart, encrypted backup/inspection without source config, financial checkpoint, fresh-path quarantined restore, restore-bound recovery review, one-time fresh password/TOTP enrollment, cross-process lifecycle exclusion, atomic reviewed release, normal fresh-MFA sign-in and released-source backup restored into fresh quarantine, with no HTTP outbox or secret logging.",
   );
 } finally {
   await stop().catch(() => {});
