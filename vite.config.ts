@@ -17,6 +17,9 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Crypto and subprocess custody tests share finite host resources. Bound
+    // file concurrency without weakening their timeout or failure assertions.
+    maxWorkers: 2,
     exclude: ["test/service/**", "test/native/**", "node_modules/**"],
   },
 });
