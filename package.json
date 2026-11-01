@@ -45,7 +45,8 @@
     "verify:service-native-runtime": "node scripts/verify-native-service.mjs",
     "service:native:recovery-release": "tsx service/node/recovery-release-cli.ts",
     "service:native:mail": "tsx service/node/mail-cli.ts",
-    "verify:service-mail-runtime": "node scripts/verify-native-mail.mjs"
+    "verify:service-mail-runtime": "node scripts/verify-native-mail.mjs",
+    "verify:company-runtime": "node scripts/verify-company-runtime.mjs"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.14",

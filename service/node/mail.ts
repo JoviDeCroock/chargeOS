@@ -2,7 +2,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { lstat } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { localConfiguration, type ServiceEnv } from "../auth.js";
+import { serviceConfiguration, type ServiceSettings } from "../configuration.js";
 import { NativeCommercialDatabase } from "./sqlite.js";
 import { withNativeRecoveryCustody } from "./recovery-review.js";
 import { migrateNativeDatabase, readNativeMigrations } from "./migrations.js";
@@ -15,10 +15,7 @@ import {
   type SmtpConfiguration,
 } from "./smtp.js";
 
-type Settings = Pick<
-  ServiceEnv,
-  "SERVICE_MODE" | "SERVICE_ORIGIN" | "SERVICE_AUTH_SECRET" | "SERVICE_DELIVERY"
->;
+type Settings = ServiceSettings;
 interface QueuedMail extends AccountMail {
   attempts: number;
   leaseToken: string;
@@ -58,7 +55,7 @@ export async function deliverNativeAccountMail(
   directory: string,
   smtp: SmtpConfiguration,
 ) {
-  const config = localConfiguration(configuration);
+  const config = serviceConfiguration(configuration);
   if (!config || config.delivery !== "smtp")
     throw new Error("Explicit SMTP queue activation is required");
   await lstat(join(directory, "commercial.sqlite"));

@@ -33,6 +33,8 @@ import {
   readPrivateRecoveryFile,
 } from "../../service/node/recovery-files.ts";
 import { financialJournal, readFinancialData } from "../../service/reimbursement-journal.ts";
+import { nativeHosting } from "../../service/configuration.ts";
+import { nativeConfiguration } from "../../service/node/configuration.ts";
 
 const passphrase = "synthetic commercial recovery passphrase!";
 let directory, bundle, originalSummary, financial, employer;
@@ -83,6 +85,67 @@ beforeAll(async () => {
 afterAll(async () => {
   vi.restoreAllMocks();
   await rm(directory, { recursive: true, force: true });
+});
+
+it("restores an HTTPS-origin backup only as fresh local quarantine without public hosting or delivery authority", async () => {
+  const publicEnv = {
+    ...env,
+    SERVICE_MODE: "production",
+    SERVICE_ORIGIN: "https://accounts.example.test",
+    SERVICE_DELIVERY: "smtp",
+    SERVICE_SIGNUP_DOMAINS: "example.test",
+    [nativeHosting]: true,
+  };
+  const publicBundle = join(directory, "public.bundle");
+  const summary = await exportCommercialRecovery(
+    publicEnv,
+    dirname(env.SERVICE_DB.path),
+    publicBundle,
+    passphrase,
+  );
+  const target = join(directory, "public-restored");
+  await restoreCommercialRecovery(publicBundle, target, passphrase);
+  const settings = nativeConfiguration({ SERVICE_NATIVE_CONFIG: join(target, "service.vars") });
+  expect(settings.configuration.SERVICE_MODE).toBe("local");
+  expect(settings.configuration.SERVICE_ORIGIN).toBe("http://127.0.0.1:5173");
+  expect(settings.configuration.SERVICE_DELIVERY).toBe("local");
+  expect(settings.configuration.SERVICE_AUTH_SECRET).not.toBe(publicEnv.SERVICE_AUTH_SECRET);
+  expect(settings.configuration[nativeHosting]).toBeUndefined();
+  expect(
+    () =>
+      new NativeCommercialDatabase(join(target, "data"), {
+        recoverySecret: settings.configuration.SERVICE_AUTH_SECRET,
+      }),
+  ).toThrow(/quarantined/);
+  const restored = new NativeCommercialDatabase(join(target, "data"), { recoveryInspection: true });
+  try {
+    expect(
+      JSON.parse(
+        await restored
+          .prepare("SELECT provenance_json FROM _chargeos_native_recovery")
+          .first("provenance_json"),
+      ),
+    ).toMatchObject({
+      sourceOrigin: publicEnv.SERVICE_ORIGIN,
+      snapshotSha256: summary.snapshotSha256,
+    });
+    for (const table of [
+      "session",
+      "verification",
+      "account",
+      "two_factor",
+      "local_outbox",
+      "rate_limit",
+    ])
+      expect(await restored.prepare(`SELECT count(*) AS n FROM ${table}`).first("n")).toBe(0);
+    expect(
+      financialJournal(
+        await readFinancialData({ SERVICE_DB: restored }, employer.org.id, "", true),
+      ),
+    ).toEqual(financial);
+  } finally {
+    restored.close();
+  }
 });
 
 it("authenticates a consistent snapshot and restores exact financial history with all stale credentials removed and durable quarantine", async () => {

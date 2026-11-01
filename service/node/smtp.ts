@@ -2,7 +2,7 @@ import SMTPConnection from "nodemailer/lib/smtp-connection";
 import { isIP } from "node:net";
 import { createHash } from "node:crypto";
 import { exactObject } from "./recovery-crypto.js";
-import { readPrivateRecoveryFile } from "./recovery-files.js";
+import { readRuntimeFile } from "./runtime-files.js";
 
 export interface SmtpConfiguration {
   host: string;
@@ -38,8 +38,11 @@ export function mailbox(value: unknown): string {
     throw new Error("Use a single email address without a display name");
   return value;
 }
-export async function readSmtpConfiguration(path: string): Promise<SmtpConfiguration> {
-  const value: unknown = JSON.parse((await readPrivateRecoveryFile(path, 16384)).toString("utf8"));
+export async function readSmtpConfiguration(
+  path: string,
+  mountedSecrets = false,
+): Promise<SmtpConfiguration> {
+  const value: unknown = JSON.parse(readRuntimeFile(path, 16384, mountedSecrets));
   exactObject(value, [
     "format",
     "schemaVersion",
@@ -85,7 +88,7 @@ export async function readSmtpConfiguration(path: string): Promise<SmtpConfigura
   if (value.caFile !== null) {
     if (typeof value.caFile !== "string" || !value.caFile.length)
       throw new Error("Use a private CA file or null");
-    config.ca = (await readPrivateRecoveryFile(value.caFile, 65536)).toString("utf8");
+    config.ca = readRuntimeFile(value.caFile, 65536, mountedSecrets);
     if (!config.ca.includes("-----BEGIN CERTIFICATE-----") || config.ca.includes("PRIVATE KEY"))
       throw new Error("Use only a CA certificate");
   }

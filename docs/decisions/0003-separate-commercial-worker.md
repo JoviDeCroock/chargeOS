@@ -44,3 +44,7 @@ Account and organization isolation can be tested in the actual local Workers/D1 
 - [Better Auth two-factor authentication](https://better-auth.com/docs/plugins/2fa)
 - [Cloudflare Worker integration testing](https://developers.cloudflare.com/workers/testing/vitest-integration/)
 - [D1 import/export](https://developers.cloudflare.com/d1/best-practices/import-export-data/)
+
+## Native HTTPS pilot update — 2026-11-01
+
+The native Docker adapter now has an explicit symbol-gated HTTPS configuration separate from Worker bindings and local files. Its single shared proxy namespace, cookie/mail/abuse controls and recovery metadata boundary are documented in [native company hosting](../company-hosting.md). This supersedes the native local-only statement for that narrow synthetic pilot; it does not approve Worker public deployment, company one-click or full public operational recovery.

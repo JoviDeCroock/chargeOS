@@ -45,6 +45,8 @@ jobs:
             caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
       - name: Exercise the production runtime boundary
         run: pnpm verify:runtime
+      - name: Exercise the separate company HTTPS Docker pilot
+        run: pnpm verify:company-runtime
       - name: Verify AI relay credential redaction
         run: pnpm verify:ai-relay
       - name: Exercise the managed raw deployment template

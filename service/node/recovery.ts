@@ -1,9 +1,10 @@
+import { recoverySourceOrigin } from "./recovery-origin.js";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { lstat, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { localConfiguration, type ServiceEnv } from "../auth.js";
+import { serviceConfiguration, type ServiceSettings } from "../configuration.js";
 import { financialJournal, readFinancialData } from "../reimbursement-journal.js";
 import { migrateNativeDatabase, readNativeMigrations } from "./migrations.js";
 import { NativeCommercialDatabase } from "./sqlite.js";
@@ -29,7 +30,7 @@ import {
 } from "./recovery-marker.js";
 export { NATIVE_RECOVERY_QUARANTINE_SQL } from "./recovery-marker.js";
 const digest = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
-type Configuration = Pick<ServiceEnv, "SERVICE_MODE" | "SERVICE_ORIGIN" | "SERVICE_AUTH_SECRET">;
+type Configuration = ServiceSettings;
 interface Snapshot {
   format: "chargeos-commercial-snapshot";
   schemaVersion: 1;
@@ -162,11 +163,7 @@ async function parseSnapshot(
     typeof value.sourceOrigin !== "string" ||
     typeof value.databaseSha256 !== "string" ||
     !/^[a-f0-9]{64}$/.test(value.databaseSha256) ||
-    !localConfiguration({
-      SERVICE_MODE: "local",
-      SERVICE_ORIGIN: value.sourceOrigin,
-      SERVICE_AUTH_SECRET: "recovery-origin-validation-only-secret",
-    })
+    !recoverySourceOrigin(value.sourceOrigin)
   )
     throw new Error("Invalid commercial recovery snapshot");
   const bytes = decodeCommercialBase64(value.databaseBase64, MAX_COMMERCIAL_DATABASE_BYTES);
@@ -183,9 +180,9 @@ export async function exportCommercialRecovery(
   output: string,
   passphrase: string,
 ): Promise<CommercialRecoverySummary> {
-  const config = localConfiguration(configuration);
+  const config = serviceConfiguration(configuration);
   if (!config || config.secret.length > 4096)
-    throw new Error("Use the local commercial configuration");
+    throw new Error("Use the configured native commercial source");
   // Refuse accidental initialization of a missing source database.
   await lstat(join(directory, "commercial.sqlite"));
   const staging = await mkdtemp(join(tmpdir(), "chargeos-commercial-backup-"));
@@ -328,7 +325,7 @@ export async function restoreCommercialRecovery(
         const authSecret = randomBytes(48).toString("hex");
         await writePrivateRecoveryFile(
           join(destination, "service.vars"),
-          `SERVICE_MODE=local\nSERVICE_ORIGIN=${snapshot.sourceOrigin}\nSERVICE_AUTH_SECRET=${authSecret}\n`,
+          `SERVICE_MODE=local\nSERVICE_ORIGIN=${snapshot.sourceOrigin.startsWith("http:") ? snapshot.sourceOrigin : "http://127.0.0.1:5173"}\nSERVICE_AUTH_SECRET=${authSecret}\n`,
         );
         const check = new NativeCommercialDatabase(join(destination, "data"), {
           recoveryInspection: true,

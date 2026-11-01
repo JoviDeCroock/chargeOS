@@ -42,7 +42,10 @@ async function main() {
   const settings = nativeConfiguration();
   const { readSmtpConfiguration } = await import("./smtp.js"),
     { deliverNativeAccountMail } = await import("./mail.js");
-  const smtp = await readSmtpConfiguration(path);
+  const smtp = await readSmtpConfiguration(
+    path,
+    settings.configuration.SERVICE_MODE === "production",
+  );
   let stopping = false,
     wake: () => void = () => {};
   const stop = () => {

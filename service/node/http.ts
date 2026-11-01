@@ -1,6 +1,8 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { ServiceEnv } from "../auth.js";
-import { localConfiguration } from "../auth.js";
+import { serviceConfiguration } from "../auth.js";
+import { isIP } from "node:net";
+import { commercialStatic } from "./static.js";
 import worker from "../index.js";
 
 class RequestError extends Error {
@@ -11,12 +13,14 @@ class RequestError extends Error {
     super(message);
   }
 }
-export function createNativeCommercialServer(env: ServiceEnv, handler: typeof worker = worker) {
-  const config = localConfiguration(env);
+export function createNativeCommercialServer(
+  env: ServiceEnv,
+  handler: typeof worker = worker,
+  options: { uiDirectory?: string } = {},
+) {
+  const config = serviceConfiguration(env);
   if (!config)
-    throw new Error(
-      "The native commercial service requires explicit loopback development configuration",
-    );
+    throw new Error("The native commercial service requires explicit native service configuration");
   let listeningHost = "";
   let closing = false,
     closed: Promise<void> | undefined;
@@ -57,11 +61,20 @@ export function createNativeCommercialServer(env: ServiceEnv, handler: typeof wo
   );
   server.maxHeadersCount = 40;
   async function handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
+    const production = config!.mode === "self-hosted";
+    if (
+      production &&
+      (!["127.0.0.1", "::ffff:127.0.0.1"].includes(request.socket.remoteAddress ?? "") ||
+        request.headers["x-forwarded-proto"] !== "https" ||
+        typeof request.headers["x-chargeos-client-ip"] !== "string" ||
+        !isIP(request.headers["x-chargeos-client-ip"]))
+    )
+      throw new RequestError(403, "Use the configured HTTPS company address");
     const host = request.headers.host;
-    if (host !== new URL(config!.origin).host && host !== listeningHost)
+    if (host !== new URL(config!.origin).host && (production || host !== listeningHost))
       throw new RequestError(403, "Use the configured local service address");
     const target = request.url ?? "";
-    if (!target.startsWith("/service/api/") || target.includes("\\"))
+    if (!target.startsWith("/") || target.startsWith("//") || target.includes("\\"))
       throw new RequestError(404, "Service route not found");
     const url = new URL(target, config!.origin);
     if (url.origin !== config!.origin)
@@ -74,15 +87,27 @@ export function createNativeCommercialServer(env: ServiceEnv, handler: typeof wo
       "x-forwarded-proto",
       "forwarded",
       "x-real-ip",
+      "x-chargeos-client-ip",
     ]);
     for (const [name, value] of Object.entries(request.headers)) {
       if (untrusted.has(name) || value === undefined) continue;
       if (Array.isArray(value)) value.forEach((item) => headers.append(name, item));
       else headers.set(name, value);
     }
-    // No caller can select its own auth rate-limit bucket. This local runtime
-    // has no proxy-trust mode; the actual socket peer is the sole IP authority.
-    headers.set("cf-connecting-ip", request.socket.remoteAddress ?? "127.0.0.1");
+    // Local mode uses the actual socket peer. Hosted mode accepts only the
+    // dedicated header overwritten by its sole loopback TLS proxy.
+    headers.set(
+      "cf-connecting-ip",
+      production
+        ? (request.headers["x-chargeos-client-ip"] as string)
+        : (request.socket.remoteAddress ?? "127.0.0.1"),
+    );
+    const api = url.pathname.startsWith("/service/api/");
+    if (
+      !api &&
+      (!production || !options.uiDirectory || !["GET", "HEAD"].includes(request.method ?? ""))
+    )
+      throw new RequestError(404, "Service route not found");
     const chunks: Buffer[] = [];
     let length = 0;
     request.setTimeout(10_000, () => request.destroy());
@@ -94,16 +119,28 @@ export function createNativeCommercialServer(env: ServiceEnv, handler: typeof wo
     }
     request.setTimeout(0);
     const method = request.method ?? "GET";
-    const result = await handler.fetch(
-      new Request(url.href, {
-        method,
-        headers,
-        ...(length && method !== "GET" && method !== "HEAD"
-          ? { body: new Uint8Array(Buffer.concat(chunks)) }
-          : {}),
-      }),
-      env,
-    );
+    const result = api
+      ? await handler.fetch(
+          new Request(url.href, {
+            method,
+            headers,
+            ...(length && method !== "GET" && method !== "HEAD"
+              ? { body: new Uint8Array(Buffer.concat(chunks)) }
+              : {}),
+          }),
+          env,
+        )
+      : await commercialStatic(url.pathname, options.uiDirectory!);
+    if (production) {
+      result.headers.set(
+        "Content-Security-Policy",
+        "default-src 'self'; base-uri 'none'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'",
+      );
+      result.headers.set("Strict-Transport-Security", "max-age=31536000");
+      result.headers.set("Referrer-Policy", "no-referrer");
+      result.headers.set("X-Content-Type-Options", "nosniff");
+      result.headers.set("Permissions-Policy", "camera=(), geolocation=(), microphone=()");
+    }
     const output: Uint8Array[] = [];
     let size = 0;
     const reader = result.body?.getReader();
@@ -124,7 +161,7 @@ export function createNativeCommercialServer(env: ServiceEnv, handler: typeof wo
     const cookies = result.headers.getSetCookie();
     if (cookies.length) response.setHeader("Set-Cookie", cookies);
     response.writeHead(result.status);
-    response.end(Buffer.concat(output));
+    response.end(method === "HEAD" ? undefined : Buffer.concat(output));
   }
   return {
     async listen(port = 9091): Promise<number> {

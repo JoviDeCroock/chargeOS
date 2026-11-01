@@ -1,8 +1,9 @@
+import { recoverySourceOrigin } from "./recovery-origin.js";
 import { createHash } from "node:crypto";
 import { lstat, mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { tmpdir } from "node:os";
-import { localConfiguration, type ServiceEnv } from "../auth.js";
+import { serviceConfiguration, type ServiceSettings } from "../configuration.js";
 import { financialJournal, readFinancialData } from "../reimbursement-journal.js";
 import {
   exactObject,
@@ -117,11 +118,7 @@ async function provenance(database: NativeCommercialDatabase): Promise<RecoveryP
     value.status !== "quarantined" ||
     value.financialState !== "snapshot-only-unreconciled" ||
     value.credentials !== "removed-reenrollment-required" ||
-    !localConfiguration({
-      SERVICE_MODE: "local",
-      SERVICE_ORIGIN: text(value.sourceOrigin),
-      SERVICE_AUTH_SECRET: "recovery-origin-validation-only-secret",
-    })
+    !recoverySourceOrigin(text(value.sourceOrigin))
   )
     throw new Error("Recovery is not an unreconciled quarantined snapshot");
   hash(value.sourceBundleSha256);
@@ -234,11 +231,11 @@ async function inspectQuarantine(directory: string) {
   }
 }
 export async function checkpointNativeCommercial(
-  configuration: Pick<ServiceEnv, "SERVICE_MODE" | "SERVICE_ORIGIN" | "SERVICE_AUTH_SECRET">,
+  configuration: ServiceSettings,
   directory: string,
   output: string,
 ) {
-  const config = localConfiguration(configuration);
+  const config = serviceConfiguration(configuration);
   if (!config) throw new Error("Use a configured native commercial source");
   await lstat(join(directory, "commercial.sqlite"));
   const staging = await mkdtemp(join(tmpdir(), "chargeos-commercial-checkpoint-"));

@@ -1,8 +1,10 @@
+import { signupEmailAllowed, signupDelivery } from "./configuration.js";
+import { deliveryAdmission, publicSignupAdmission, publicRequestAdmission } from "./delivery.js";
 import { HttpError, input, json, textValue } from "./http.js";
 import { handleReimbursements } from "./reimbursements.js";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
-import { createServiceAuth, localConfiguration, type ServiceEnv } from "./auth.js";
+import { createServiceAuth, serviceConfiguration, type ServiceEnv } from "./auth.js";
 import { invitation, membership, organization, user } from "./db/schema.js";
 import type {
   OrganizationWorkspace,
@@ -46,15 +48,20 @@ async function hashToken(token: string): Promise<string> {
 }
 
 async function route(request: Request, env: ServiceEnv): Promise<Response> {
-  const config = localConfiguration(env);
+  const config = serviceConfiguration(env);
   const url = new URL(request.url);
-  if (!config || !["127.0.0.1", "localhost"].includes(url.hostname))
+  if (!config || url.origin !== config.origin)
     return json(
       { error: "Service is available only in its configured local development environment" },
       503,
     );
   if (!["GET", "POST", "DELETE"].includes(request.method))
     throw new HttpError(405, "Method not allowed");
+  if (
+    config.mode === "self-hosted" &&
+    !(await publicRequestAdmission(env, request.headers.get("cf-connecting-ip") ?? "unknown"))
+  )
+    throw new HttpError(429, "Too many account requests. Wait a minute and try again");
   if (request.method !== "GET") {
     if (request.headers.get("origin") !== config.origin)
       throw new HttpError(403, "Use the configured service origin");
@@ -67,11 +74,33 @@ async function route(request: Request, env: ServiceEnv): Promise<Response> {
         : 32768,
     );
   }
+  if (config.mode === "self-hosted" && url.pathname === "/service/api/auth/sign-up/email") {
+    const body = (await request.clone().json()) as { email?: unknown };
+    if (!signupEmailAllowed(config, body.email))
+      throw new HttpError(400, "Use the work email address approved by your company");
+    const recipient = (body.email as string).toLowerCase();
+    const reservation = await publicSignupAdmission(env, recipient);
+    if (!reservation)
+      throw new HttpError(429, "Account setup is busy. Wait a minute and try again");
+    env = { ...env, [signupDelivery]: { id: reservation, recipient } };
+  }
   const auth = createServiceAuth(env);
-  if (url.pathname.startsWith("/service/api/auth/")) return auth.handler(request);
+  if (url.pathname.startsWith("/service/api/auth/")) {
+    try {
+      return await auth.handler(request);
+    } finally {
+      const reservation = env[signupDelivery];
+      if (reservation)
+        await env.SERVICE_DB.prepare(
+          "DELETE FROM local_outbox WHERE id=? AND url='' AND attempts=0",
+        )
+          .bind(reservation.id)
+          .run();
+    }
+  }
   if (url.pathname === `${root}/health` && request.method === "GET")
     return json({
-      mode: "local-development",
+      mode: config.mode,
       delivery: config.delivery === "smtp" ? "smtp-queue" : "operator-only-local-outbox",
       chargerControl: false,
     } satisfies ServiceHealth);
@@ -103,7 +132,7 @@ async function route(request: Request, env: ServiceEnv): Promise<Response> {
       .innerJoin(organization, eq(membership.organizationId, organization.id))
       .where(eq(membership.userId, actorId));
     const result: ServiceAccount = {
-      mode: "local-development",
+      mode: config.mode,
       user: {
         id: actorId,
         name: identity.user.name,
@@ -246,6 +275,8 @@ async function route(request: Request, env: ServiceEnv): Promise<Response> {
   if (child === "invitations" && request.method === "POST") {
     const body = await input(request, ["email", "role"]);
     const email = textValue(body.email, 254).toLowerCase();
+    if (!signupEmailAllowed(config, email))
+      throw new HttpError(400, "Use an email address approved by your company");
     if (
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
       typeof body.role !== "string" ||
@@ -260,10 +291,12 @@ async function route(request: Request, env: ServiceEnv): Promise<Response> {
     const invitationId = crypto.randomUUID();
     const expiresAt = new Date(nowMs + 72 * 3_600_000);
     const deliveryUrl = `${config.origin}/service#invite=${token}`;
+    const admission = await deliveryAdmission(env, "invitation", email, nowMs);
     // All three records commit together; no invitation can exist without delivery and audit.
     const results = await env.SERVICE_DB.batch([
+      ...admission.before,
       env.SERVICE_DB.prepare(`INSERT INTO invitation (id, organization_id, email, role, token_hash, invited_by, status, created_at, expires_at)
-        SELECT ?, ?, ?, ?, ?, ?, 'pending', ?, ? WHERE EXISTS (SELECT 1 FROM membership WHERE organization_id = ? AND user_id = ? AND role = 'admin')`).bind(
+        SELECT ?, ?, ?, ?, ?, ?, 'pending', ?, ? WHERE EXISTS (SELECT 1 FROM membership WHERE organization_id = ? AND user_id = ? AND role = 'admin') AND ${admission.condition}`).bind(
         invitationId,
         org.id,
         email,
@@ -274,6 +307,7 @@ async function route(request: Request, env: ServiceEnv): Promise<Response> {
         expiresAt.getTime(),
         org.id,
         actorId,
+        ...admission.bindings,
       ),
       env.SERVICE_DB.prepare(
         "INSERT INTO local_outbox (id, kind, recipient, url, created_at, expires_at,channel) SELECT ?, 'invitation', ?, ?, ?, ?,? WHERE EXISTS (SELECT 1 FROM invitation WHERE id = ?)",
@@ -290,8 +324,11 @@ async function route(request: Request, env: ServiceEnv): Promise<Response> {
         "INSERT INTO service_audit (id, organization_id, actor_id, action, subject_id, created_at) SELECT ?, ?, ?, 'invitation.created', ?, ? WHERE EXISTS (SELECT 1 FROM invitation WHERE id = ?)",
       ).bind(crypto.randomUUID(), org.id, actorId, invitationId, nowMs, invitationId),
     ]);
-    if (results[0]?.meta.changes !== 1)
-      throw new HttpError(403, "Organization administrator access required");
+    if (results[admission.before.length]?.meta.changes !== 1)
+      throw new HttpError(
+        429,
+        "Invitation unavailable or requested too recently. Wait a minute and check your access",
+      );
     return json(
       { id: invitationId, email, role, status: "pending", expiresAt: expiresAt.toISOString() },
       201,

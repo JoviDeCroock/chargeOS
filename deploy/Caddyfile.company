@@ -1,0 +1,35 @@
+{
+  admin off
+  email {$COMPANY_ACME_EMAIL}
+  http_port 8080
+  https_port 8443
+  auto_https disable_redirects
+  # Private verification/reset tokens occur in URLs, including proxy errors.
+  # Do not enable request or error logs for this accounts boundary.
+  log default {
+    output discard
+  }
+  servers {
+    protocols h1 h2
+    max_header_size 16KB
+    timeouts {
+      read_header 5s
+      read_body 15s
+      write 30s
+      idle 30s
+    }
+  }
+}
+http://{$COMPANY_DOMAIN}:8080 {
+  redir https://{$COMPANY_DOMAIN}{uri} 308
+}
+https://{$COMPANY_DOMAIN}:8443 {
+  reverse_proxy 127.0.0.1:9091 {
+    header_up Host {$COMPANY_DOMAIN}
+    header_up X-Forwarded-Proto https
+    header_up X-ChargeOS-Client-IP {remote_host}
+    header_up -Forwarded
+    header_up -X-Real-IP
+    header_up -CF-Connecting-IP
+  }
+}

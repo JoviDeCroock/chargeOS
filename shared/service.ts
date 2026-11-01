@@ -6,7 +6,7 @@ export interface ServiceOrganization {
   role: OrganizationRole;
 }
 export interface ServiceAccount {
-  mode: "local-development";
+  mode: "local-development" | "self-hosted";
   user: {
     id: string;
     name: string;
@@ -39,7 +39,7 @@ export interface ServiceError {
   error: string;
 }
 export interface ServiceHealth {
-  mode: "local-development";
+  mode: "local-development" | "self-hosted";
   delivery: "operator-only-local-outbox" | "smtp-queue";
   chargerControl: false;
 }

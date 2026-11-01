@@ -4,44 +4,12 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "./db/schema.js";
 
-export interface ServiceEnv {
+import { serviceConfiguration, signupDelivery, type ServiceSettings } from "./configuration.js";
+import { deliveryAdmission } from "./delivery.js";
+export { localConfiguration, serviceConfiguration } from "./configuration.js";
+export interface ServiceEnv extends ServiceSettings {
   SERVICE_DB: D1Database;
-  SERVICE_MODE?: string;
-  SERVICE_ORIGIN?: string;
-  SERVICE_AUTH_SECRET?: string;
-  SERVICE_DELIVERY?: string;
-}
-
-export function localConfiguration(
-  env: Pick<
-    ServiceEnv,
-    "SERVICE_MODE" | "SERVICE_ORIGIN" | "SERVICE_AUTH_SECRET" | "SERVICE_DELIVERY"
-  >,
-): { origin: string; secret: string; delivery: "local" | "smtp" } | null {
-  if (
-    env.SERVICE_MODE !== "local" ||
-    !env.SERVICE_ORIGIN ||
-    !env.SERVICE_AUTH_SECRET ||
-    env.SERVICE_AUTH_SECRET.length < 32 ||
-    ![undefined, "local", "smtp"].includes(env.SERVICE_DELIVERY)
-  )
-    return null;
-  try {
-    const url = new URL(env.SERVICE_ORIGIN);
-    if (
-      url.protocol !== "http:" ||
-      !["127.0.0.1", "localhost"].includes(url.hostname) ||
-      url.origin !== env.SERVICE_ORIGIN
-    )
-      return null;
-    return {
-      origin: url.origin,
-      secret: env.SERVICE_AUTH_SECRET,
-      delivery: env.SERVICE_DELIVERY === "smtp" ? "smtp" : "local",
-    };
-  } catch {
-    return null;
-  }
+  [signupDelivery]?: { id: string; recipient: string };
 }
 
 export async function enqueueServiceDelivery(
@@ -51,26 +19,46 @@ export async function enqueueServiceDelivery(
   url: string,
   expiresAt: Date,
 ): Promise<void> {
-  const config = localConfiguration(env);
+  const config = serviceConfiguration(env);
   if (!config) throw new Error("Service delivery is unavailable");
-  const db = drizzle(env.SERVICE_DB);
-  await db.insert(schema.localOutbox).values({
-    id: crypto.randomUUID(),
-    kind,
-    recipient,
-    url,
-    createdAt: new Date(),
-    expiresAt,
-    channel: config.delivery,
-  });
+  const now = Date.now();
+  const reservation = env[signupDelivery];
+  if (config.mode === "self-hosted" && kind === "verify-email" && reservation) {
+    if (reservation.recipient !== recipient.toLowerCase())
+      throw new Error("Signup delivery identity changed");
+    const result = await env.SERVICE_DB.prepare(
+      "UPDATE local_outbox SET url=?,expires_at=?,next_attempt_at=0 WHERE id=? AND recipient=? AND kind='verify-email' AND channel='smtp' AND status='pending' AND attempts=0 AND url='' AND expires_at>?",
+    )
+      .bind(url, expiresAt.getTime(), reservation.id, reservation.recipient, now)
+      .run();
+    if (result.meta.changes !== 1) throw new Error("Signup delivery reservation is unavailable");
+    return;
+  }
+  const admission = await deliveryAdmission(env, kind, recipient, now);
+  await env.SERVICE_DB.batch([
+    ...admission.before,
+    env.SERVICE_DB.prepare(
+      `INSERT INTO local_outbox(id,kind,recipient,url,created_at,expires_at,channel) SELECT ?,?,?,?,?,?,? WHERE ${admission.condition}`,
+    ).bind(
+      crypto.randomUUID(),
+      kind,
+      recipient,
+      url,
+      now,
+      expiresAt.getTime(),
+      config.delivery,
+      ...admission.bindings,
+    ),
+  ]);
 }
 
 export function createServiceAuth(
   env: ServiceEnv,
   purpose: "normal" | "recovery-enrollment" = "normal",
 ) {
-  const config = localConfiguration(env);
-  if (!config) throw new Error("Commercial service is not configured for local development");
+  const config = serviceConfiguration(env);
+  if (!config || (purpose === "recovery-enrollment" && config.mode !== "local-development"))
+    throw new Error("Commercial authentication is not configured for this runtime");
   return betterAuth({
     appName: "chargeOS",
     telemetry: { enabled: false },
@@ -119,7 +107,7 @@ export function createServiceAuth(
     session: { expiresIn: 604800, updateAge: 86400, cookieCache: { enabled: false } },
     advanced: {
       cookiePrefix: purpose === "recovery-enrollment" ? "chargeos-recovery" : "chargeos-service",
-      useSecureCookies: false,
+      useSecureCookies: config.mode === "self-hosted",
       defaultCookieAttributes: { httpOnly: true, sameSite: "lax", path: "/service/api" },
       ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] },
     },

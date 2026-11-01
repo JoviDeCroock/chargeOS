@@ -5,6 +5,7 @@ import type { ServiceEnv } from "../auth.js";
 import { nativeConfiguration } from "./configuration.js";
 
 const { configuration, directory, port } = nativeConfiguration();
+const hosted = configuration.SERVICE_MODE === "production";
 const { NativeCommercialDatabase } = await import("./sqlite.js");
 const database = new NativeCommercialDatabase(directory, {
   recoverySecret: configuration.SERVICE_AUTH_SECRET,
@@ -17,10 +18,14 @@ try {
     readNativeMigrations(fileURLToPath(new URL("../migrations", import.meta.url))),
   );
   const env: ServiceEnv = { ...configuration, SERVICE_DB: database };
-  const server = createNativeCommercialServer(env);
+  const server = createNativeCommercialServer(
+    env,
+    undefined,
+    hosted ? { uiDirectory: process.env.SERVICE_UI_DIRECTORY ?? "/app/dist/ui" } : {},
+  );
   const listeningPort = await server.listen(port);
   console.log(
-    `Commercial accounts and reimbursements listening on http://127.0.0.1:${listeningPort} (loopback only; ${configuration.SERVICE_DELIVERY === "smtp" ? "SMTP queue enabled" : "local outbox"})`,
+    `Commercial accounts and reimbursements listening on http://127.0.0.1:${listeningPort} (loopback ${hosted ? "HTTPS proxy" : "only"}; ${configuration.SERVICE_DELIVERY === "smtp" ? "SMTP queue enabled" : "local outbox"})`,
   );
   let stopping = false;
   for (const signal of ["SIGTERM", "SIGINT"] as const)
