@@ -38,6 +38,11 @@ export interface OrganizationWorkspace {
 export interface ServiceError {
   error: string;
 }
+export interface ServiceHealth {
+  mode: "local-development";
+  delivery: "operator-only-local-outbox" | "smtp-queue";
+  chargerControl: false;
+}
 export interface ServiceAuditEvent {
   id: string;
   actorId: string | null;

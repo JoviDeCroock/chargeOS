@@ -6,6 +6,7 @@ import type {
   OrganizationWorkspace,
   ServiceAccount,
   ServiceOrganization,
+  ServiceHealth,
 } from "../../shared/contracts.js";
 import "./style.css";
 
@@ -27,6 +28,7 @@ export function ServiceWorkspace() {
   const invitationToken = useSignal("");
   const resetToken = useSignal("");
   const setup = useSignal<{ uri: string; backupCodes: string[] } | null>(null);
+  const health = useSignal<ServiceHealth | null>(null);
 
   async function refresh(selectedId?: string) {
     const me = await request<ServiceAccount>(`${api}/me`);
@@ -57,6 +59,8 @@ export function ServiceWorkspace() {
     }
   }
   useEffect(() => {
+    const previousTitle = document.title;
+    document.title = "Company accounts · chargeOS";
     function captureLink() {
       const url = new URL(window.location.href);
       const invite = new URLSearchParams(url.hash.slice(1)).get("invite");
@@ -70,7 +74,17 @@ export function ServiceWorkspace() {
     }
     captureLink();
     window.addEventListener("hashchange", captureLink);
-    void refresh()
+    let mounted = true;
+    void request<ServiceHealth>(`${api}/health`)
+      .then((value) => {
+        if (!mounted) return;
+        if (!["smtp-queue", "operator-only-local-outbox"].includes(value.delivery))
+          throw new Error(
+            "Account delivery settings are unavailable. Reload the page to try again.",
+          );
+        health.value = value;
+        return refresh();
+      })
       .catch((problem: unknown) => {
         // A signed-out account is expected. Configuration/network errors stay visible.
         if (!(problem instanceof Error) || problem.message !== "Sign in to continue")
@@ -81,6 +95,8 @@ export function ServiceWorkspace() {
         busy.value = false;
       });
     return () => {
+      document.title = previousTitle;
+      mounted = false;
       window.removeEventListener("hashchange", captureLink);
       setup.value = null;
       invitationToken.value = "";
@@ -89,6 +105,10 @@ export function ServiceWorkspace() {
   }, []);
 
   async function submitAccount(form: HTMLFormElement) {
+    if (["sign-up", "forgot"].includes(page.value) && !health.value)
+      throw new Error(
+        "Account delivery settings are unavailable. Reload the page before requesting a link.",
+      );
     const values = fields(form);
     if (page.value === "sign-up") {
       await request(`${auth}/sign-up/email`, {
@@ -98,7 +118,9 @@ export function ServiceWorkspace() {
       form.reset();
       page.value = "sign-in";
       notice.value =
-        "Account created. Open its verification link from the local operator outbox, then sign in.";
+        health.value?.delivery === "smtp-queue"
+          ? "Account created. Check your inbox for the verification link, then sign in. If it does not arrive, ask your administrator to check email delivery."
+          : "Account created. Open its verification link from the local operator outbox, then sign in.";
     } else if (page.value === "forgot") {
       await request(`${auth}/request-password-reset`, {
         email: values.email,
@@ -106,7 +128,9 @@ export function ServiceWorkspace() {
       });
       form.reset();
       notice.value =
-        "If the account exists, a recovery link is available in the local operator outbox.";
+        health.value?.delivery === "smtp-queue"
+          ? "If the account exists, its recovery link has been queued for email. Check your inbox; if it does not arrive, ask your administrator to check email delivery."
+          : "If the account exists, a recovery link is available in the local operator outbox.";
     } else if (page.value === "reset") {
       await request(`${auth}/reset-password`, {
         token: resetToken.value,
@@ -157,7 +181,6 @@ export function ServiceWorkspace() {
       </header>
       <main class="cs-main">
         <div class="cs-heading">
-          <p class="cs-eyebrow">Charging, with ownership built in</p>
           <h1>{me ? `Welcome, ${me.user.name.split(" ")[0]}.` : "Your charging. Your terms."}</h1>
           <p>
             {me
@@ -166,9 +189,11 @@ export function ServiceWorkspace() {
           </p>
         </div>
         <aside class="cs-local-note">
-          This service runs on your computer. Verification, invitation and recovery links stay in
-          the operator’s local database outbox. No email is sent. This mode does not prove ownership
-          of a real email address.
+          {health.value?.delivery === "smtp-queue"
+            ? "This local trial emails verification, invitation and recovery links through your administrator’s mail provider. Open localhost links on this computer. Email delivery does not make this a public company portal."
+            : health.value
+              ? "This service runs on your computer. Verification, invitation and recovery links stay in the operator’s local database outbox. No email is sent. This mode does not prove ownership of a real email address."
+              : "Checking how account links are delivered…"}
         </aside>
         {busy.value && <p role="status">Working…</p>}
         {error.value && (
@@ -541,7 +566,9 @@ export function ServiceWorkspace() {
                           form.reset();
                           await refresh();
                           notice.value =
-                            "Invitation saved to the local operator outbox. It expires in 72 hours.";
+                            health.value?.delivery === "smtp-queue"
+                              ? "Invitation queued for email. It expires in 72 hours. If it does not arrive, check email delivery with your administrator."
+                              : "Invitation saved to the local operator outbox. It expires in 72 hours.";
                         });
                       }}
                     >

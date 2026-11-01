@@ -89,7 +89,7 @@ export const rateLimit = sqliteTable("rate_limit", {
   lastRequest: integer("last_request").notNull(),
 });
 
-// Local operator-only delivery. No route exposes this table. Tokens are secrets.
+// Private delivery queue. Local rows never become SMTP mail implicitly.
 export const localOutbox = sqliteTable("local_outbox", {
   id: text("id").primaryKey(),
   kind: text("kind", { enum: ["verify-email", "reset-password", "invitation"] }).notNull(),
@@ -97,6 +97,19 @@ export const localOutbox = sqliteTable("local_outbox", {
   url: text("url").notNull(),
   createdAt: timestamp("created_at").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
+  channel: text("channel", { enum: ["local", "smtp"] })
+    .notNull()
+    .default("local"),
+  status: text("status", { enum: ["pending", "failed"] })
+    .notNull()
+    .default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  nextAttemptAt: timestamp("next_attempt_at")
+    .notNull()
+    .default(sql`0`),
+  leaseToken: text("lease_token"),
+  leaseExpiresAt: timestamp("lease_expires_at"),
+  lastFailure: text("last_failure"),
 });
 
 export const organization = sqliteTable("organization", {

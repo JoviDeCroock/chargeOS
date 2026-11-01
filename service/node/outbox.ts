@@ -25,7 +25,7 @@ const database = new NativeCommercialDatabase(directory, {
 try {
   const row = await database
     .prepare(
-      "SELECT url FROM local_outbox WHERE recipient=? AND kind=? AND expires_at>? ORDER BY created_at DESC LIMIT 1",
+      "SELECT url FROM local_outbox WHERE recipient=? AND kind=? AND channel='local' AND expires_at>? ORDER BY created_at DESC LIMIT 1",
     )
     .bind(recipient.toLowerCase(), kind, Date.now())
     .first<{ url: string }>();

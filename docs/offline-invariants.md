@@ -127,6 +127,8 @@ Fresh native recovery enrollment changes commercial authentication state only. A
 
 Reviewed local commercial release mutates only commercial SQLite roles, eligibility, authentication sessions and recovery provenance. Missing/stale review, unfinished MFA, mutation conflict, release failure, ordinary account restart or a subsequent fresh quarantine cannot change an owner edge's persisted card list, endpoint or charger behavior. No finalizer route or command reaches OCPP. Every failure-matrix row retains the same exact-device proof requirements.
 
+Native SMTP account delivery has no owner credential, ledger or charger path. Mail-provider/TLS/DNS failure, queue backoff, expired links, mail-worker shutdown or recovery custody can delay commercial verification/reset/invitation delivery only. Every failure row still depends on the already-acknowledged device-local owner list. No owner operation or recovery bundle requires SMTP or an email provider.
+
 Reimbursement policy, assignment, approval and offboarding mutations affect only commercial SQL state. They have no OCPP command or owner-tag path. Missing account service, finance reviewer, file, MFA device or payment service cannot remove previously acknowledged owner charging access. Offboarding may end future business eligibility while the physical owner remains root.
 
 Approved financial corrections and cancellation remain inside the commercial SQL boundary. Even a zero approved reimbursement balance or revoked employer membership cannot change charger credentials, the owner ledger, OCPP endpoint or acknowledged local authorization.

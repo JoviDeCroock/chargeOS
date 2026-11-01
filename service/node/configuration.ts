@@ -34,12 +34,15 @@ export function nativeConfiguration(environment: NodeJS.ProcessEnv = process.env
   } finally {
     closeSync(descriptor);
   }
-  const configuration: Pick<ServiceEnv, "SERVICE_MODE" | "SERVICE_ORIGIN" | "SERVICE_AUTH_SECRET"> =
-    {
-      SERVICE_MODE: settings.SERVICE_MODE ?? "",
-      SERVICE_ORIGIN: settings.SERVICE_ORIGIN ?? "",
-      SERVICE_AUTH_SECRET: settings.SERVICE_AUTH_SECRET ?? "",
-    };
+  const configuration: Pick<
+    ServiceEnv,
+    "SERVICE_MODE" | "SERVICE_ORIGIN" | "SERVICE_AUTH_SECRET" | "SERVICE_DELIVERY"
+  > = {
+    SERVICE_MODE: settings.SERVICE_MODE ?? "",
+    SERVICE_ORIGIN: settings.SERVICE_ORIGIN ?? "",
+    SERVICE_AUTH_SECRET: settings.SERVICE_AUTH_SECRET ?? "",
+    SERVICE_DELIVERY: settings.SERVICE_DELIVERY ?? "local",
+  };
   if (!localConfiguration(configuration))
     throw new Error("Use the explicit local service configuration created by service:setup");
   const port = Number(environment.SERVICE_NATIVE_PORT ?? "9091");

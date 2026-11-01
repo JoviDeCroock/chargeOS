@@ -9,6 +9,7 @@ import type {
   ServiceAccount,
   ServiceOrganization,
   ServiceAuditEvent,
+  ServiceHealth,
 } from "../shared/contracts.js";
 
 const idPattern = /^[a-zA-Z0-9_-]{1,128}$/;
@@ -71,9 +72,9 @@ async function route(request: Request, env: ServiceEnv): Promise<Response> {
   if (url.pathname === `${root}/health` && request.method === "GET")
     return json({
       mode: "local-development",
-      delivery: "operator-only-local-outbox",
+      delivery: config.delivery === "smtp" ? "smtp-queue" : "operator-only-local-outbox",
       chargerControl: false,
-    });
+    } satisfies ServiceHealth);
   if (!url.pathname.startsWith(`${root}/`)) throw new HttpError(404, "Not found");
   const identity = await auth.api.getSession({ headers: request.headers });
   if (!identity) throw new HttpError(401, "Sign in to continue");
@@ -275,8 +276,16 @@ async function route(request: Request, env: ServiceEnv): Promise<Response> {
         actorId,
       ),
       env.SERVICE_DB.prepare(
-        "INSERT INTO local_outbox (id, kind, recipient, url, created_at, expires_at) SELECT ?, 'invitation', ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM invitation WHERE id = ?)",
-      ).bind(crypto.randomUUID(), email, deliveryUrl, nowMs, expiresAt.getTime(), invitationId),
+        "INSERT INTO local_outbox (id, kind, recipient, url, created_at, expires_at,channel) SELECT ?, 'invitation', ?, ?, ?, ?,? WHERE EXISTS (SELECT 1 FROM invitation WHERE id = ?)",
+      ).bind(
+        crypto.randomUUID(),
+        email,
+        deliveryUrl,
+        nowMs,
+        expiresAt.getTime(),
+        config.delivery,
+        invitationId,
+      ),
       env.SERVICE_DB.prepare(
         "INSERT INTO service_audit (id, organization_id, actor_id, action, subject_id, created_at) SELECT ?, ?, ?, 'invitation.created', ?, ? WHERE EXISTS (SELECT 1 FROM invitation WHERE id = ?)",
       ).bind(crypto.randomUUID(), org.id, actorId, invitationId, nowMs, invitationId),

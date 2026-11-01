@@ -14,6 +14,7 @@ const order = [
   "ai-help",
   "brands",
   "people",
+  "account-email",
   "rfid",
   "reimbursements",
   "recovery",

@@ -4,12 +4,12 @@ There are two kinds of access. The **employer workspace** has employee and finan
 
 ## Add an employee or finance reviewer
 
-The current employer workspace runs locally at `/service` and collects links in a local operator outbox instead of sending email. Use synthetic accounts while evaluating this development service.
+The current employer workspace runs locally at `/service`. By default it collects links in a local operator outbox; your administrator can enable [account email](account-email.md) for new links in the local trial. Use synthetic accounts while evaluating this development service.
 
-1. Have the person create an account and verify it using the link supplied by the local operator.
+1. Have the person create an account and verify it using the link supplied by email or the local operator.
 2. Sign in as your organization's administrator and select the right organization.
 3. Invite the person's exact verified email address. Choose **driver** for an employee or **finance** for a reimbursement reviewer.
-4. Have the local operator retrieve the invitation link and give it privately to that intended account holder.
+4. If email is enabled, have the recipient open their invitation email. Otherwise the local operator retrieves the invitation link and gives it privately to that intended account holder.
 5. The person signs in to the matching verified account and accepts the invitation before it expires. Invitations expire after 72 hours.
 6. Check that the new membership appears in the organization's people list.
 
@@ -17,7 +17,7 @@ Finance reviewers should set up an authenticator from **Account security**. Appr
 
 Drivers see their own reimbursement records. Finance members can review the organization's financial records. Only the administrator manages people and invitations. Adding more administrators or transferring administration is not currently available through this workflow.
 
-With the native SQLite backend, the operator retrieves an invitation using `pnpm service:native:outbox --recipient person@example.test --kind invitation`. The exact recipient and link kind must match. See [Install the software](install.md) for native setup and the separate Wrangler alternative. Neither local option sends an invitation email yet.
+With the native SQLite backend, the operator retrieves an invitation using `pnpm service:native:outbox --recipient person@example.test --kind invitation`. The exact recipient and link kind must match. See [Install the software](install.md) for native setup and the separate Wrangler alternative. The native option can instead run the separately configured SMTP worker; the local operator command only retrieves local-outbox links.
 
 ## Give a professional temporary charger access
 

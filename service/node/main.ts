@@ -20,7 +20,7 @@ try {
   const server = createNativeCommercialServer(env);
   const listeningPort = await server.listen(port);
   console.log(
-    `Commercial accounts and reimbursements listening on http://127.0.0.1:${listeningPort} (local delivery only)`,
+    `Commercial accounts and reimbursements listening on http://127.0.0.1:${listeningPort} (loopback only; ${configuration.SERVICE_DELIVERY === "smtp" ? "SMTP queue enabled" : "local outbox"})`,
   );
   let stopping = false;
   for (const signal of ["SIGTERM", "SIGINT"] as const)

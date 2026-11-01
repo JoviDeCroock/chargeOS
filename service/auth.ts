@@ -9,16 +9,21 @@ export interface ServiceEnv {
   SERVICE_MODE?: string;
   SERVICE_ORIGIN?: string;
   SERVICE_AUTH_SECRET?: string;
+  SERVICE_DELIVERY?: string;
 }
 
 export function localConfiguration(
-  env: Pick<ServiceEnv, "SERVICE_MODE" | "SERVICE_ORIGIN" | "SERVICE_AUTH_SECRET">,
-): { origin: string; secret: string } | null {
+  env: Pick<
+    ServiceEnv,
+    "SERVICE_MODE" | "SERVICE_ORIGIN" | "SERVICE_AUTH_SECRET" | "SERVICE_DELIVERY"
+  >,
+): { origin: string; secret: string; delivery: "local" | "smtp" } | null {
   if (
     env.SERVICE_MODE !== "local" ||
     !env.SERVICE_ORIGIN ||
     !env.SERVICE_AUTH_SECRET ||
-    env.SERVICE_AUTH_SECRET.length < 32
+    env.SERVICE_AUTH_SECRET.length < 32 ||
+    ![undefined, "local", "smtp"].includes(env.SERVICE_DELIVERY)
   )
     return null;
   try {
@@ -29,24 +34,35 @@ export function localConfiguration(
       url.origin !== env.SERVICE_ORIGIN
     )
       return null;
-    return { origin: url.origin, secret: env.SERVICE_AUTH_SECRET };
+    return {
+      origin: url.origin,
+      secret: env.SERVICE_AUTH_SECRET,
+      delivery: env.SERVICE_DELIVERY === "smtp" ? "smtp" : "local",
+    };
   } catch {
     return null;
   }
 }
 
-export async function enqueueLocalDelivery(
+export async function enqueueServiceDelivery(
   env: ServiceEnv,
   kind: "verify-email" | "reset-password" | "invitation",
   recipient: string,
   url: string,
   expiresAt: Date,
 ): Promise<void> {
-  if (!localConfiguration(env)) throw new Error("Local delivery is unavailable");
+  const config = localConfiguration(env);
+  if (!config) throw new Error("Service delivery is unavailable");
   const db = drizzle(env.SERVICE_DB);
-  await db
-    .insert(schema.localOutbox)
-    .values({ id: crypto.randomUUID(), kind, recipient, url, createdAt: new Date(), expiresAt });
+  await db.insert(schema.localOutbox).values({
+    id: crypto.randomUUID(),
+    kind,
+    recipient,
+    url,
+    createdAt: new Date(),
+    expiresAt,
+    channel: config.delivery,
+  });
 }
 
 export function createServiceAuth(
@@ -76,7 +92,7 @@ export function createServiceAuth(
       requireEmailVerification: true,
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
-        await enqueueLocalDelivery(
+        await enqueueServiceDelivery(
           env,
           "reset-password",
           user.email,
@@ -91,7 +107,7 @@ export function createServiceAuth(
       expiresIn: 3600,
       autoSignInAfterVerification: false,
       sendVerificationEmail: async ({ user, url }) => {
-        await enqueueLocalDelivery(
+        await enqueueServiceDelivery(
           env,
           "verify-email",
           user.email,

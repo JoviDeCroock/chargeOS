@@ -17,7 +17,7 @@ Only the explicit loopback development profile runs. Public hostnames, missing s
 
 ## Native SQLite runtime
 
-The same account, organization and financial handlers can now run on Node.js **22.22.x** (the tested release line), using `node:sqlite` and the checked-in SQL migrations. Newer releases must provide the required SQLite APIs: before touching commercial state, an in-memory probe checks ordered array results, column metadata, foreign keys and the configured lock timeout. Version numbers alone do not establish compatibility because these APIs were backported unevenly. No Cloudflare account, Wrangler process or proprietary canonical storage is required for this local runtime. Node 22 currently labels SQLite experimental; the native entrypoint checks its minimum version before importing that module. This remains an explicitly loopback-only development profile, with the same private operator outbox and no public email delivery. It does not enable production hosting or complete commercial self-host parity.
+The same account, organization and financial handlers can now run on Node.js **22.22.x** (the tested release line), using `node:sqlite` and the checked-in SQL migrations. Newer releases must provide the required SQLite APIs: before touching commercial state, an in-memory probe checks ordered array results, column metadata, foreign keys and the configured lock timeout. Version numbers alone do not establish compatibility because these APIs were backported unevenly. No Cloudflare account, Wrangler process or proprietary canonical storage is required for this local runtime. Node 22 currently labels SQLite experimental; the native entrypoint checks its minimum version before importing that module. This remains an explicitly loopback-only development profile, with the private operator outbox by default and optional native SMTP delivery for new local-trial links. Public hosting remains disabled. It does not enable production hosting or complete commercial self-host parity.
 
 After `pnpm service:setup`, run `pnpm service:native` instead of Wrangler. It applies verified migrations and listens on `127.0.0.1:9091`, so the existing Vite `/service/api` proxy and `/service` workspace continue to work. Do not run both backends on that port. For compiled execution, run `pnpm service:native:build` and `pnpm service:native:start`; the build includes its exact SQL files under `dist/native-service/service/migrations` separately from the Worker bundle. `SERVICE_NATIVE_CONFIG` selects an owner-private configuration file; `SERVICE_NATIVE_DATA` selects a real owner-private data directory (default `.chargeos/commercial-service`). `SERVICE_NATIVE_PORT` defaults to 9091; zero is reserved for ephemeral test listeners. Public origins and other service modes are still rejected before any listener binds.
 
@@ -172,7 +172,7 @@ Local release verification on 2026-11-01 passed `pnpm verify`: 134 owner/UI, 26 
 
 ## Account lifecycle and local delivery
 
-Create a synthetic account with a password of at least 12 characters. Sign-in requires verification. Verification, reset and invitation links are written to `local_outbox`; no external message is sent. Inspect the local operator outbox with:
+Create a synthetic account with a password of at least 12 characters. Sign-in requires verification. By default, verification, reset and invitation links are written to the private `local_outbox` with channel `local`; no external message is sent. Explicit native SMTP activation below marks only newly created links for delivery. Inspect the local operator outbox with:
 
 ```sh
 pnpm exec wrangler d1 execute chargeos-commercial-local --local --config service/wrangler.jsonc --command "SELECT kind, recipient, url, expires_at FROM local_outbox ORDER BY created_at DESC LIMIT 20"
@@ -181,6 +181,58 @@ pnpm exec wrangler d1 execute chargeos-commercial-local --local --config service
 These URLs are secrets. Open only the intended synthetic recipient's link. The local database, ignored `.dev.vars`, local developer tooling and any terminal output containing links belong to the trusted developer boundary. Do not add them to commits, logs, screenshots or exports. This delivery mechanism does not prove real mailbox ownership. Expired links are unusable but outbox rows remain until explicitly purged; use `DELETE FROM local_outbox` through the same local command after a development exercise. A public delivery/retention implementation is still required.
 
 The UI supports registration, verified sign-in, sign-out, password reset, authenticator enrollment, MFA login and single-use recovery-code login. Enrollment requires a correct authenticator code before MFA becomes enabled. Store recovery codes separately; setup material is transient UI state and is cleared after enrollment/sign-out. Resetting a password revokes previous sessions. Session cookies are HttpOnly, SameSite=Lax and scoped to `/service/api`. Secure cookies are intentionally disabled only for this loopback HTTP profile. There is no session cookie cache, so session deletion and expiry apply on the next request. Auth attempts use database-backed rate limits. Better Auth telemetry is explicitly disabled.
+
+## Native SMTP account delivery
+
+The native adapter now supports opt-in account mail through a provider chosen by the operator. It uses SMTP rather than a vendor-specific API. This is a delivery component for the **local trial**, not a production/public-hosting exception: account origins and cookies remain loopback HTTP, and a localhost link must be opened on that trial computer. Do not email localhost links as if a public employee portal existed. The owner edge, deployment wizard and OCPP process do not start or depend on this worker. Wrangler/D1 has no native delivery worker; this command works with the native SQLite database only.
+
+Create a private settings folder and template, fill in the provider settings, then explicitly enable new SMTP queue entries in the account service's private vars file:
+
+```sh
+mkdir -m 700 /private/settings
+pnpm service:native:mail template --output /private/settings/smtp.json
+```
+
+The template is create-only, mode 0600 and has empty credentials. Edit it privately; do not copy provider secrets into shell arguments or environment variables. Its exact JSON fields are:
+
+```json
+{
+  "format": "chargeos-smtp",
+  "schemaVersion": 1,
+  "host": "smtp.example.com",
+  "port": 587,
+  "security": "starttls",
+  "username": "your-provider-user",
+  "password": "your-provider-password",
+  "sender": "accounts@example.com",
+  "caFile": null
+}
+```
+
+Use `implicit-tls` for TLS from connection start, usually port 465; `starttls` requires an upgrade before authentication, usually port 587. Host must be an explicit DNS name, not a URL or IP address. Sender is one bare email address without a display name. Unknown fields, non-string modes, unsafe settings, shared permissions, final symlinks and hardlinks fail validation. An optional `caFile` references a private bounded certificate-only PEM file for an operator-approved corporate CA. Certificate and hostname verification are always on; there is no plaintext, opportunistic TLS or verification-disable option.
+
+Add `SERVICE_DELIVERY=smtp` to the same private configuration used by `pnpm service:native`. Restart the account service and reload its page. In a separate terminal, using the same `SERVICE_NATIVE_CONFIG` and `SERVICE_NATIVE_DATA`, run:
+
+```sh
+pnpm service:native:mail once --smtp-config /private/settings/smtp.json
+pnpm service:native:mail run --smtp-config /private/settings/smtp.json
+```
+
+`once` handles at most one due message and reports aggregate accepted/retrying/failed/discarded counts. `run` continues polling until Ctrl-C/SIGTERM, stops claiming new work on shutdown and finishes its current bounded delivery and durable update before exiting. The compiled equivalent is `node dist/native-service/service/node/mail-cli.js` after `pnpm service:native:build`. Editing SMTP settings requires restarting this worker. Removing the activation or setting `SERVICE_DELIVERY=local` returns future queue entries to operator-only delivery after restarting the account service; the SMTP runner refuses to work while activation is off.
+
+The generated migration preserves **every existing row as local-only**. New verification, reset and invitation entries inherit their channel at creation, including the atomic invitation/delivery/audit transaction. Changing activation never retroactively emails old developer links. The operator outbox command returns only `local` links. The typed health endpoint and account UI describe the current delivery mode and say queued rather than inbox-delivered. All HTTP auth boundaries remain local-only.
+
+The worker takes exclusive recovery lifecycle custody and authenticates any live recovery release before claiming mail. Quarantined copies cannot dispatch. It uses an atomic SQLite claim with an opaque lease and an incremented attempt count, commits before network I/O and updates/deletes only its own lease. It validates the exact link kind, configured origin, callback origin, recipient and current invitation/email-verification state. It sends fixed plain-text MIME templates with one recipient, a stable Message-ID and no caller-provided subject, headers, HTML, attachments or arbitrary URLs. SMTP credentials and setup links never enter operational logs. Provider errors become closed failure codes; raw errors/responses are discarded.
+
+Connections require verified TLS and authentication with bounded DNS/connect/greeting/socket responses, a 16 KiB response cap and a total deadline of at most 30 seconds or link expiry. The 60-second lease outlives that deadline. SMTPConnection's early `end` event is not physical shutdown proof: the adapter closes and destroys the actual socket, then waits for socket close before settling. Lifecycle custody covers that drain and durable queue acknowledgement. No SQLite transaction spans network waits.
+
+Temporary 4xx failures, including temporary authentication refusal, retry with exponential delay from 10 seconds up to 10 minutes, with at most eight attempts and no sending after expiry. Expired SMTP entries are purged. Permanent errors and exhausted attempts retain only a failed marker with recipient and URL scrubbed; ask the intended user to request a new link after fixing delivery. Accepted messages are removed from the queue. SMTP acceptance does not prove inbox delivery. If a provider accepts a message but its reply or the database acknowledgement is lost, retry may duplicate it with the same Message-ID; bounded delivery may fail without acceptance and does not guarantee exactly-once delivery.
+
+Stop the mail worker and let it drain before checkpoint, backup or recovery work. A killed process can leave lifecycle custody; follow the stopped-process audit rule rather than deleting it blindly. Queue leases can be reclaimed after expiry only once custody is available. Backups keep pending mail secret inside their encrypted database snapshot; every restore/reissue/release still clears the queue. Restore does not carry SMTP activation or provider credentials and starts quarantined with a fresh secret. Reconfigure/activate delivery only after current review, fresh credentials and reviewed release. Old schema-version backups retain the exact matching-software recovery restriction.
+
+Implementation references checked 2026-11-01: [Nodemailer SMTPConnection lifecycle and options](https://nodemailer.com/extras/smtp-connection), [SMTP TLS requirements](https://nodemailer.com/smtp). The pinned adapter is Nodemailer 10.3.1, with its shipped types; production dependency audit currently reports no known vulnerabilities. This is a point-in-time advisory result, not a security guarantee or public delivery certification. Real provider DNS, sender verification, SPF/DKIM/DMARC, quotas, mailbox delivery and legal retention still need operator/provider validation before a public pilot.
+
+Local verification on 2026-11-01 passed `pnpm verify`: 135 owner/UI, 26 Worker and 93 native tests (254 total), release checks, all builds and both compiled recovery/mail runtime drills. The 17 mail tests also passed independent adversarial review, including mandatory STARTTLS, untrusted/wrong-host certificates, 454/535 authentication classification, historical local-row isolation, real verification/reset/invitation links, opaque leases, exhausted attempts, ambiguous accepted delivery and custody during stalled DATA. The compiled mail drill proves SIGTERM waits for physical socket close and durable acknowledgement. `pnpm verify:runtime` passed the owner-edge Docker drill after correcting a cross-VM synthetic timestamp assumption without weakening production validation. Desktop and 390-pixel phone checks found no horizontal overflow in the entry/recovery guidance or the new `/help` email guide. Browser work was read-only; all message delivery used disposable local SMTP servers and synthetic accounts, never real recipients. Public account hosting and real mailbox delivery remain unproven.
 
 ## Organization authority
 

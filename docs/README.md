@@ -31,6 +31,7 @@ Choose the smallest relevant canonical layer. Read all documents in **Always** b
 - [Current recovery review](commercial-service.md#prepare-a-current-recovery-review): original-source financial checkpoints, complete current roster/eligibility decisions and private evidence binding before fresh enrollment or release.
 - [Fresh recovery enrollment](commercial-service.md#fresh-recovery-credential-enrollment): reviewed one-use links, new password/TOTP setup, targeted reissue and drained lifecycle custody; employer access stays quarantined.
 - [Reviewed local reopening](commercial-service.md#reopen-a-reviewed-local-recovery): atomic roster/eligibility cutover, fresh normal MFA, retained operator history and fresh quarantine on every later restore.
+- [Native SMTP account delivery](commercial-service.md#native-smtp-account-delivery): opt-in future links, mandatory verified TLS, durable leases/retries and recovery drain; public account hosting remains disabled.
 - [ADR 0003](decisions/0003-separate-commercial-worker.md): separate commercial Worker/D1 boundary, owner isolation and portability gates.
 
 - [Local observation](local-observation.md): functional read-only CSV mapping, provenance, deterministic reimbursement drafts and amount checks.
