@@ -12,7 +12,7 @@ The first target is an Alfen Eve Single S/Pro line charger in Belgium. The first
 
 ## Start here
 
-- [Plain-language help](docs/guides/README.md) — installation, deployment, the owner console, charger connections, AI keys/search, brands, people, RFID cards, reimbursements and recovery. Also available in the app at `/help`.
+- [Plain-language help](docs/guides/README.md) — installation, deployment, the owner console, charger connections and connection troubleshooting, AI keys/search, brands, people, RFID cards, reimbursements and recovery. Also available in the app at `/help`.
 - Run `node scripts/deploy.mjs` for the guided Docker or Coolify Cloud setup. See [deployment boundaries and prerequisites](docs/deployment-setup.md).
 
 - [Replacement plan and feature parity](docs/product-parity.md) — current product direction, UX brief, delivery boundaries, acceptance criteria and switching gates.
