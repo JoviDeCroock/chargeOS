@@ -17,6 +17,6 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    exclude: ["test/service/**", "node_modules/**"],
+    exclude: ["test/service/**", "test/native/**", "node_modules/**"],
   },
 });

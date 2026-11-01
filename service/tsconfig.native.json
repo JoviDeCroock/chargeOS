@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "../dist/native-service",
+    "rootDir": "..",
+    "declaration": false,
+    "sourceMap": true
+  },
+  "include": ["./**/*.ts", "../shared/**/*.ts"],
+  "exclude": ["../test"]
+}

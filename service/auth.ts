@@ -11,7 +11,9 @@ export interface ServiceEnv {
   SERVICE_AUTH_SECRET?: string;
 }
 
-export function localConfiguration(env: ServiceEnv): { origin: string; secret: string } | null {
+export function localConfiguration(
+  env: Pick<ServiceEnv, "SERVICE_MODE" | "SERVICE_ORIGIN" | "SERVICE_AUTH_SECRET">,
+): { origin: string; secret: string } | null {
   if (
     env.SERVICE_MODE !== "local" ||
     !env.SERVICE_ORIGIN ||
@@ -57,7 +59,11 @@ export function createServiceAuth(env: ServiceEnv) {
     basePath: "/service/api/auth",
     secret: config.secret,
     trustedOrigins: [config.origin],
-    database: drizzleAdapter(drizzle(env.SERVICE_DB), { provider: "sqlite", schema }),
+    database: drizzleAdapter(drizzle(env.SERVICE_DB), {
+      provider: "sqlite",
+      schema,
+      transaction: false,
+    }),
     logger: { disabled: true },
     emailAndPassword: {
       enabled: true,

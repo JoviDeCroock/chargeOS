@@ -26,6 +26,7 @@ Choose the smallest relevant canonical layer. Read all documents in **Always** b
 - [Approved corrections and journal](reimbursement-corrections.md): immutable replacement chains, separate-person review, cancellation, exact balances and retained session reservations.
 - [Reimbursement statements](reimbursement-statements.md): dated assignments, immutable policies, server-calculated drafts, fresh-MFA finance review and unpaid statements.
 - [Commercial service](commercial-service.md): real local accounts, MFA/recovery, organizations, invitations, role isolation and local delivery.
+- [Native commercial runtime](commercial-service.md#native-sqlite-runtime): the same local workflows on Node/SQLite, full business-test parity, private custody and compiled restart verification.
 - [ADR 0003](decisions/0003-separate-commercial-worker.md): separate commercial Worker/D1 boundary, owner isolation and portability gates.
 
 - [Local observation](local-observation.md): functional read-only CSV mapping, provenance, deterministic reimbursement drafts and amount checks.

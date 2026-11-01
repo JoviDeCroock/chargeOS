@@ -22,7 +22,13 @@ The setup tool uses Node's built-in features, so it does not need a separate pac
 
 The current employer workspace is a separate local development service. It is not started by the owner-edge deployment wizard.
 
-Ask your administrator to follow [Local commercial service](../commercial-service.md). Once it is running, open `/service` on the local web app. Verification and invitation links are collected locally; the software does not send email yet. Use synthetic test accounts while evaluating it.
+For a local trial without Cloudflare or Wrangler, ask your administrator to install the tested Node.js **22.22.x** release and the locked dependencies with `pnpm install --frozen-lockfile`. Then run `pnpm service:setup` once and `pnpm service:native`. In another terminal run `pnpm dev:web`, then open `http://127.0.0.1:5173/service`. Keep those terminals open while evaluating it. The native backend creates its private database and applies migrations automatically. If a different Node release reports missing SQLite features, use the tested release before trying again; chargeOS checks those features before opening the database.
+
+Verification and invitation links are collected locally; no email is sent yet. Your administrator can retrieve one with `pnpm service:native:outbox --recipient person@example.test --kind verify-email`, changing the email to the intended test account. The link is secret: open it privately and do not include it in screenshots or support messages. `invitation` and `reset-password` are the other supported link kinds.
+
+Use synthetic test accounts. The database stores local account and financial data without encryption, and a complete commercial backup/restore is not available yet. Keep the private database and authentication configuration off shared drives. Do not copy a live database as a recovery procedure.
+
+The existing Wrangler/D1 development runtime remains available as an alternative; it stores a different database. Do not run both on port 9091 or expect accounts to transfer automatically. See [Local commercial service](../commercial-service.md) for both options.
 
 ## If setup does not open
 

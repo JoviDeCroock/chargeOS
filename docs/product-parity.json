@@ -179,7 +179,7 @@
         "LMS / ThreeForce": "Unverified",
         "D’Ieteren": "Documented (D3)"
       },
-      "currentEvidence": "Real local Worker/D1 accounts at /service: verified-email development flow, MFA/recovery codes, password recovery, SQL rate limits, session expiry/revocation. Public delivery and production recovery remain unproven.",
+      "currentEvidence": "Real local Worker/D1 and native Node/SQLite accounts at /service: verified-email development flow, MFA/recovery codes, password recovery, SQL rate limits, session expiry/revocation. Existing integration tests pass on both adapters; compiled native restart preserves sessions. Public delivery and production recovery remain unproven.",
       "acceptance": "Invite and recover an account; verify MFA, session expiry and revocation without leaking station authority."
     },
     {
@@ -194,7 +194,7 @@
         "LMS / ThreeForce": "Package/device dependent (L7)",
         "D’Ieteren": "Documented (D2)"
       },
-      "currentEvidence": "Separate SQL organization/membership boundary with cross-tenant read/write/audit and role tests. No commercial station claiming, household grants or tenant OCPP runtime yet.",
+      "currentEvidence": "Separate SQL organization/membership boundary with cross-tenant read/write/audit and role tests on Worker/D1 and native SQLite. No commercial station claiming, household grants or tenant OCPP runtime yet.",
       "acceptance": "Two unrelated employers and households cannot read or command one another’s stations; permission checks cover every route and export."
     },
     {

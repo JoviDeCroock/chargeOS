@@ -17,6 +17,8 @@ Finance reviewers should set up an authenticator from **Account security**. Appr
 
 Drivers see their own reimbursement records. Finance members can review the organization's financial records. Only the administrator manages people and invitations. Adding more administrators or transferring administration is not currently available through this workflow.
 
+With the native SQLite backend, the operator retrieves an invitation using `pnpm service:native:outbox --recipient person@example.test --kind invitation`. The exact recipient and link kind must match. See [Install the software](install.md) for native setup and the separate Wrangler alternative. Neither local option sends an invitation email yet.
+
 ## Give a professional temporary charger access
 
 Use the owner console's delegate-access controls for an installer, employer or energy provider. Choose the narrow role and expiry. Give the one-time capability secret only to the intended recipient, and revoke it when the work is finished. These are limited read capabilities; they do not create another owner or permit changing cards and charger settings.
