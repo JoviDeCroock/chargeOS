@@ -2,7 +2,7 @@
 
 chargeOS can send verification, password-recovery and company-invitation links through a mail provider you choose. Your administrator supplies that provider's SMTP settings. SMTP is the connection used to send email; it is separate from your AI key and charging-station credentials.
 
-The instructions below serve the **local employer-workspace trial**. A separate [company HTTPS pilot](company-hosting.md) is available for IT-managed synthetic evaluation. Its localhost links must be opened on the computer running that trial. Enabling email does not deploy a public company portal. Use test accounts and a mail service you control while evaluating it.
+The instructions below serve the **local employer-workspace trial**. A separate [company HTTPS pilot](company-hosting.md) is available for IT-managed synthetic evaluation. Local-trial localhost links must be opened on the computer running the trial. The separate company pilot uses the administrator’s configured HTTPS address; its links can be opened on another device. Enabling email does not deploy a public company portal. Use test accounts and a mail service you control while evaluating it.
 
 ## Ask your administrator to set up delivery
 
@@ -30,4 +30,4 @@ A connection can fail after the provider already accepted a message. You might r
 
 Press Ctrl-C in the mail-worker terminal and wait for it to finish. It completes or times out its current message before stopping. Stop it before other recovery operations. If a process was killed and left recovery custody behind, your administrator must verify that the process and its requests have stopped before assessing that lock; do not force an unlock while work might still be running.
 
-Restoring a backup clears pending emails and starts with email delivery off. Quarantined accounts cannot send mail. Complete the current review, fresh sign-in setup and reviewed reopening first, then configure delivery again. Keep mail-provider credentials separately; they are not in the account backup.
+Restoring a backup clears pending emails and starts with email delivery off. Quarantined accounts cannot send mail. For a local trial, complete the current review, fresh sign-in setup and reviewed local reopening first, then configure delivery again. The HTTPS company pilot has no verified public-resumption workflow yet: keep a restored pilot closed and do not restart public accounts or mail from a locally released copy. Keep mail-provider credentials separately; they are not in the account backup.

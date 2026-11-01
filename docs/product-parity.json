@@ -179,7 +179,7 @@
         "LMS / ThreeForce": "Unverified",
         "D’Ieteren": "Documented (D3)"
       },
-      "currentEvidence": "Real local Worker/D1 and native Node/SQLite accounts at /service: verified-email development flow, MFA/recovery codes, password recovery, SQL rate limits, session expiry/revocation. Existing integration tests pass on both adapters; compiled native restart preserves sessions. Native opt-in SMTP delivery now exercises real verification/reset/invitation links with synthetic TLS, leases/retries, recovery exclusion and graceful shutdown. Public hosting/provider mailbox delivery and production recovery remain unproven.",
+      "currentEvidence": "Real local Worker/D1 and native Node/SQLite accounts at /service: verified-email development flow, MFA/recovery codes, password recovery, SQL rate limits, session expiry/revocation. Existing integration tests pass on both adapters; compiled native restart preserves sessions. Native opt-in SMTP delivery now exercises real verification/reset/invitation links with synthetic TLS, leases/retries, recovery exclusion and graceful shutdown. Native HTTPS Docker synthetic pilot (2026-11-01): sole loopback TLS proxy, Secure scoped cookies, exact work-email signup domains, reserved bounded mail admission, counter cleanup and compiled near-limit backup into fresh local quarantine. Company one-click/cloud deployment, provider mailbox validation and complete public recovery/resumption remain unproven.",
       "acceptance": "Invite and recover an account; verify MFA, session expiry and revocation without leaking station authority."
     },
     {

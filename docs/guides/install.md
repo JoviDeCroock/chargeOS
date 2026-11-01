@@ -4,9 +4,13 @@ chargeOS runs on a computer or server that stays on. Your charging station conne
 
 ## Before you start
 
-For a company deployment, ask the person responsible for your server to help with the first setup. You will need a supported computer or server, Docker with Compose, and Node.js 22 or newer. For a managed server, you will also need your hosting account and a connected server. Hosting and optional AI usage are paid directly to those providers.
+For an owner-edge deployment, ask the person responsible for your server to help with the first setup. You will need a supported computer or server, Docker with Compose, and Node.js 22 or newer. For a managed server, you will also need your hosting account and a connected server. Hosting and optional AI usage are paid directly to those providers.
 
-For an internet-facing installation, choose two addresses such as `charge.company.be` for people and `ocpp.company.be` for charging stations. Your administrator must point both addresses to the correct server. The server needs reachable HTTPS; the Docker setup uses ports 80 and 443 to obtain certificates.
+For an internet-facing owner edge, choose two addresses such as `charge.company.be` for people and `ocpp.company.be` for charging stations. Your administrator must point both addresses to the correct server. The server needs reachable HTTPS; the Docker setup uses ports 80 and 443 to obtain certificates.
+
+## Choose the workspace
+
+Use the setup wizard below for the **owner edge**, which connects to a charger and uses separate console and charger hostnames. Use **Try the employer workspace locally** below to evaluate company accounts on one computer. For a shared company account address, follow [Share the company workspace](company-hosting.md): that separate synthetic HTTPS pilot needs IT setup, one company hostname and a mail provider. The owner wizard does not install it.
 
 ## Open setup
 
@@ -20,7 +24,7 @@ The setup tool uses Node's built-in features, so it does not need a separate pac
 
 ## Try the employer workspace locally
 
-The current employer workspace is a separate local development service. It is not started by the owner-edge deployment wizard.
+The local employer trial is a separate development service. It is not started by the owner-edge deployment wizard. The IT-managed [HTTPS company pilot](company-hosting.md) uses a different deployment profile.
 
 For a local trial without Cloudflare or Wrangler, ask your administrator to install the tested Node.js **22.22.x** release and the locked dependencies with `pnpm install --frozen-lockfile`. Then run `pnpm service:setup` once and `pnpm service:native`. In another terminal run `pnpm dev:web`, then open `http://127.0.0.1:5173/service`. Keep those terminals open while evaluating it. The native backend creates its private database and applies migrations automatically. If a different Node release reports missing SQLite features, use the tested release before trying again; chargeOS checks those features before opening the database.
 

@@ -2,6 +2,8 @@
 
 Deployment starts the server software. It does not change your charging station's settings, move an existing provider connection, or start a payment.
 
+This guide deploys the **owner edge** through the wizard, with separate console and charger hostnames. For the separate employee/company account workspace, choose the local trial in [Install the software](install.md) or the IT-managed synthetic [HTTPS company pilot](company-hosting.md), which uses one company account hostname. Company one-click and managed-cloud account deployment remain pending.
+
 ## Docker on your own server
 
 1. Open setup as described in [Install the software](install.md).

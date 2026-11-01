@@ -13,7 +13,7 @@ The first target is an Alfen Eve Single S/Pro line charger in Belgium. The first
 ## Start here
 
 - [Plain-language help](docs/guides/README.md) — installation, deployment, the owner console, charger connections and connection troubleshooting, AI keys/search, brands, people, RFID cards, reimbursements and recovery. Also available in the app at `/help`.
-- Run `node scripts/deploy.mjs` for the guided Docker or Coolify Cloud setup. See [deployment boundaries and prerequisites](docs/deployment-setup.md).
+- Run `node scripts/deploy.mjs` for the guided owner-edge Docker or Coolify Cloud setup. See [deployment boundaries and prerequisites](docs/deployment-setup.md).
 
 - [Replacement plan and feature parity](docs/product-parity.md) — current product direction, UX brief, delivery boundaries, acceptance criteria and switching gates.
 - [Founder report](docs/founder-report.md) — verdict, market, product, economics, and 90-day plan.
@@ -32,9 +32,13 @@ Run `pnpm dev:web` and open `/preview` to explore the fictional driver, employer
 
 Open `/observe` to map an authorized session CSV, fingerprint its original bytes, apply an explicit policy and inspect an exact unapproved reimbursement draft. The tool processes files in browser memory and sends no upload, charger command or payment. See [Local observation](docs/local-observation.md) for supported formats, rounding, provenance, privacy and limitations.
 
+## Company account deployment choices
+
+The owner-edge wizard above uses separate console and charger hostnames. Company accounts use a different service: choose the local trial below or the separate [native HTTPS Docker pilot](docs/company-hosting.md), an IT-managed synthetic evaluation with one company hostname, approved work email domains and SMTP. Company one-click/cloud setup and complete public recovery/resumption remain pending; [plain-language company setup](docs/guides/company-hosting.md) explains the choice.
+
 ## Local commercial accounts
 
-The same accounts and reimbursement service can now run directly on the tested Node 22.22.x runtime and private SQLite: `pnpm service:setup`, then `pnpm service:native` alongside `pnpm dev:web`. Newer Node releases must pass the built-in SQLite capability check. This local alternative needs no Cloudflare/Wrangler runtime. See [the service guide](docs/commercial-service.md#native-sqlite-runtime) for default operator-only delivery, optional native SMTP, persistent state and adapter parity. An [encrypted commercial backup](docs/commercial-service.md#encrypted-native-backup-and-quarantined-restore) restores records into quarantine with old credentials removed; reviewed local reopening is implemented, while public deployment and production recovery remain unfinished.
+The same accounts and reimbursement service can now run directly on the tested Node 22.22.x runtime and private SQLite: `pnpm service:setup`, then `pnpm service:native` alongside `pnpm dev:web`. Newer Node releases must pass the built-in SQLite capability check. This local alternative needs no Cloudflare/Wrangler runtime. See [the service guide](docs/commercial-service.md#native-sqlite-runtime) for default operator-only delivery, optional native SMTP, persistent state and adapter parity. An [encrypted commercial backup](docs/commercial-service.md#encrypted-native-backup-and-quarantined-restore) restores records into quarantine with old credentials removed; reviewed local reopening is implemented, while company one-click deployment and complete public recovery/resumption remain unfinished.
 
 The real `/service` workspace adds persistent verified-email accounts, authenticator MFA, password recovery, organizations and expiring role invitations in a separate locally runnable Cloudflare Worker with D1/SQLite. Start with `pnpm service:setup`, `pnpm service:migrate` and `pnpm service:dev`, then run the web app. Local delivery uses an operator-only database outbox and sends no email. See [Commercial service](docs/commercial-service.md) for the exact origin, verification flow, isolation and remaining deployment gates. This service has no charger or payment authority.
 

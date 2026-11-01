@@ -4,7 +4,7 @@ There are two kinds of access. The **employer workspace** has employee and finan
 
 ## Add an employee or finance reviewer
 
-The current employer workspace runs locally at `/service`. By default it collects links in a local operator outbox; your administrator can enable [account email](account-email.md) for new links in the local trial. Use synthetic accounts while evaluating this development service.
+Your administrator can run the employer workspace as a local trial or a separate [HTTPS company pilot](company-hosting.md). Both use `/service`. The pilot requires an approved work email address and sends links by email. The local trial collects links in an operator outbox by default, with optional [account email](account-email.md). Use synthetic accounts while evaluating either mode.
 
 1. Have the person create an account and verify it using the link supplied by email or the local operator.
 2. Sign in as your organization's administrator and choose the right **Active organization**. If you have no organization yet, enter a **New organization name** and click **Create organization**; you become its administrator.
@@ -17,7 +17,7 @@ Finance reviewers should set up an authenticator app from **Account security** (
 
 Drivers see their own reimbursement records. Finance members can review the organization's financial records. Only the administrator manages people and invitations. Adding more administrators or transferring administration is not currently available through this workflow.
 
-With the native SQLite backend, the operator retrieves an invitation using `pnpm service:native:outbox --recipient person@example.test --kind invitation`. The exact recipient and link kind must match. See [Install the software](install.md) for native setup and the separate Wrangler alternative. The native option can instead run the separately configured SMTP worker; the local operator command only retrieves local-outbox links.
+In the local native SQLite trial, the operator retrieves an invitation using `pnpm service:native:outbox --recipient person@example.test --kind invitation`. The exact recipient and link kind must match. See [Install the software](install.md) for native setup and the separate Wrangler alternative. The native option can instead run the separately configured SMTP worker; the local operator command only retrieves local-outbox links.
 
 ## Give a professional temporary charger access
 
