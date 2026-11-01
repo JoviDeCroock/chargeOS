@@ -360,44 +360,124 @@ try {
       !captured.includes(authenticator.totpURI),
     "Compiled enrollment logged private material",
   );
-  const failedStart = spawn(process.execPath, ["dist/native-service/service/node/main.js"], {
-    cwd: root,
-    env: {
-      ...environment,
-      SERVICE_NATIVE_CONFIG: join(target, "service.vars"),
-      SERVICE_NATIVE_DATA: join(target, "data"),
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  let recoveryOutput = "";
-  failedStart.stdout.on("data", (chunk) => {
-    recoveryOutput += chunk;
-  });
-  failedStart.stderr.on("data", (chunk) => {
-    recoveryOutput += chunk;
-  });
-  const failureTimer = setTimeout(() => failedStart.kill("SIGKILL"), 5000);
-  let failedCode, failedSignal;
-  try {
-    [failedCode, failedSignal] = await once(failedStart, "exit");
-  } finally {
-    clearTimeout(failureTimer);
+  async function assertQuarantined(restoredEnvironment) {
+    const failedStart = spawn(process.execPath, ["dist/native-service/service/node/main.js"], {
+      cwd: root,
+      env: restoredEnvironment,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let recoveryOutput = "";
+    failedStart.stdout.on("data", (chunk) => {
+      recoveryOutput += chunk;
+    });
+    failedStart.stderr.on("data", (chunk) => {
+      recoveryOutput += chunk;
+    });
+    const failureTimer = setTimeout(() => failedStart.kill("SIGKILL"), 5000);
+    let failedCode, failedSignal;
+    try {
+      [failedCode, failedSignal] = await once(failedStart, "exit");
+    } finally {
+      clearTimeout(failureTimer);
+    }
+    assert(
+      failedCode !== 0 &&
+        !failedSignal &&
+        recoveryOutput.includes("quarantined") &&
+        !recoveryOutput.includes("listening on"),
+      "Compiled native service did not refuse quarantined startup before listening",
+    );
+    assert(
+      !recoveryOutput.includes(authSecret) &&
+        !recoveryOutput.includes(delivery) &&
+        !recoveryOutput.includes(passphrase),
+      "Compiled recovery/startup exposed secret material",
+    );
   }
+  await assertQuarantined(enrollmentEnvironment);
+  const releaseCommand = () =>
+    execFileSync(
+      process.execPath,
+      [
+        "dist/native-service/service/node/recovery-release-cli.js",
+        "--manifest",
+        reviewFile,
+        "--confirm",
+        "I authorize reopening this reviewed replacement after retiring the previous service",
+      ],
+      {
+        cwd: root,
+        env: enrollmentEnvironment,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+  const released = JSON.parse(releaseCommand());
+  assert(released.status === "released", "Compiled reviewed release failed");
   assert(
-    failedCode !== 0 &&
-      !failedSignal &&
-      recoveryOutput.includes("quarantined") &&
-      !recoveryOutput.includes("listening on"),
-    "Compiled native service did not refuse quarantined startup before listening",
+    JSON.parse(releaseCommand()).status === "already-released",
+    "Compiled committed-release retry failed",
+  );
+  base = await start(undefined, enrollmentEnvironment);
+  assert(
+    (await request("/service/api/v1/me")).status === 401,
+    "Enrollment session crossed into normal service",
+  );
+  const freshLogin = await request("/service/api/auth/sign-in/email", {
+    email,
+    password: newPassword,
+  });
+  assert(
+    freshLogin.ok && (await freshLogin.json()).twoFactorRedirect === true,
+    "Normal fresh sign-in skipped MFA after release",
   );
   assert(
-    !recoveryOutput.includes(authSecret) &&
-      !recoveryOutput.includes(delivery) &&
-      !recoveryOutput.includes(passphrase),
-    "Compiled recovery/startup exposed secret material",
+    (await request("/service/api/v1/me")).status === 401,
+    "Pre-MFA sign-in authorized company access",
   );
+  assert(
+    (
+      await request("/service/api/auth/two-factor/verify-totp", {
+        code: authenticatorCode(authenticator.totpURI),
+        trustDevice: false,
+      })
+    ).ok,
+    "Normal post-release MFA failed",
+  );
+  assert(
+    (await request("/service/api/v1/me")).ok,
+    "Reviewed account could not reopen company access",
+  );
+  await stop();
+  const releasedBundle = join(directory, "released.bundle"),
+    secondTarget = join(directory, "second-replacement");
+  const releasedExport = JSON.parse(
+    recoveryCommand(["export", "--output", releasedBundle], enrollmentEnvironment),
+  );
+  assert(
+    JSON.parse(recoveryCommand(["inspect", "--input", releasedBundle], freshHostEnvironment))
+      .accounts === 1,
+    "Released-source inspection required lost config",
+  );
+  const secondRestore = JSON.parse(
+    recoveryCommand(
+      ["restore", "--input", releasedBundle, "--target", secondTarget],
+      freshHostEnvironment,
+    ),
+  );
+  assert(
+    secondRestore.status === "quarantined" &&
+      secondRestore.restoreId !== released.restoreId &&
+      secondRestore.snapshotSha256 === releasedExport.snapshotSha256,
+    "Released-source restore retained old authority",
+  );
+  await assertQuarantined({
+    ...enrollmentEnvironment,
+    SERVICE_NATIVE_CONFIG: join(secondTarget, "service.vars"),
+    SERVICE_NATIVE_DATA: join(secondTarget, "data"),
+  });
   console.log(
-    "Native commercial runtime passed: compiled boot and migrations, local verification, scoped-cookie login, organization/session persistence, clean restart, encrypted backup/inspection without source config, financial checkpoint, fresh-path quarantined restore, restore-bound recovery review, one-time fresh password/TOTP enrollment, cross-process lifecycle exclusion and continued quarantine startup refusal, with no HTTP outbox or secret logging.",
+    "Native commercial runtime passed: compiled boot and migrations, local verification, scoped-cookie login, organization/session persistence, clean restart, encrypted backup/inspection without source config, financial checkpoint, fresh-path quarantined restore, restore-bound recovery review, one-time fresh password/TOTP enrollment, cross-process lifecycle exclusion, atomic reviewed release, normal fresh-MFA sign-in and released-source backup restored into fresh quarantine, with no HTTP outbox or secret logging.",
   );
 } finally {
   await stop().catch(() => {});

@@ -48,7 +48,7 @@ Before a failure, keep a financial checkpoint made after the matching encrypted 
 
 After restoring, your administrator checks current identity and employer access, decides who stays or leaves, checks each departing person's eligibility dates, compares the financial checkpoint and records that the previous employer service is stopped and cannot restart. If any financial record differs or is missing, the review stops. The tool does not invent a balance or ignore the difference.
 
-The resulting report is private and says **reviewed, not enrolled**. It does not reopen the service. People can now complete the fresh credential setup below; the final reopening process is still being built. A review hash records which documents were checked; it cannot verify that those documents are true. Charging-station access remains separate throughout.
+The resulting report is private and says **reviewed, not enrolled**. It does not reopen the service. People can now complete the fresh credential setup below; the separate administrator reopening step below is now available for the local trial. A review hash records which documents were checked; it cannot verify that those documents are true. Charging-station access remains separate throughout.
 
 ## Set up your fresh recovery sign-in
 
@@ -63,4 +63,12 @@ The current enrollment page is a local development trial for synthetic users. It
 
 If you return after using the link, choose **I already chose a new password**, then sign in with that new password and authenticator. If a code fails, try the current code; wait a minute if there have been too many attempts. If you lost the link, password or unsaved setup key, ask your administrator for a replacement. They must stop enrollment and reissue your setup; the other people's completed setup can remain intact. Replacing the entire reviewed roster requires everyone to start again.
 
-Do not save private setup links, passwords or codes in shared notes. A completed setup gives no charger, employer or payment authority. The next reopening step remains unfinished.
+Do not save private setup links, passwords or codes in shared notes. A completed setup gives no charger, employer or payment authority. Your administrator completes the reopening step below.
+
+## Reopen company access after the local recovery trial
+
+Your administrator checks that everyone kept in the review has finished setup. They stop the recovery setup service, wait for it to finish, and use the [reviewed reopening command](../commercial-service.md#reopen-a-reviewed-local-recovery). An expired review, missing financial record or unfinished authenticator stops reopening; your administrator must resolve it before trying again.
+
+After the administrator confirms reopening, open the ordinary **Company accounts** page at `/service`. Sign in with your new password and authenticator. Your recovery setup session does not carry over. People removed in the review cannot access that company, and new eligibility dates apply. Charger ownership and an already accepted owner card stay separate.
+
+If the administrator lost the command's result during an interruption, they can retry the same command. It recognizes a completed reopening without repeating the changes. Keep the old backup and matching software. A later restore always starts a new review and fresh sign-in setup, even if its backup came from a working, reopened service. This remains a local development trial; public delivery and production recovery have not been proved.
