@@ -66,7 +66,7 @@ chargeOS does not record refused connection attempts in its evidence ledger, so 
 
 chargeOS answers with HTTP 401 when the identity is unknown, the password is wrong or missing, or the user name is not the identity. It gives the same answer in each case, so the code alone cannot tell you which one is wrong.
 
-Copy the station password again from `credentials.json` (`stationSecret`). chargeOS requires at least 16 characters, and the setup wizard creates a 48-character password. General guidance: some charger tools limit password length or characters. If yours cannot store the full password, do not shorten it. Stop and ask your operator. The same password also protects chargeOS's stored card list, so changing it is not a simple edit, and there is no guided procedure for it yet.
+Copy the station password again from `credentials.json` (`stationSecret`). The OCPP security rules expect this password to be 32-40 hexadecimal digits (0-9 and a-f), and setups created from 2026-11-01 onwards generate exactly 40. Setups made before that date have a 48-character password that some chargers refuse; chargeOS prints a warning about it when it starts. If your charger's tool can't store the full password, do not shorten it. Stop and ask your operator. The same password also protects chargeOS's stored card list, so changing it is not a simple edit, and there is no guided procedure for it yet.
 
 ### Error 409: already connected
 
