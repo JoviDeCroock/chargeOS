@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { once } from "node:events";
+import { createHmac } from "node:crypto";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const directory = await mkdtemp(join(tmpdir(), "chargeos-native-runtime-"));
@@ -23,11 +24,14 @@ const environment = {
 };
 let child,
   captured = "";
-async function start() {
+async function start(
+  argumentsList = ["dist/native-service/service/node/main.js"],
+  runtimeEnvironment = environment,
+) {
   captured = "";
-  child = spawn(process.execPath, ["dist/native-service/service/node/main.js"], {
+  child = spawn(process.execPath, argumentsList, {
     cwd: root,
-    env: environment,
+    env: runtimeEnvironment,
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout.on("data", (chunk) => {
@@ -59,6 +63,21 @@ async function stop() {
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
 };
+function authenticatorCode(uri) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",
+    secret = new URL(uri).searchParams.get("secret");
+  let bits = "";
+  for (const character of secret.replace(/=+$/, ""))
+    bits += alphabet.indexOf(character.toUpperCase()).toString(2).padStart(5, "0");
+  const bytes = Buffer.alloc(Math.floor(bits.length / 8));
+  for (let index = 0; index < bytes.length; index++)
+    bytes[index] = Number.parseInt(bits.slice(index * 8, index * 8 + 8), 2);
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000)));
+  const digest = createHmac("sha1", bytes).update(counter).digest(),
+    offset = digest[digest.length - 1] & 15;
+  return ((digest.readUInt32BE(offset) & 0x7fffffff) % 1000000).toString().padStart(6, "0");
+}
 try {
   let base = await start();
   const cookies = new Map();
@@ -249,6 +268,98 @@ try {
     !(await readFile(reportFile, "utf8")).includes(authSecret),
     "Compiled review exposed the service auth secret",
   );
+  const enrollmentEnvironment = {
+      ...environment,
+      SERVICE_NATIVE_CONFIG: join(target, "service.vars"),
+      SERVICE_NATIVE_DATA: join(target, "data"),
+    },
+    linksFile = join(directory, "private-enrollment-links.json");
+  const enrollmentCommand = (args) =>
+    execFileSync(
+      process.execPath,
+      ["dist/native-service/service/node/recovery-enrollment-cli.js", ...args],
+      {
+        cwd: root,
+        env: enrollmentEnvironment,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+  assert(
+    JSON.parse(enrollmentCommand(["issue", "--manifest", reviewFile, "--output", linksFile]))
+      .users === 1,
+    "Compiled enrollment issuance failed",
+  );
+  const privateLink = JSON.parse(await readFile(linksFile, "utf8")).links[0].url,
+    activationToken = new URLSearchParams(new URL(privateLink).hash.slice(1)).get("enroll"),
+    newPassword = "synthetic compiled replacement password!";
+  base = await start(
+    [
+      "dist/native-service/service/node/recovery-enrollment-cli.js",
+      "serve",
+      "--manifest",
+      reviewFile,
+    ],
+    enrollmentEnvironment,
+  );
+  cookies.clear();
+  assert(
+    (
+      await request("/service/api/recovery/enrollment/start", {
+        token: activationToken,
+        newPassword,
+      })
+    ).status === 200,
+    "Compiled fresh password enrollment failed",
+  );
+  const setupResponse = await request("/service/api/recovery/enrollment/authenticator", {
+    password: newPassword,
+  });
+  assert(setupResponse.status === 200, "Compiled authenticator setup failed");
+  const authenticator = await setupResponse.json();
+  assert(
+    (
+      await request("/service/api/recovery/enrollment/verify", {
+        code: authenticatorCode(authenticator.totpURI),
+      })
+    ).status === 200,
+    "Compiled fresh TOTP verification failed",
+  );
+  const enrollmentStatus = await (await request("/service/api/recovery/enrollment/status")).json();
+  assert(
+    enrollmentStatus.phase === "ready" && enrollmentStatus.reopeningAllowed === false,
+    "Compiled enrollment bypassed quarantine",
+  );
+  assert(
+    (await request("/service/api/v1/me")).status === 404,
+    "Enrollment exposed the ordinary account API",
+  );
+  let locked = false;
+  try {
+    enrollmentCommand([
+      "reissue",
+      "--manifest",
+      reviewFile,
+      "--email",
+      email,
+      "--output",
+      join(directory, "must-not-exist.json"),
+    ]);
+  } catch (error) {
+    locked = true;
+    assert(
+      !String(error.stdout).trim() && !String(error.stderr).includes(activationToken),
+      "Custody rejection exposed private enrollment material",
+    );
+  }
+  assert(locked, "An active enrollment process did not exclude reissue");
+  await stop();
+  assert(
+    !captured.includes(activationToken) &&
+      !captured.includes(newPassword) &&
+      !captured.includes(authenticator.totpURI),
+    "Compiled enrollment logged private material",
+  );
   const failedStart = spawn(process.execPath, ["dist/native-service/service/node/main.js"], {
     cwd: root,
     env: {
@@ -286,7 +397,7 @@ try {
     "Compiled recovery/startup exposed secret material",
   );
   console.log(
-    "Native commercial runtime passed: compiled boot and migrations, local verification, scoped-cookie login, organization/session persistence, clean restart, encrypted backup/inspection without source config, financial checkpoint, fresh-path quarantined restore, restore-bound recovery review and startup refusal, with no HTTP outbox or secret logging.",
+    "Native commercial runtime passed: compiled boot and migrations, local verification, scoped-cookie login, organization/session persistence, clean restart, encrypted backup/inspection without source config, financial checkpoint, fresh-path quarantined restore, restore-bound recovery review, one-time fresh password/TOTP enrollment, cross-process lifecycle exclusion and continued quarantine startup refusal, with no HTTP outbox or secret logging.",
   );
 } finally {
   await stop().catch(() => {});

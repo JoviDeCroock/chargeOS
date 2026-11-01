@@ -67,7 +67,7 @@ Recovery verification on 2026-11-01 passed `pnpm verify`: 131 owner/UI, 26 Worke
 
 ## Prepare a current recovery review
 
-Reopening begins with a private review of current identity, employer access, financial records and source retirement. These commands prepare and validate that review; they do not enroll credentials, change memberships/eligibility, release quarantine or make a payment. Their output is `reviewed-not-enrolled`, with `reopeningAllowed: false`. Fresh enrollment and final release remain unfinished.
+Reopening begins with a private review of current identity, employer access, financial records and source retirement. These commands prepare and validate that review; they do not enroll credentials, change memberships/eligibility, release quarantine or make a payment. Their output is `reviewed-not-enrolled`, with `reopeningAllowed: false`. The separate fresh-enrollment workflow below can prepare credentials; final release remains unfinished.
 
 While the original native service and its configuration remain available, create a financial checkpoint **after** the corresponding encrypted backup:
 
@@ -105,6 +105,43 @@ Review commands take exclusive `.recovery-lifecycle` custody under the data dire
 The native regression suite covers complete multi-organization decisions, real approved reimbursement records, immutable eligibility conflicts, stale/divergent checkpoints, protected administrators, identity/business mutations, actual cross-restore binding, unsafe evidence, occupied/transient outputs and lifecycle contention/replacement. The compiled drill captures a checkpoint, builds and validates a review on a new restore without source configuration, then proves normal startup still refuses before listening. These are local synthetic workflow checks, not current customer evidence.
 
 Verification on 2026-11-01 passed `pnpm verify`: 131 owner/UI, 26 Worker and 54 native tests, release validation, all four builds and the compiled checkpoint/review/recovery drill. The nine new review tests include a real oversized finished database, ensuring a source that grows during backup is bounded before schema/financial inspection. Independent adversarial review found the transient-output cleanup issue; realpath-based rejection, including symlink aliases, fixes it. The final review found no remaining blocker for this read-only stage.
+
+## Fresh recovery credential enrollment
+
+The native recovery enrollment service lets only users kept by the current review set a new password and verify a new TOTP authenticator. It remains an explicitly loopback-only development workflow for synthetic accounts. It sends no email, proves no real mailbox ownership and is not a public employee portal. The original source must remain retired/fenced as attested in the review. Public mail delivery, production TLS/cookie hosting and final operational release remain separate gates.
+
+Use the **restored** private configuration and data, with the same frontend origin declared in that configuration. Put link outputs in a separate mode-0700 directory outside service data; files are private and create-only. They contain bearer links and must never enter logs or support attachments.
+
+```sh
+export SERVICE_NATIVE_CONFIG=/private/recovery/company/service.vars
+export SERVICE_NATIVE_DATA=/private/recovery/company/data
+pnpm service:native:recovery-enrollment issue --manifest /private/review/company-review.json --output /private/links/employee-links.json
+pnpm service:native:recovery-enrollment serve --manifest /private/review/company-review.json
+```
+
+In another terminal run `pnpm dev:web` using the exact configured local origin (normally `http://127.0.0.1:5173`). The private links open `/service/recovery#enroll=...`. They address this local computer, so an administrator must arrange the current local synthetic trial rather than email localhost links as if production delivery existed. Keep each link with its intended reviewed recipient. The issuer prints only counts/expiry, never links. For compiled operation, build with `pnpm service:native:build` and invoke `node dist/native-service/service/node/recovery-enrollment-cli.js` with the same arguments.
+
+Issuance re-evaluates actual review inputs/evidence and exact source/business/provenance bindings. It deduplicates kept identities across organizations and clears **all** prior authentication state, including accounts for users no longer kept, before creating a fresh enrollment epoch. Membership, policy, eligibility and financial state remain unchanged. Each user receives a random 256-bit token; only its verifier enters authenticated progress. Link output is reserved before credential mutations so an occupied path cannot reset setup accidentally. A failed issue must be assessed before using any output; reissue uses a new private output path.
+
+The page captures the fragment in memory and promptly removes it from the address bar. New passwords are submitted only with the one-use token, never with a browser-selected user ID/email. The server durably claims the token before asynchronous hashing, creates the pinned Better Auth credential format and signs in to a separate `chargeos-recovery` cookie scope. The email-verification flag here records operator-reviewed activation in the local profile; it is not evidence of mailbox custody. Passwords and authenticator material remain transient in the page; no local/session storage, external resource or charger API is used. A different link arriving in the same tab invalidates old in-flight UI responses and clears private material.
+
+After choosing a password, add the new setup key to an authenticator app, save the newly generated backup codes privately and verify a current six-digit code. Only successful verification of the newly recorded TOTP can create a ready proof, bound to the enrollment epoch, review, user/nonce and actual credential/seed/code fingerprints. Existing authenticators and old backup codes cannot satisfy it. Setup will not mint trusted-device cookies; backup-code login, MFA disable, signup, password-reset requests, account linking/email changes and organization/money/owner APIs are absent from this listener. Returning users can sign in with their new password and current TOTP. The pre-session challenge is bound to that reviewed user and the exact signed Better Auth factor-cookie bytes. Duplicate recovery cookies are rejected before authentication so different parsers cannot consume another factor challenge.
+
+The listener re-evaluates current review/evidence and identity bindings before each action, serializes requests/progress writes and applies an explicit 60-request/minute peer cap plus five/minute for each credential-changing or verification endpoint. These limits use the actual socket peer, ignoring caller proxy headers; internal Better Auth calls do not inherit its HTTP limiter automatically. Local users sharing that peer may need to wait a minute. Incorrect codes may also hit the authentication library's account challenge protections. The HTTP bridge keeps Host/Origin/body boundaries and separate cookies; API responses use no-store/no-referrer. These are local safeguards, not public abuse/delivery readiness.
+
+Enrollment progress is a bounded mode-0600 HMAC-authenticated `.recovery-enrollment.json` under service data, tied to the new service secret, origin, restore/review/business/provenance and enrollment nonce. It stores token verifiers and credential proofs, not raw passwords, setup links or TOTP keys. It detects modification; it does not provide rollback resistance or stop an operator cloning an entire package. Never restore an older progress file as a recovery shortcut. Database commit and file publication cannot be one SQLite transaction: interrupted/mismatched state fails closed and requires reviewed reissue rather than inferring readiness from user flags. A ready proof is **not release authority**; ordinary startup and outbox still refuse the SQLite quarantine marker.
+
+If one person loses a link or setup key, stop the enrollment listener with Ctrl-C and let it drain. Then issue only that person's replacement:
+
+```sh
+pnpm service:native:recovery-enrollment reissue --manifest /private/review/company-review.json --email intended@example.test --output /private/links/replacement-link.json
+```
+
+This invalidates that person's nonce, credentials, sessions, seed and ready proof, while retaining other users' verified setup. Pending MFA sign-in challenges are cleared, so another returning user may need to sign in again. Removed/unreviewed identities cannot receive replacements. If the reviewed roster itself changes, complete and validate a new current review, then use explicit `reissue-all --manifest ... --output ...` to invalidate **every** prior credential/proof under a fresh epoch, including people omitted by the new review. All affected users must start again. Issue/reissue refuse an active enrollment process via exclusive lifecycle custody; there is no force-unlock option.
+
+On shutdown, the listener stops new work and waits for every handler promise, even after a client disconnects, before closing SQLite and releasing custody. A killed process may leave stale custody; verify it has actually stopped before an administrator assesses that lock. If credential creation committed but progress could not be saved, the page/server fails closed; do not manually set flags or reuse an old progress file. Reissue after the storage/review issue is resolved. Final reopening still needs a separately reviewed atomic release of the same current epoch after all required users are ready and enrollment has drained. This implementation contains no release command.
+
+Verification on 2026-11-01 passed `pnpm verify`: 134 owner/UI, 26 Worker and 64 native tests, release validation, all four builds and the compiled fresh-password/TOTP enrollment and custody drill. `pnpm verify:runtime` also passed the disposable production owner-edge drill. Independent adversarial review identified missing limits on direct auth API calls and premature custody release after a disconnected socket; explicit peer limits and asynchronous-handler draining fix both, with regressions. The final review found no remaining blocker for this local enrollment stage. Desktop/phone inspection and focused UI tests cover the form, fragment removal, stale responses and private-material clearing. These results do not establish public delivery, operational release or field readiness.
 
 ## Account lifecycle and local delivery
 

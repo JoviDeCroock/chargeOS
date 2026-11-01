@@ -7,6 +7,10 @@ if (!root) throw new Error("Missing #app mount point");
 
 if (/^\/help\/?$/.test(window.location.pathname)) {
   void import("./help.js").then(({ HelpWorkspace }) => render(<HelpWorkspace />, root));
+} else if (/^\/service\/recovery\/?$/.test(window.location.pathname)) {
+  void import("./service/recovery.js").then(({ RecoveryEnrollmentWorkspace }) =>
+    render(<RecoveryEnrollmentWorkspace />, root),
+  );
 } else if (/^\/service\/?$/.test(window.location.pathname)) {
   void import("./service/app.js").then(({ ServiceWorkspace }) =>
     render(<ServiceWorkspace />, root),

@@ -229,3 +229,8 @@ export type * from "./reimbursement.js";
 
 export type * from "./reimbursement-corrections.js";
 export type * from "./troubleshooting.js";
+export type {
+  RecoveryEnrollmentStatus,
+  RecoveryEnrollmentAuthentication,
+  RecoveryEnrollmentAuthenticator,
+} from "./recovery-enrollment.js";

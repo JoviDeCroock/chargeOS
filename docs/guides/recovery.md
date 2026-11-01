@@ -48,4 +48,19 @@ Before a failure, keep a financial checkpoint made after the matching encrypted 
 
 After restoring, your administrator checks current identity and employer access, decides who stays or leaves, checks each departing person's eligibility dates, compares the financial checkpoint and records that the previous employer service is stopped and cannot restart. If any financial record differs or is missing, the review stops. The tool does not invent a balance or ignore the difference.
 
-The resulting report is private and says **reviewed, not enrolled**. It does not reopen the service. People still need fresh credentials and authenticator setup, and the final reopening process is still being built. A review hash records which documents were checked; it cannot verify that those documents are true. Charging-station access remains separate throughout.
+The resulting report is private and says **reviewed, not enrolled**. It does not reopen the service. People can now complete the fresh credential setup below; the final reopening process is still being built. A review hash records which documents were checked; it cannot verify that those documents are true. Charging-station access remains separate throughout.
+
+## Set up your fresh recovery sign-in
+
+The current enrollment page is a local development trial for synthetic users. It does not send email or reopen company access. Your administrator starts the [enrollment service](../commercial-service.md#fresh-recovery-credential-enrollment) on the restored computer and gives each reviewed person their own private setup link. A localhost link opens that computer's local service; it is not a public employee portal.
+
+1. Open your own private link. The page removes its secret from the address bar. Keep the original link privately until you finish.
+2. Choose a new password, enter it twice and continue. Old passwords will not work. The link can be used once.
+3. In your authenticator app, add an account using the setup key shown on the page. Name the account chargeOS.
+4. Save the new recovery codes in your password manager or another private place. Do not send the key or codes in a support message or screenshot.
+5. Enter the current six-digit authenticator code. The page clears the setup material when verification succeeds.
+6. When it says **Credential setup complete**, tell your administrator you are ready, then sign out to clear the page. Company access remains paused until the administrator completes reopening.
+
+If you return after using the link, choose **I already chose a new password**, then sign in with that new password and authenticator. If a code fails, try the current code; wait a minute if there have been too many attempts. If you lost the link, password or unsaved setup key, ask your administrator for a replacement. They must stop enrollment and reissue your setup; the other people's completed setup can remain intact. Replacing the entire reviewed roster requires everyone to start again.
+
+Do not save private setup links, passwords or codes in shared notes. A completed setup gives no charger, employer or payment authority. The next reopening step remains unfinished.

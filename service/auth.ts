@@ -49,7 +49,10 @@ export async function enqueueLocalDelivery(
     .values({ id: crypto.randomUUID(), kind, recipient, url, createdAt: new Date(), expiresAt });
 }
 
-export function createServiceAuth(env: ServiceEnv) {
+export function createServiceAuth(
+  env: ServiceEnv,
+  purpose: "normal" | "recovery-enrollment" = "normal",
+) {
   const config = localConfiguration(env);
   if (!config) throw new Error("Commercial service is not configured for local development");
   return betterAuth({
@@ -99,7 +102,7 @@ export function createServiceAuth(env: ServiceEnv) {
     },
     session: { expiresIn: 604800, updateAge: 86400, cookieCache: { enabled: false } },
     advanced: {
-      cookiePrefix: "chargeos-service",
+      cookiePrefix: purpose === "recovery-enrollment" ? "chargeos-recovery" : "chargeos-service",
       useSecureCookies: false,
       defaultCookieAttributes: { httpOnly: true, sameSite: "lax", path: "/service/api" },
       ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] },

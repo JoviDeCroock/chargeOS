@@ -1,0 +1,71 @@
+.cs-recovery-main {
+  max-width: 740px;
+}
+.cs-recovery .cs-heading h1 {
+  letter-spacing: -0.035em;
+  font-size: clamp(1.8rem, 4vw, 2.65rem);
+  text-wrap: balance;
+}
+.cs-recovery-form {
+  max-width: 600px;
+}
+.cs-recovery .cs-brand {
+  letter-spacing: -0.035em;
+}
+.cs-recovery a {
+  text-underline-offset: 0.18em;
+}
+.cs-recovery input {
+  caret-color: #214b3d;
+}
+.cs-recovery ::selection {
+  color: #18352d;
+  background: #d6f382;
+}
+.cs-recovery-identity {
+  overflow-wrap: anywhere;
+  font-weight: 650;
+}
+.cs-recovery-identity span {
+  font-weight: 400;
+}
+.cs-recovery-secret {
+  display: block;
+  padding: 1rem;
+  border: 1px solid #c7d1c8;
+  background: #eef2e7;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+  user-select: all;
+}
+.cs-recovery-codes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem 1rem;
+  padding: 0;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+.cs-root .cs-recovery-check {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 44px;
+  margin-bottom: 1.4rem;
+}
+.cs-recovery-check input {
+  width: 20px;
+  min-height: 20px;
+  height: 20px;
+  accent-color: #214b3d;
+  flex: 0 0 auto;
+}
+@media (max-width: 500px) {
+  .cs-recovery .cs-topbar {
+    flex-wrap: wrap;
+  }
+  .cs-recovery .cs-local {
+    flex-basis: 100%;
+    order: 3;
+  }
+}
