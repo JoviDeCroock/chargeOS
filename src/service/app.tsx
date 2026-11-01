@@ -18,7 +18,7 @@ function fields(form: HTMLFormElement) {
   return Object.fromEntries(new FormData(form).entries());
 }
 
-export function ServiceWorkspace() {
+export function ServiceWorkspace({ hostedPage = false }: { hostedPage?: boolean } = {}) {
   const account = useSignal<ServiceAccount | null>(null);
   const workspace = useSignal<OrganizationWorkspace | null>(null);
   const busy = useSignal(true);
@@ -152,6 +152,7 @@ export function ServiceWorkspace() {
       else await refresh();
     }
   }
+  const hosted = hostedPage || health.value?.mode === "self-hosted";
   const me = account.value;
   const current = workspace.value;
   return (
@@ -160,7 +161,11 @@ export function ServiceWorkspace() {
         <a class="cs-brand" href="/service">
           <span aria-hidden="true">c</span>chargeOS
         </a>
-        <span class="cs-local">Local development · no charger connection</span>
+        <span class="cs-local">
+          {hosted
+            ? "Company accounts · no charger connection"
+            : "Local development · no charger connection"}
+        </span>
         {me && (
           <button
             type="button"
@@ -189,11 +194,13 @@ export function ServiceWorkspace() {
           </p>
         </div>
         <aside class="cs-local-note">
-          {health.value?.delivery === "smtp-queue"
-            ? "This local trial emails verification, invitation and recovery links through your administrator’s mail provider. Open localhost links on this computer. Email delivery does not make this a public company portal."
-            : health.value
-              ? "This service runs on your computer. Verification, invitation and recovery links stay in the operator’s local database outbox. No email is sent. This mode does not prove ownership of a real email address."
-              : "Checking how account links are delivered…"}
+          {hosted
+            ? "Use your approved work email address. Verification, invitations and password recovery arrive by email. Your company account manages access and reimbursement records; charger ownership stays with its owner."
+            : health.value?.delivery === "smtp-queue"
+              ? "This local trial emails verification, invitation and recovery links through your administrator’s mail provider. Open localhost links on this computer. Email delivery does not make this a public company portal."
+              : health.value
+                ? "This service runs on your computer. Verification, invitation and recovery links stay in the operator’s local database outbox. No email is sent. This mode does not prove ownership of a real email address."
+                : "Checking how account links are delivered…"}
         </aside>
         {busy.value && <p role="status">Working…</p>}
         {error.value && (
@@ -650,9 +657,13 @@ export function ServiceWorkspace() {
         )}
         <footer class="cs-footer">
           <a href="/help">Help and setup guides</a>
-          <a href="/preview">Explore the fictional product preview</a>
-          <a href="/observe">Open local CSV observation</a>
-          <a href="/">Owner console</a>
+          {!hosted && (
+            <>
+              <a href="/preview">Explore the fictional product preview</a>
+              <a href="/observe">Open local CSV observation</a>
+              <a href="/">Owner console</a>
+            </>
+          )}
         </footer>
       </main>
     </div>

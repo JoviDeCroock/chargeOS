@@ -2,7 +2,7 @@
 
 chargeOS can send verification, password-recovery and company-invitation links through a mail provider you choose. Your administrator supplies that provider's SMTP settings. SMTP is the connection used to send email; it is separate from your AI key and charging-station credentials.
 
-This feature currently serves the **local employer-workspace trial**. Its localhost links must be opened on the computer running that trial. Enabling email does not deploy a public company portal. Use test accounts and a mail service you control while evaluating it.
+The instructions below serve the **local employer-workspace trial**. A separate [company HTTPS pilot](company-hosting.md) is available for IT-managed synthetic evaluation. Its localhost links must be opened on the computer running that trial. Enabling email does not deploy a public company portal. Use test accounts and a mail service you control while evaluating it.
 
 ## Ask your administrator to set up delivery
 

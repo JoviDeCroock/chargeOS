@@ -17,3 +17,5 @@ chargeOS lets you run charging software on infrastructure you control. Start wit
 If you are using chargeOS at work, your administrator can tell you which workspace you use. The **owner console** manages a physical charger. The separate **employer workspace** manages people and reimbursement records. An employer account does not grant control over a home charger.
 
 Current release: the owner edge is for controlled lab and migration work. Employer accounts and reimbursements run locally; optional SMTP email delivery is available for that trial, while public account hosting and payment execution remain unfinished. A completed software deployment does not prove that a real charger works safely through an outage.
+
+- [Share the company workspace](company-hosting.md): IT-managed HTTPS account pilot, approved work emails and current deployment/recovery limits.

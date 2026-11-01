@@ -16,6 +16,7 @@ const order = [
   "brands",
   "people",
   "account-email",
+  "company-hosting",
   "rfid",
   "reimbursements",
   "recovery",
@@ -81,7 +82,7 @@ function Markdown({ text }: { text: string }) {
     </>
   );
 }
-export function HelpWorkspace() {
+export function HelpWorkspace({ hostedPage = false }: { hostedPage?: boolean } = {}) {
   const requested = new URLSearchParams(location.search).get("guide") ?? "README";
   const guide = guides.find((item) => item.id === requested) ?? guides[0]!;
   return (
@@ -90,9 +91,9 @@ export function HelpWorkspace() {
         Skip to guide
       </a>
       <header>
-        <a href="/">chargeOS</a>
+        <a href={hostedPage ? "/service" : "/"}>chargeOS</a>
         <span>Help</span>
-        <a href="/">Owner console</a>
+        {!hostedPage && <a href="/">Owner console</a>}
         <a href="/service">Employer workspace</a>
       </header>
       <div class="help-layout">

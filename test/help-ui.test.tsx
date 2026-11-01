@@ -38,3 +38,11 @@ it("only links guides to forms the help renderer can resolve", () => {
     }
   }
 });
+
+it("keeps hosted help connected to the company workspace without an owner-console link", () => {
+  window.history.replaceState(null, "", "/help?guide=company-hosting");
+  render(<HelpWorkspace hostedPage />);
+  expect(screen.getByRole("heading", { name: "Share the company workspace" })).toBeTruthy();
+  expect(screen.queryByRole("link", { name: "Owner console" })).toBeNull();
+  expect(screen.getByRole("link", { name: "chargeOS" }).getAttribute("href")).toBe("/service");
+});

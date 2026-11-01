@@ -5,15 +5,19 @@ import "./style.css";
 const root = document.getElementById("app");
 if (!root) throw new Error("Missing #app mount point");
 
+const hostedPage = document.documentElement.dataset.commercialHosting === "production";
+
 if (/^\/help\/?$/.test(window.location.pathname)) {
-  void import("./help.js").then(({ HelpWorkspace }) => render(<HelpWorkspace />, root));
+  void import("./help.js").then(({ HelpWorkspace }) =>
+    render(<HelpWorkspace hostedPage={hostedPage} />, root),
+  );
 } else if (/^\/service\/recovery\/?$/.test(window.location.pathname)) {
   void import("./service/recovery.js").then(({ RecoveryEnrollmentWorkspace }) =>
     render(<RecoveryEnrollmentWorkspace />, root),
   );
 } else if (/^\/service\/?$/.test(window.location.pathname)) {
   void import("./service/app.js").then(({ ServiceWorkspace }) =>
-    render(<ServiceWorkspace />, root),
+    render(<ServiceWorkspace hostedPage={hostedPage} />, root),
   );
 } else if (/^\/preview\/?$/.test(window.location.pathname)) {
   void import("./product/app.js").then(({ ProductPreview }) => render(<ProductPreview />, root));

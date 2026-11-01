@@ -137,3 +137,21 @@ it("describes SMTP delivery without claiming a public portal or successful inbox
   expect(screen.queryByText(/No email is sent/)).toBeNull();
   expect(localStorage.length + sessionStorage.length).toBe(0);
 });
+
+it("describes hosted work email and removes links to unavailable owner-only workspaces", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) =>
+      path.endsWith("/health")
+        ? reply({ mode: "self-hosted", delivery: "smtp-queue", chargerControl: false })
+        : reply({ error: "Sign in to continue" }, 401),
+    ),
+  );
+  render(<ServiceWorkspace hostedPage />);
+  await screen.findByText(/Use your approved work email address/);
+  expect(screen.getByText("Company accounts · no charger connection")).toBeTruthy();
+  expect(screen.queryByRole("link", { name: "Owner console" })).toBeNull();
+  expect(screen.queryByRole("link", { name: /fictional product preview/ })).toBeNull();
+  expect(screen.queryByText(/This local trial emails/)).toBeNull();
+  expect(localStorage.length + sessionStorage.length).toBe(0);
+});
