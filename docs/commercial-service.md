@@ -1,6 +1,6 @@
 # Commercial account service
 
-> Native HTTPS Docker pilot: the separate [company-hosting contract](company-hosting.md) now supports synthetic public-origin account verification and Secure sessions. Local commands below retain their loopback boundary. An isolated Coolify company adapter now has synthetic runtime proof; live platform acceptance and complete public recovery/resumption are still pending.
+> Native HTTPS Docker pilot: the separate [company-hosting contract](company-hosting.md) now supports synthetic public-origin account verification and Secure sessions. Local commands below retain their loopback boundary. An isolated Coolify company adapter now has synthetic runtime proof; a reviewed owned-Docker public handoff also has synthetic proof. Live platform/customer acceptance and managed-cloud recovery are still pending.
 
 Implemented 2026-10-28. This is a real local account/organization service with persistent SQLite/D1 records. It remains separate from the fictional `/preview`, browser-memory `/observe` and physical owner console `/`. [ADR 0003](decisions/0003-separate-commercial-worker.md) records the hosting/storage boundary.
 
@@ -151,7 +151,7 @@ Verification on 2026-11-01 passed `pnpm verify`: 134 owner/UI, 26 Worker and 64 
 
 ## Reopen a reviewed local recovery
 
-This closes the local synthetic recovery workflow from encrypted backup through fresh credentials to normal company access. It is not production recovery, public mailbox proof or authority over a charger. Keep the former commercial source retired and fenced; its evidence remains the operator's responsibility. The checkpoint must still match every financial record exactly. Missing post-backup financial decisions cannot be waived.
+This closes the local synthetic recovery workflow from encrypted backup through fresh credentials to normal company access. It is not production recovery, public mailbox proof or authority over a charger. The separate [reviewed public handoff](public-company-recovery.md) can extend that exact stopped recovery to its explicitly authorized HTTPS origin in the owned-Docker synthetic pilot. Keep the former commercial source retired and fenced; its evidence remains the operator's responsibility. The checkpoint must still match every financial record exactly. Missing post-backup financial decisions cannot be waived.
 
 Use the restored configuration/data exports from enrollment. Once **every kept user** has completed fresh password and TOTP setup, stop the enrollment listener with Ctrl-C and let it finish draining. Re-read the current review and its evidence, then run:
 

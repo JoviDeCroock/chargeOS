@@ -1,5 +1,5 @@
 import { constants, closeSync, lstatSync, mkdirSync, openSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import * as sqlite from "node:sqlite";
 import { createHash } from "node:crypto";
@@ -88,6 +88,7 @@ export class NativeCommercialDatabase implements D1Database {
       recoveryInspection?: boolean;
       recoverySecret?: string | undefined;
       recoveryOrigin?: string | undefined;
+      readOnly?: boolean;
     } = {},
   ) {
     requireSqliteCapabilities();
@@ -96,21 +97,37 @@ export class NativeCommercialDatabase implements D1Database {
     if (!info.isDirectory() || info.isSymbolicLink() || (info.mode & 0o077) !== 0)
       throw new Error("Commercial database directory must be owner-private and not a symlink");
     this.path = join(directory, "commercial.sqlite");
-    privateFile(this.path, true);
+    if (
+      !options.recoveryInspection &&
+      existsSync(join(directory, ".public-install")) &&
+      !existsSync(this.path)
+    )
+      throw new Error("Public installation is incomplete; retain its private staging custody");
+    privateFile(this.path, !options.readOnly);
     for (const suffix of ["-journal", "-wal", "-shm"]) privateFile(`${this.path}${suffix}`, false);
-    this.#database = new DatabaseSync(this.path, connectionOptions);
+    this.#database = new DatabaseSync(this.path, {
+      ...connectionOptions,
+      readOnly: options.readOnly ?? false,
+    });
     try {
       // DELETE journals stay alongside the private 0600 main file. FULL sync
       // makes a successful atomic batch durable before its promise resolves.
-      this.#database.exec("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;");
+      if (!options.readOnly)
+        this.#database.exec("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;");
       this.checkIntegrity();
-      if (
-        !options.recoveryInspection &&
-        (this.recoveryState(options.recoverySecret, false, options.recoveryOrigin ?? "") ===
-          "quarantined" ||
-          existsSync(join(directory, ".recovery-lifecycle")))
-      )
-        throw new Error("quarantined");
+      if (!options.recoveryInspection) {
+        const state = this.recoveryState(
+          options.recoverySecret,
+          false,
+          options.recoveryOrigin ?? "",
+        );
+        if (
+          !["ordinary", "released"].includes(state) ||
+          (state === "ordinary" && existsSync(join(directory, ".public-install"))) ||
+          existsSync(join(directory, ".recovery-lifecycle"))
+        )
+          throw new Error("quarantined");
+      }
     } catch (error) {
       this.#database.close();
       if (error instanceof Error && error.message === "quarantined")
@@ -127,7 +144,13 @@ export class NativeCommercialDatabase implements D1Database {
     return nativeRecoveryState(this.#database, secret, historical, origin);
   }
   assertServiceOrigin(secret: string, origin: string): void {
-    if (this.recoveryState(secret, false, origin) === "quarantined")
+    const state = this.recoveryState(secret, false, origin),
+      directory = dirname(this.path);
+    if (
+      !["ordinary", "released"].includes(state) ||
+      existsSync(join(directory, ".recovery-lifecycle")) ||
+      (state === "ordinary" && existsSync(join(directory, ".public-install")))
+    )
       throw new Error("Commercial recovery remains quarantined");
   }
   /** Full logical state, including credentials, used only as an internal

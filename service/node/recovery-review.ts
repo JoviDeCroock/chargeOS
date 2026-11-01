@@ -13,6 +13,9 @@ import {
 import { readPrivateRecoveryFile, writePrivateRecoveryFile } from "./recovery-files.js";
 import { inspectNativeCommercialDatabase } from "./recovery.js";
 import { NativeCommercialDatabase } from "./sqlite.js";
+import type { NativeReleaseReceipt } from "./recovery-marker.js";
+import type { EnrollmentState } from "./recovery-enrollment-state.js";
+import { requireExternalHandoffPath } from "./handoff-paths.js";
 
 const MAX_REVIEW_BYTES = 4 * 1024 * 1024;
 const MAX_EVIDENCE_BYTES = 16 * 1024 * 1024;
@@ -181,7 +184,7 @@ export async function businessFingerprint(
   const tables = (
     await database
       .prepare(
-        "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT GLOB 'sqlite_*' AND (name NOT GLOB '_chargeos_*' OR name='_chargeos_native_release_history') ORDER BY name",
+        "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT GLOB 'sqlite_*' AND (name NOT GLOB '_chargeos_*' OR name IN ('_chargeos_native_release_history','_chargeos_native_handoff_history')) ORDER BY name",
       )
       .all<{ name: string }>()
   ).results;
@@ -665,3 +668,103 @@ export async function validateNativeRecoveryReview(
 export type EvaluatedNativeRecoveryReview = Awaited<
   ReturnType<typeof evaluateNativeRecoveryReview>
 >;
+
+/** Recheck the original review's real inputs after its decisions were applied.
+ * Reconstruct its authenticated report rather than evaluating the old manifest
+ * against deliberately changed post-release membership/eligibility rows. */
+export async function verifyReleasedRecoveryReview(
+  database: NativeCommercialDatabase,
+  manifestFile: string,
+  release: NativeReleaseReceipt,
+  state: EnrollmentState,
+): Promise<void> {
+  await requireExternalHandoffPath(manifestFile);
+  const bytes = await readPrivateRecoveryFile(manifestFile, MAX_REVIEW_BYTES),
+    manifest: unknown = JSON.parse(bytes.toString("utf8"));
+  exactObject(manifest, [
+    "format",
+    "schemaVersion",
+    "restoreId",
+    "businessSha256",
+    "provenanceSha256",
+    "reviewedThrough",
+    "confirmation",
+    "sourceRetirementEvidenceFile",
+    "financialCheckpointFile",
+    "organizations",
+  ]);
+  const reviewedThrough = iso(manifest.reviewedThrough),
+    reviewedAt = Date.parse(reviewedThrough),
+    now = Date.now();
+  if (
+    manifest.format !== "chargeos-commercial-recovery-review" ||
+    manifest.schemaVersion !== 1 ||
+    manifest.confirmation !== RECOVERY_REVIEW_CONFIRMATION ||
+    reviewedAt > now ||
+    now - reviewedAt >= DAY ||
+    state.expiresAt !== new Date(reviewedAt + DAY).toISOString()
+  )
+    throw new Error("Public handoff requires the same unexpired recovery review");
+  const root = await provenance(database);
+  await requireExternalHandoffPath(text(manifest.financialCheckpointFile));
+  const checkpoint = await readPrivateRecoveryFile(
+    text(manifest.financialCheckpointFile),
+    MAX_REVIEW_BYTES,
+  );
+  const currentEvidence = async (path: unknown) => {
+    await requireExternalHandoffPath(text(path));
+    return evidence(path);
+  };
+  const organizations =
+    release.decisions as EvaluatedNativeRecoveryReview["report"]["organizations"];
+  const report = {
+    format: "chargeos-commercial-validated-recovery-review",
+    schemaVersion: 1,
+    restoreId: root.restoreId,
+    snapshotSha256: root.snapshotSha256,
+    businessSha256: release.beforeBusinessSha256,
+    provenanceSha256: root.provenanceSha256,
+    manifestSha256: sha(bytes),
+    financialCheckpointSha256: sha(checkpoint),
+    sourceRetirementEvidenceSha256: await currentEvidence(manifest.sourceRetirementEvidenceFile),
+    reviewedThrough,
+    expiresAt: state.expiresAt,
+    operatorAttestation: RECOVERY_REVIEW_CONFIRMATION,
+    organizations,
+    status: "reviewed-not-enrolled",
+    reopeningAllowed: false,
+  };
+  if (
+    sha(canonical(report)) !== release.reviewSha256 ||
+    manifest.restoreId !== release.restoreId ||
+    manifest.businessSha256 !== release.beforeBusinessSha256 ||
+    manifest.provenanceSha256 !== release.provenanceSha256
+  )
+    throw new Error("Original recovery review inputs changed");
+  // The report hash above binds the exact manifest/decisions; still read every
+  // referenced identity, roster and finance file to catch changed actual bytes.
+  for (const supplied of list(manifest.organizations, 1000)) {
+    if (!supplied || typeof supplied !== "object" || Array.isArray(supplied))
+      throw new Error("Invalid reviewed organization");
+    const org = supplied as Record<string, unknown>,
+      normalized = organizations.find((o) => o.organizationId === org.id);
+    if (
+      !normalized ||
+      (await currentEvidence(org.financialEvidenceFile)) !== normalized.financialEvidenceSha256 ||
+      (await currentEvidence(org.rosterEvidenceFile)) !== normalized.rosterEvidenceSha256
+    )
+      throw new Error("Current recovery evidence changed");
+    for (const item of list(org.members, 10000)) {
+      if (!item || typeof item !== "object" || Array.isArray(item))
+        throw new Error("Invalid reviewed identity");
+      const member = item as Record<string, unknown>,
+        decision = normalized.members.find((m) => m.userId === member.userId);
+      if (
+        !decision ||
+        (decision.decision === "keep" &&
+          (await currentEvidence(member.identityEvidenceFile)) !== decision.identityEvidenceSha256)
+      )
+        throw new Error("Current identity evidence changed");
+    }
+  }
+}

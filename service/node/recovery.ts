@@ -1,4 +1,5 @@
 import { recoverySourceOrigin } from "./recovery-origin.js";
+import { NATIVE_HANDOFF_SQL, NATIVE_HANDOFF_HISTORY_SQL } from "./handoff-marker.js";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { lstat, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -78,6 +79,12 @@ export async function inspectNativeCommercialDatabase(
         .first()
     )
       await reference.prepare(NATIVE_RECOVERY_HISTORY_SQL).run();
+    for (const [name, sql] of [
+      ["_chargeos_native_handoff", NATIVE_HANDOFF_SQL],
+      ["_chargeos_native_handoff_history", NATIVE_HANDOFF_HISTORY_SQL],
+    ])
+      if (await database.prepare("SELECT 1 FROM sqlite_schema WHERE name=?").bind(name).first())
+        await reference.prepare(sql!).run();
     if (JSON.stringify(await schema(database)) !== JSON.stringify(await schema(reference)))
       throw new Error("Commercial database schema differs from the checked-in migrations");
     const applied = await database
@@ -135,7 +142,7 @@ async function withSnapshot<T>(
   try {
     await writePrivateRecoveryFile(join(directory, "commercial.sqlite"), bytes);
     database = new NativeCommercialDatabase(directory, { recoveryInspection: true });
-    if (database.recoveryState(undefined, true) === "quarantined")
+    if (!["ordinary", "released"].includes(database.recoveryState(undefined, true)))
       throw new Error("Quarantined snapshots cannot be reused as source backups");
     return await callback(database);
   } finally {
@@ -284,6 +291,11 @@ export async function restoreCommercialRecovery(
     await database.batch([
       ...(released
         ? [
+            ...((await database
+              .prepare("SELECT 1 FROM sqlite_schema WHERE name='_chargeos_native_handoff'")
+              .first())
+              ? [database.prepare("DROP TABLE _chargeos_native_handoff")]
+              : []),
             database.prepare("DROP TABLE _chargeos_native_release"),
             database.prepare("DROP TABLE _chargeos_native_recovery"),
           ]

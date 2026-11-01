@@ -6,6 +6,7 @@ import {
   openSync,
   realpathSync,
   readFileSync,
+  readSync,
 } from "node:fs";
 import { resolve, sep } from "node:path";
 
@@ -43,6 +44,11 @@ function mountedReadOnlySecret(path: string): boolean {
   );
 }
 export function readRuntimeFile(path: string, maximum: number, allowMounted = false): string {
+  return readRuntimeBytes(path, maximum, allowMounted).toString("utf8");
+}
+export function readRuntimeBytes(path: string, maximum: number, allowMounted = false): Buffer {
+  if (!Number.isSafeInteger(maximum) || maximum < 0)
+    throw new Error("Use a bounded runtime input limit");
   path = resolve(path);
   const original = lstatSync(path),
     fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
@@ -61,11 +67,21 @@ export function readRuntimeFile(path: string, maximum: number, allowMounted = fa
       throw new Error(
         "Runtime settings must be bounded private files or verified read-only Docker secrets",
       );
-    const value = readFileSync(fd, "utf8"),
+    const parts: Buffer[] = [];
+    let size = 0;
+    for (;;) {
+      const chunk = Buffer.alloc(Math.min(16384, maximum + 1 - size)),
+        count = readSync(fd, chunk, 0, chunk.length, null);
+      if (!count) break;
+      size += count;
+      if (size > maximum) throw new Error("Runtime settings exceed their boundary");
+      parts.push(chunk.subarray(0, count));
+    }
+    const value = Buffer.concat(parts, size),
       after = fstatSync(fd),
       current = lstatSync(path);
     if (
-      Buffer.byteLength(value) > maximum ||
+      value.length !== before.size ||
       before.size !== after.size ||
       after.mtimeMs !== before.mtimeMs ||
       after.ctimeMs !== before.ctimeMs ||

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { localConfiguration, type ServiceEnv } from "../auth.js";
 import { NativeCommercialDatabase } from "./sqlite.js";
+import { handoffHistoryDigest } from "./handoff-marker.js";
 import {
   businessFingerprint,
   evaluateNativeRecoveryReview,
@@ -88,6 +89,16 @@ export async function releaseNativeCommercialRecovery(
       );
       if (historyRows.results.length >= 1000)
         throw new Error("Recovery history exceeds its boundary");
+      const hasHandoffHistory = await database
+        .prepare("SELECT 1 FROM sqlite_schema WHERE name='_chargeos_native_handoff_history'")
+        .first();
+      const handoffRows = hasHandoffHistory
+        ? (
+            await database
+              .prepare("SELECT handoff_id,receipt_json FROM _chargeos_native_handoff_history")
+              .all<{ handoff_id: string; receipt_json: string }>()
+          ).results
+        : [];
       const releaseId = randomUUID(),
         releasedAt = new Date().toISOString(),
         now = Date.parse(releasedAt);
@@ -169,7 +180,10 @@ export async function releaseNativeCommercialRecovery(
       const afterBusinessSha256 = await businessFingerprint(copy);
       const receipt: NativeReleaseReceipt = {
         format: "chargeos-native-recovery-release",
-        schemaVersion: 1,
+        schemaVersion: 2,
+        handoffHistorySha256: handoffHistoryDigest(
+          handoffRows.map((row) => [row.handoff_id, row.receipt_json]),
+        ),
         releaseId,
         restoreId: state.restoreId,
         enrollmentEpoch: state.epoch,

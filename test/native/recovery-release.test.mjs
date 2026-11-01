@@ -1,4 +1,4 @@
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, lstat, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
@@ -34,6 +34,14 @@ import { nativeConfiguration } from "../../service/node/configuration.ts";
 import { fileURLToPath } from "node:url";
 import { nativeHosting } from "../../service/configuration.ts";
 import { deliverNativeAccountMail } from "../../service/node/mail.ts";
+import { prepareNativePublicHandoff } from "../../service/node/public-handoff.ts";
+import {
+  PUBLIC_HANDOFF_CONFIRMATION,
+  parseNativeHandoff,
+  sealNativeHandoff,
+} from "../../service/node/handoff-marker.ts";
+import { handoffStateDigest } from "../../service/node/handoff-state.ts";
+import { installNativePublicHandoff } from "../../service/node/public-install.ts";
 
 let f,
   baseline,
@@ -532,14 +540,24 @@ it("does not export, checkpoint or deliver mail under an unreviewed public origi
   ).rejects.toThrow(/startup verification/);
 });
 
-it("backs up a released service and restores it without the old config into a new quarantined epoch with no release authority", async () => {
+it("backs up a public handoff with real reimbursement history and restores it into a new quarantined epoch before a fresh release", async () => {
   const released = await release(),
     bundle = join(f.directory, "released.bundle"),
     checkpoint = join(f.directory, "released-checkpoint.json"),
     target = join(f.directory, "second-restore"),
     phrase = "a second synthetic backup passphrase!";
-  await exportCommercialRecovery(f.configuration, f.data, bundle, phrase);
-  await checkpointNativeCommercial(f.configuration, f.data, checkpoint);
+  const capsule = packagePath();
+  await handoff(capsule);
+  const publicConfig = {
+    ...f.configuration,
+    SERVICE_MODE: "production",
+    SERVICE_ORIGIN: publicOrigin,
+    SERVICE_DELIVERY: "smtp",
+    SERVICE_SIGNUP_DOMAINS: "example.test",
+    [nativeHosting]: true,
+  };
+  await exportCommercialRecovery(publicConfig, join(capsule, "data"), bundle, phrase);
+  await checkpointNativeCommercial(publicConfig, join(capsule, "data"), checkpoint);
   expect((await inspectCommercialRecovery(bundle, phrase)).organizations).toBe(1);
   const restored = await restoreCommercialRecovery(bundle, target, phrase);
   expect(restored.restoreId).not.toBe(released.restoreId);
@@ -556,6 +574,12 @@ it("backs up a released service and restores it without the old config into a ne
         .prepare("SELECT release_id FROM _chargeos_native_release_history")
         .first("release_id"),
     ).toBe(released.releaseId);
+    expect(
+      await db.prepare("SELECT 1 FROM sqlite_schema WHERE name='_chargeos_native_handoff'").first(),
+    ).toBeNull();
+    expect(
+      await db.prepare("SELECT count(*) AS n FROM _chargeos_native_handoff_history").first("n"),
+    ).toBe(1);
     for (const table of ["account", "session", "two_factor", "verification", "local_outbox"])
       expect(await db.prepare(`SELECT count(*) AS n FROM ${table}`).first("n")).toBe(0);
   } finally {
@@ -639,24 +663,56 @@ it("backs up a released service and restores it without the old config into a ne
     expect(current.receipt.afterBusinessSha256).toBe(
       await businessFingerprint(live, second.releaseId),
     );
+  } finally {
+    live.close();
+  }
+  const nextCapsule = packagePath(),
+    nextOrigin = "https://replacement.example.test";
+  await prepareNativePublicHandoff(
+    fresh,
+    data,
+    manifest,
+    nextCapsule,
+    nextOrigin,
+    PUBLIC_HANDOFF_CONFIRMATION,
+  );
+  const nextData = packagePath();
+  await mkdir(nextData, { mode: 0o700 });
+  await installNativePublicHandoff(
+    await readFile(join(nextCapsule, "data/commercial.sqlite")),
+    fresh.SERVICE_AUTH_SECRET,
+    await readFile(join(nextCapsule, "install.json"), "utf8"),
+    nextData,
+    nextOrigin,
+  );
+  const installed = new NativeCommercialDatabase(nextData, {
+    recoverySecret: fresh.SERVICE_AUTH_SECRET,
+    recoveryOrigin: nextOrigin,
+  });
+  try {
+    expect(
+      await installed
+        .prepare("SELECT count(*) AS n FROM _chargeos_native_handoff_history")
+        .first("n"),
+    ).toBe(2);
     const old = JSON.parse(
-      await live
+      await installed
         .prepare("SELECT receipt_json FROM _chargeos_native_release_history WHERE release_id=?")
         .bind(released.releaseId)
         .first("receipt_json"),
     );
     old.receipt.origin = "http://127.0.0.1:1234";
-    await live
+    await installed
       .prepare("UPDATE _chargeos_native_release_history SET receipt_json=? WHERE release_id=?")
       .bind(JSON.stringify(old), released.releaseId)
       .run();
   } finally {
-    live.close();
+    installed.close();
   }
   expect(
     () =>
-      new NativeCommercialDatabase(data, {
-        recoveryOrigin: fresh.SERVICE_ORIGIN,
+      new NativeCommercialDatabase(nextData, {
+        recoveryOrigin: nextOrigin,
         recoverySecret: fresh.SERVICE_AUTH_SECRET,
       }),
   ).toThrow(/startup verification/);
@@ -707,6 +763,592 @@ it("refuses partial recovery markers and preserves lifecycle custody even after 
   } finally {
     await rm(saved, { recursive: true, force: true });
   }
+});
+
+const publicOrigin = "https://accounts.example.test";
+const packagePath = () => join(f.directory, `public-${crypto.randomUUID()}`);
+const handoff = (target, hooks = {}) =>
+  prepareNativePublicHandoff(
+    f.configuration,
+    f.data,
+    f.manifest,
+    target,
+    publicOrigin,
+    PUBLIC_HANDOFF_CONFIRMATION,
+    hooks,
+  );
+function publicOpen(target) {
+  return new NativeCommercialDatabase(join(target, "data"), {
+    recoverySecret: f.configuration.SERVICE_AUTH_SECRET,
+    recoveryOrigin: publicOrigin,
+  });
+}
+it("prepares a fresh HTTPS capsule only after retiring the exact source and recognizes its unchanged retry", async () => {
+  await release();
+  const target = packagePath();
+  const source = open();
+  let before;
+  try {
+    before = await businessFingerprint(source);
+    await source
+      .prepare(
+        "INSERT INTO verification(id,identifier,value,expires_at,created_at,updated_at) VALUES('handoff-private','handoff-private',?,9999999999999,1,1)",
+      )
+      .bind("synthetic-private-handoff-link-must-not-survive-vacuum")
+      .run();
+  } finally {
+    source.close();
+  }
+  const result = await handoff(target);
+  expect(result).toMatchObject({
+    status: "prepared",
+    sourceState: "retired",
+    origin: publicOrigin,
+  });
+  expect(
+    () =>
+      new NativeCommercialDatabase(f.data, {
+        recoverySecret: f.configuration.SERVICE_AUTH_SECRET,
+        recoveryOrigin: f.configuration.SERVICE_ORIGIN,
+      }),
+  ).toThrow();
+  const retired = open();
+  try {
+    expect(
+      retired.recoveryState(
+        f.configuration.SERVICE_AUTH_SECRET,
+        false,
+        f.configuration.SERVICE_ORIGIN,
+      ),
+    ).toBe("retired");
+    expect(
+      await retired.prepare("SELECT count(*) AS n FROM _chargeos_native_release").first("n"),
+    ).toBe(0);
+    expect(await handoffStateDigest(retired, result.handoffId)).toBe(
+      parseNativeHandoff(
+        await readFile(join(target, "intent.json"), "utf8"),
+        f.configuration.SERVICE_AUTH_SECRET,
+      ).sourceStateSha256,
+    );
+  } finally {
+    retired.close();
+  }
+  const published = publicOpen(target);
+  try {
+    expect(published.recoveryState(f.configuration.SERVICE_AUTH_SECRET, false, publicOrigin)).toBe(
+      "released",
+    );
+    expect(await published.prepare("SELECT count(*) AS n FROM verification").first("n")).toBe(0);
+    const body = await published
+      .prepare("SELECT receipt_json FROM _chargeos_native_handoff")
+      .first("receipt_json");
+    const h = parseNativeHandoff(body, f.configuration.SERVICE_AUTH_SECRET);
+    expect(h.role).toBe("public-install");
+    expect(parseNativeHandoff(h.sourceRetirement, f.configuration.SERVICE_AUTH_SECRET).role).toBe(
+      "source-retired",
+    );
+    expect(await businessFingerprint(published)).not.toBe(before); // retained handoff history is new audit evidence
+  } finally {
+    published.close();
+  }
+  expect(
+    (await readFile(join(target, "data/commercial.sqlite"))).includes(
+      Buffer.from("synthetic-private-handoff-link-must-not-survive-vacuum"),
+    ),
+  ).toBe(false);
+  for (const name of ["auth.key", "install.json", "READY"])
+    expect((await lstat(join(target, name))).mode & 0o777).toBe(0o600);
+  expect(await handoff(target)).toEqual(result);
+  await expect(handoff(packagePath())).rejects.toThrow(/another handoff/);
+});
+
+it("refuses source, review and capsule build-context paths before fencing a released source", async () => {
+  await release();
+  const checkout = join(f.directory, "synthetic-checkout");
+  await mkdir(checkout, { mode: 0o700 });
+  for (const name of ["Dockerfile.company", "compose.company.json", "package.json"])
+    await writeFile(join(checkout, name), "synthetic build root");
+  const insideReview = join(checkout, "review.json");
+  await copyFile(f.manifest, insideReview);
+  for (const [data, manifest, target] of [
+    [checkout, f.manifest, packagePath()],
+    [f.data, insideReview, packagePath()],
+    [f.data, f.manifest, join(checkout, "new-capsule")],
+  ]) {
+    await expect(
+      prepareNativePublicHandoff(
+        f.configuration,
+        data,
+        manifest,
+        target,
+        publicOrigin,
+        PUBLIC_HANDOFF_CONFIRMATION,
+      ),
+    ).rejects.toThrow(/outside.*build context/);
+    await expect(lstat(target)).rejects.toThrow();
+    const stillLive = new NativeCommercialDatabase(f.data, {
+      recoveryOrigin: f.configuration.SERVICE_ORIGIN,
+      recoverySecret: f.configuration.SERVICE_AUTH_SECRET,
+    });
+    stillLive.close();
+  }
+});
+it.each([
+  "prepared",
+  "before-fence",
+  "after-fence",
+  "before-public-authority",
+  "before-package-copy",
+  "before-ready",
+  "after-key-link",
+  "after-manifest-link",
+  "after-ready-link",
+])("keeps a single resumable package across an interruption at %s", async (stage) => {
+  await release();
+  const target = packagePath();
+  await expect(
+    handoff(target, {
+      at: async (current) => {
+        if (current === stage) throw new Error("synthetic interruption");
+      },
+    }),
+  ).rejects.toThrow(/synthetic interruption/);
+  const source = open();
+  try {
+    expect(
+      source.recoveryState(
+        f.configuration.SERVICE_AUTH_SECRET,
+        false,
+        f.configuration.SERVICE_ORIGIN,
+      ),
+    ).toBe(["prepared", "before-fence"].includes(stage) ? "released" : "retired");
+  } finally {
+    source.close();
+  }
+  const intent = await readFile(join(target, "intent.json"));
+  const result = await handoff(target);
+  expect(result.sourceState).toBe("retired");
+  expect(await readFile(join(target, "intent.json"))).toEqual(intent);
+  const ready = publicOpen(target);
+  ready.close();
+});
+it("rejects changed current evidence, credentials, expiry, occupied targets and a replacement package inode before fencing", async () => {
+  await release();
+  await writeFile(f.proof, "changed operator evidence");
+  await expect(handoff(packagePath())).rejects.toThrow(/review inputs|evidence/);
+  await writeFile(f.proof, originalProof);
+  const occupied = packagePath();
+  await mkdir(occupied, { mode: 0o700 });
+  await writeFile(join(occupied, "sentinel"), "untouched", { mode: 0o600 });
+  await expect(handoff(occupied)).rejects.toThrow();
+  expect(await readFile(join(occupied, "sentinel"), "utf8")).toBe("untouched");
+  const target = packagePath();
+  await expect(
+    handoff(target, {
+      at: async (stage) => {
+        if (stage === "prepared") throw new Error("pause");
+      },
+    }),
+  ).rejects.toThrow(/pause/);
+  await rename(target, target + "-retained");
+  await mkdir(target, { mode: 0o700 });
+  await copyFile(join(target + "-retained", "intent.json"), join(target, "intent.json"));
+  await expect(handoff(target)).rejects.toThrow(/identity changed/);
+  const source = open();
+  try {
+    expect(
+      source.recoveryState(
+        f.configuration.SERVICE_AUTH_SECRET,
+        false,
+        f.configuration.SERVICE_ORIGIN,
+      ),
+    ).toBe("released");
+  } finally {
+    source.close();
+  }
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(Date.now() + 86400000);
+  try {
+    await expect(handoff(packagePath())).rejects.toThrow(/fresh|unexpired/);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+it("bounds the actual finished public preflight including handoff authority before retiring the source", async () => {
+  await release();
+  const original = NativeCommercialDatabase.prototype.checkedBatch;
+  let injected = false;
+  vi.spyOn(NativeCommercialDatabase.prototype, "checkedBatch").mockImplementation(function (
+    ...args
+  ) {
+    const result = original.apply(this, args);
+    if (!injected && this.path.includes("chargeos-public-preflight-")) {
+      injected = true;
+      void this.prepare(
+        "UPDATE user SET image=hex(zeroblob(34*1024*1024)) WHERE id=(SELECT id FROM user LIMIT 1)",
+      ).run();
+    }
+    return result;
+  });
+  await expect(handoff(packagePath())).rejects.toThrow(/size boundary/);
+  expect(injected).toBe(true);
+  const source = new NativeCommercialDatabase(f.data, {
+    recoverySecret: f.configuration.SERVICE_AUTH_SECRET,
+    recoveryOrigin: f.configuration.SERVICE_ORIGIN,
+  });
+  try {
+    expect(
+      source.recoveryState(
+        f.configuration.SERVICE_AUTH_SECRET,
+        false,
+        f.configuration.SERVICE_ORIGIN,
+      ),
+    ).toBe("released");
+    expect(
+      await source
+        .prepare("SELECT 1 FROM sqlite_schema WHERE name='_chargeos_native_handoff'")
+        .first(),
+    ).toBeNull();
+  } finally {
+    source.close();
+  }
+});
+it("retains an incomplete private output orphan while publishing a complete readiness file on retry", async () => {
+  await release();
+  const target = packagePath();
+  await expect(
+    handoff(target, {
+      at: async (stage) => {
+        if (stage === "before-ready") throw new Error("pause");
+      },
+    }),
+  ).rejects.toThrow(/pause/);
+  const orphan = join(target, ".publication", `READY-${crypto.randomUUID()}`);
+  await writeFile(orphan, "partial private output", { mode: 0o600, flag: "wx" });
+  expect((await handoff(target)).sourceState).toBe("retired");
+  expect(await readFile(orphan, "utf8")).toBe("partial private output");
+  expect((await lstat(join(target, "READY"))).nlink).toBe(1);
+});
+it("refuses an incomplete installation before creating an ordinary database or opening a direct public HTTP adapter", async () => {
+  const data = packagePath();
+  await mkdir(data, { mode: 0o700 });
+  await mkdir(join(data, ".public-install"), { mode: 0o700 });
+  expect(
+    () =>
+      new NativeCommercialDatabase(data, {
+        recoverySecret: f.configuration.SERVICE_AUTH_SECRET,
+        recoveryOrigin: publicOrigin,
+      }),
+  ).toThrow(/incomplete/);
+  await expect(lstat(join(data, "commercial.sqlite"))).rejects.toThrow();
+  const inspection = new NativeCommercialDatabase(data, { recoveryInspection: true });
+  try {
+    expect(() =>
+      createNativeCommercialServer({
+        ...f.configuration,
+        SERVICE_MODE: "production",
+        SERVICE_ORIGIN: publicOrigin,
+        SERVICE_DELIVERY: "smtp",
+        SERVICE_SIGNUP_DOMAINS: "example.test",
+        [nativeHosting]: true,
+        SERVICE_DB: inspection,
+      }),
+    ).toThrow(/quarantined/);
+  } finally {
+    inspection.close();
+  }
+});
+it("does not resurrect a retired source after partial marker/history deletion or restored active-release rows", async () => {
+  await release();
+  const target = packagePath();
+  await handoff(target);
+  const saved = packagePath();
+  await mkdir(saved, { mode: 0o700 });
+  const source = open();
+  try {
+    await source.snapshotTo(saved);
+  } finally {
+    source.close();
+  }
+  for (const sql of [
+    "DELETE FROM _chargeos_native_handoff",
+    "DROP TABLE _chargeos_native_handoff",
+    "DELETE FROM _chargeos_native_handoff_history",
+    "DROP TABLE _chargeos_native_handoff_history",
+    "DROP TABLE _chargeos_native_release_history",
+    "INSERT INTO _chargeos_native_release SELECT 1,receipt_json FROM _chargeos_native_release_history ORDER BY release_id LIMIT 1",
+  ]) {
+    await copyFile(join(saved, "commercial.sqlite"), join(f.data, "commercial.sqlite"));
+    const edited = open();
+    try {
+      await edited.prepare(sql).run();
+    } finally {
+      edited.close();
+    }
+    expect(
+      () =>
+        new NativeCommercialDatabase(f.data, {
+          recoverySecret: f.configuration.SERVICE_AUTH_SECRET,
+          recoveryOrigin: f.configuration.SERVICE_ORIGIN,
+        }),
+    ).toThrow();
+  }
+});
+it("binds active public authority to its exact embedded retirement, review, history and HTTPS origin", async () => {
+  await release();
+  const target = packagePath();
+  await handoff(target);
+  const data = join(target, "data"),
+    saved = packagePath();
+  await mkdir(saved, { mode: 0o700 });
+  const db = publicOpen(target);
+  let serialized;
+  try {
+    serialized = await db
+      .prepare("SELECT receipt_json FROM _chargeos_native_handoff")
+      .first("receipt_json");
+    await db.snapshotTo(saved);
+  } finally {
+    db.close();
+  }
+  for (const origin of [f.configuration.SERVICE_ORIGIN, "https://other.example.test"])
+    expect(
+      () =>
+        new NativeCommercialDatabase(data, {
+          recoverySecret: f.configuration.SERVICE_AUTH_SECRET,
+          recoveryOrigin: origin,
+        }),
+    ).toThrow();
+  for (const sql of [
+    "DELETE FROM _chargeos_native_handoff",
+    "DROP TABLE _chargeos_native_handoff",
+    "DELETE FROM _chargeos_native_handoff_history",
+    "DROP TABLE _chargeos_native_handoff_history",
+    "DELETE FROM _chargeos_native_release",
+    "DROP TABLE _chargeos_native_release_history",
+  ]) {
+    await copyFile(join(saved, "commercial.sqlite"), join(data, "commercial.sqlite"));
+    const edited = new NativeCommercialDatabase(data, { recoveryInspection: true });
+    try {
+      await edited.prepare(sql).run();
+    } finally {
+      edited.close();
+    }
+    expect(() => publicOpen(target)).toThrow();
+  }
+  await copyFile(join(saved, "commercial.sqlite"), join(data, "commercial.sqlite"));
+  const parsed = JSON.parse(serialized).receipt;
+  const source = JSON.parse(parsed.sourceRetirement).receipt;
+  source.targetOrigin = "https://other.example.test";
+  parsed.sourceRetirement = sealNativeHandoff(source, f.configuration.SERVICE_AUTH_SECRET);
+  const changed = sealNativeHandoff(parsed, f.configuration.SERVICE_AUTH_SECRET);
+  const edited = new NativeCommercialDatabase(data, { recoveryInspection: true });
+  try {
+    await edited.prepare("UPDATE _chargeos_native_handoff SET receipt_json=?").bind(changed).run();
+    await edited
+      .prepare("UPDATE _chargeos_native_handoff_history SET receipt_json=?")
+      .bind(changed)
+      .run();
+  } finally {
+    edited.close();
+  }
+  expect(() => publicOpen(target)).toThrow();
+});
+it("keeps old version-one releases locally readable but refuses a silent public handoff upgrade", async () => {
+  await release();
+  const db = open();
+  try {
+    const raw = await db
+        .prepare("SELECT receipt_json FROM _chargeos_native_release")
+        .first("receipt_json"),
+      r = JSON.parse(raw).receipt;
+    r.schemaVersion = 1;
+    delete r.handoffHistorySha256;
+    const sealed = sealNativeRelease(r, f.configuration.SERVICE_AUTH_SECRET);
+    await db.prepare("UPDATE _chargeos_native_release SET receipt_json=?").bind(sealed).run();
+    await db
+      .prepare("UPDATE _chargeos_native_release_history SET receipt_json=? WHERE release_id=?")
+      .bind(sealed, r.releaseId)
+      .run();
+  } finally {
+    db.close();
+  }
+  const local = new NativeCommercialDatabase(f.data, {
+    recoverySecret: f.configuration.SERVICE_AUTH_SECRET,
+    recoveryOrigin: f.configuration.SERVICE_ORIGIN,
+  });
+  local.close();
+  await expect(handoff(packagePath())).rejects.toThrow(/versioned history binding/);
+});
+
+async function preparedCapsule() {
+  await release();
+  const target = packagePath();
+  await handoff(target);
+  return {
+    target,
+    bytes: await readFile(join(target, "data/commercial.sqlite")),
+    secret: await readFile(join(target, "auth.key"), "utf8"),
+    manifest: await readFile(join(target, "install.json"), "utf8"),
+  };
+}
+it("installs only the authenticated capsule in a fresh volume and recognizes its own later legitimate state without overwriting", async () => {
+  const capsule = await preparedCapsule(),
+    data = packagePath();
+  await mkdir(data, { mode: 0o700 });
+  expect(
+    await installNativePublicHandoff(
+      capsule.bytes,
+      capsule.secret,
+      capsule.manifest,
+      data,
+      publicOrigin,
+    ),
+  ).toMatchObject({ status: "installed", origin: publicOrigin });
+  const before = await lstat(join(data, "commercial.sqlite"));
+  const db = new NativeCommercialDatabase(data, {
+    recoverySecret: capsule.secret,
+    recoveryOrigin: publicOrigin,
+  });
+  try {
+    await db.prepare("UPDATE organization SET name='Legitimate later company name'").run();
+  } finally {
+    db.close();
+  }
+  expect(
+    await installNativePublicHandoff(
+      capsule.bytes,
+      capsule.secret,
+      capsule.manifest,
+      data,
+      publicOrigin,
+    ),
+  ).toMatchObject({ status: "already-installed" });
+  expect((await lstat(join(data, "commercial.sqlite"))).ino).toBe(before.ino);
+  const current = new NativeCommercialDatabase(data, { recoveryInspection: true, readOnly: true });
+  try {
+    expect(await current.prepare("SELECT name FROM organization").first("name")).toBe(
+      "Legitimate later company name",
+    );
+    await expect(
+      current.prepare("UPDATE organization SET name='must refuse'").run(),
+    ).rejects.toThrow();
+  } finally {
+    current.close();
+  }
+  const changed = Buffer.from(capsule.bytes);
+  changed[changed.length - 1] ^= 1;
+  await expect(
+    installNativePublicHandoff(changed, capsule.secret, capsule.manifest, data, publicOrigin),
+  ).rejects.toThrow();
+  await expect(
+    installNativePublicHandoff(capsule.bytes, "z".repeat(64), capsule.manifest, data, publicOrigin),
+  ).rejects.toThrow();
+  await expect(
+    installNativePublicHandoff(
+      capsule.bytes,
+      capsule.secret,
+      capsule.manifest,
+      data,
+      "https://other.example.test",
+    ),
+  ).rejects.toThrow();
+  const occupied = packagePath();
+  await mkdir(occupied, { mode: 0o700 });
+  const old = new NativeCommercialDatabase(occupied);
+  old.close();
+  const original = await readFile(join(occupied, "commercial.sqlite"));
+  await expect(
+    installNativePublicHandoff(
+      capsule.bytes,
+      capsule.secret,
+      capsule.manifest,
+      occupied,
+      publicOrigin,
+    ),
+  ).rejects.toThrow();
+  expect(await readFile(join(occupied, "commercial.sqlite"))).toEqual(original);
+});
+it.each(["before-link", "after-link", "after-unlink"])(
+  "finishes only its exact staged publication after interruption at %s",
+  async (stage) => {
+    const capsule = await preparedCapsule(),
+      data = packagePath();
+    await mkdir(data, { mode: 0o700 });
+    await expect(
+      installNativePublicHandoff(
+        capsule.bytes,
+        capsule.secret,
+        capsule.manifest,
+        data,
+        publicOrigin,
+        {
+          at: async (current) => {
+            if (current === stage) throw new Error("synthetic publication interruption");
+          },
+        },
+      ),
+    ).rejects.toThrow(/synthetic publication interruption/);
+    if (stage !== "after-unlink")
+      expect(
+        () =>
+          new NativeCommercialDatabase(data, {
+            recoverySecret: capsule.secret,
+            recoveryOrigin: publicOrigin,
+          }),
+      ).toThrow();
+    if (stage === "after-link") {
+      const a = await lstat(join(data, "commercial.sqlite")),
+        b = await lstat(join(data, ".public-install/commercial.sqlite"));
+      expect(a.ino).toBe(b.ino);
+      expect(a.nlink).toBe(2);
+    }
+    expect(
+      await installNativePublicHandoff(
+        capsule.bytes,
+        capsule.secret,
+        capsule.manifest,
+        data,
+        publicOrigin,
+      ),
+    ).toMatchObject({ status: stage === "after-unlink" ? "already-installed" : "installed" });
+    expect((await lstat(join(data, "commercial.sqlite"))).nlink).toBe(1);
+    const running = new NativeCommercialDatabase(data, {
+      recoverySecret: capsule.secret,
+      recoveryOrigin: publicOrigin,
+    });
+    running.close();
+  },
+);
+it("does not unlink an interrupted publication with changed private journal authority", async () => {
+  const capsule = await preparedCapsule(),
+    data = packagePath();
+  await mkdir(data, { mode: 0o700 });
+  await expect(
+    installNativePublicHandoff(
+      capsule.bytes,
+      capsule.secret,
+      capsule.manifest,
+      data,
+      publicOrigin,
+      {
+        at: async (stage) => {
+          if (stage === "after-link") throw new Error("pause");
+        },
+      },
+    ),
+  ).rejects.toThrow(/pause/);
+  const journal = join(data, ".public-install/journal.json"),
+    value = JSON.parse(await readFile(journal, "utf8"));
+  value.mac = "0".repeat(64);
+  await writeFile(journal, JSON.stringify(value));
+  await expect(
+    installNativePublicHandoff(capsule.bytes, capsule.secret, capsule.manifest, data, publicOrigin),
+  ).rejects.toThrow();
+  const a = await lstat(join(data, "commercial.sqlite")),
+    b = await lstat(join(data, ".public-install/commercial.sqlite"));
+  expect(a.ino).toBe(b.ino);
+  expect(a.nlink).toBe(2);
 });
 
 it("upgrades existing user-attributed audit and eligibility records without loss and enforces exactly one actor source", async () => {

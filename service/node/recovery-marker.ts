@@ -1,6 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { exactObject, canonicalRecoveryJson } from "./recovery-crypto.js";
+import { bindNativeHandoff, handoffHistoryDigest, readNativeHandoffs } from "./handoff-marker.js";
 
 export const NATIVE_RECOVERY_QUARANTINE_SQL =
   "CREATE TABLE _chargeos_native_recovery (id INTEGER PRIMARY KEY CHECK(id=1), provenance_json TEXT NOT NULL)";
@@ -10,7 +11,8 @@ export const NATIVE_RECOVERY_HISTORY_SQL =
   "CREATE TABLE _chargeos_native_release_history (release_id TEXT PRIMARY KEY NOT NULL, receipt_json TEXT NOT NULL)";
 export interface NativeReleaseReceipt {
   format: "chargeos-native-recovery-release";
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
+  handoffHistorySha256?: string;
   releaseId: string;
   restoreId: string;
   enrollmentEpoch: string;
@@ -46,7 +48,7 @@ function mac(secret: string, receipt: NativeReleaseReceipt): string {
 export function sealNativeRelease(receipt: NativeReleaseReceipt, secret: string): string {
   return JSON.stringify({ receipt, mac: mac(secret, receipt) });
 }
-function parseReceipt(
+export function parseNativeRelease(
   serialized: string,
   secret?: string,
   historical = false,
@@ -56,6 +58,7 @@ function parseReceipt(
   const value: unknown = JSON.parse(serialized);
   exactObject(value, ["receipt", "mac"]);
   const r = value.receipt;
+  const version = r && typeof r === "object" ? (r as Record<string, unknown>).schemaVersion : null;
   exactObject(r, [
     "format",
     "schemaVersion",
@@ -76,10 +79,11 @@ function parseReceipt(
     "selectedUsers",
     "removedMemberships",
     "operatorAttestation",
+    ...(version === 2 ? ["handoffHistorySha256"] : []),
   ]);
   if (
     r.format !== "chargeos-native-recovery-release" ||
-    r.schemaVersion !== 1 ||
+    ![1, 2].includes(r.schemaVersion as number) ||
     r.operatorAttestation !== RECOVERY_RELEASE_CONFIRMATION
   )
     throw new Error("Invalid recovery release receipt");
@@ -99,6 +103,7 @@ function parseReceipt(
     "afterBusinessSha256",
     "decisionsSha256",
     "priorHistorySha256",
+    ...(version === 2 ? ["handoffHistorySha256"] : []),
   ])
     if (typeof r[key] !== "string" || !/^[a-f0-9]{64}$/.test(r[key]))
       throw new Error("Invalid recovery release digest");
@@ -136,7 +141,8 @@ export function nativeRecoveryState(
   secret?: string,
   historical = false,
   origin?: string,
-): "ordinary" | "quarantined" | "released" {
+): "ordinary" | "quarantined" | "released" | "retired" {
+  const handoffs = readNativeHandoffs(database, secret, historical);
   const q = database
       .prepare("SELECT type,sql FROM sqlite_schema WHERE name='_chargeos_native_recovery'")
       .get(),
@@ -157,16 +163,20 @@ export function nativeRecoveryState(
     for (const row of rows) {
       if (typeof row.release_id !== "string" || typeof row.receipt_json !== "string")
         throw new Error("Invalid recovery history");
-      const receipt = parseReceipt(row.receipt_json, undefined, true);
+      const receipt = parseNativeRelease(row.receipt_json, undefined, true);
       if (receipt.releaseId !== row.release_id)
         throw new Error("Invalid recovery history identity");
       history.set(row.release_id, row.receipt_json);
     }
   }
-  if (!q && !release && !historySchema) return "ordinary";
+  if (!q && !release && !historySchema && !handoffs.active && !handoffs.hasHistory)
+    return "ordinary";
   if (!q || q.type !== "table" || q.sql !== NATIVE_RECOVERY_QUARANTINE_SQL)
     throw new Error("Invalid recovery quarantine schema");
-  if (!release) return "quarantined";
+  if (!release) {
+    if (handoffs.active) throw new Error("Public handoff has no reviewed release");
+    return "quarantined";
+  }
   if (release.type !== "table" || release.sql !== NATIVE_RECOVERY_RELEASE_SQL)
     throw new Error("Invalid recovery release schema");
   const roots = database.prepare("SELECT id,provenance_json FROM _chargeos_native_recovery").all(),
@@ -176,23 +186,33 @@ export function nativeRecoveryState(
     roots[0]?.id !== 1 ||
     typeof roots[0].provenance_json !== "string" ||
     roots[0].provenance_json.length > 8192 ||
-    receipts.length !== 1 ||
-    receipts[0]?.id !== 1 ||
-    typeof receipts[0].receipt_json !== "string"
+    (handoffs.active?.role === "source-retired"
+      ? receipts.length !== 0
+      : receipts.length !== 1 ||
+        receipts[0]?.id !== 1 ||
+        typeof receipts[0].receipt_json !== "string")
   )
     throw new Error("Recovery release provenance is unavailable");
   const root = JSON.parse(roots[0].provenance_json) as { restoreId?: unknown; status?: unknown };
-  const receipt = parseReceipt(receipts[0].receipt_json, secret, historical);
+  const serialized =
+    handoffs.active?.role === "source-retired"
+      ? history.get(handoffs.active.releaseId)
+      : receipts[0]!.receipt_json;
+  if (typeof serialized !== "string")
+    throw new Error("Public handoff release history is unavailable");
+  const receipt = parseNativeRelease(serialized, secret, historical);
   // A reviewed local release authorizes that exact origin only. Copying the
   // same database/secret into HTTPS configuration is not a public cutover.
-  if (origin !== undefined && (historical || receipt.origin !== origin))
+  const authorizedOrigin =
+    handoffs.active?.role === "public-install" ? handoffs.active.targetOrigin : receipt.origin;
+  if (origin !== undefined && (historical || authorizedOrigin !== origin))
     throw new Error("Recovery release does not authorize this service origin");
   if (
     receipt.priorHistorySha256 !==
     recoveryHistoryDigest([...history].filter(([id]) => id !== receipt.releaseId))
   )
     throw new Error("Recovery release history changed");
-  if (history.get(receipt.releaseId) !== receipts[0].receipt_json)
+  if (history.get(receipt.releaseId) !== serialized)
     throw new Error("Recovery release history is unavailable");
   if (
     root.status !== "quarantined" ||
@@ -200,5 +220,15 @@ export function nativeRecoveryState(
     receipt.provenanceSha256 !== recoveryDigest(canonicalRecoveryJson(root))
   )
     throw new Error("Recovery receipt belongs to another restore");
+  const priorHandoffs = [...handoffs.history].filter(([id]) => id !== handoffs.active?.handoffId);
+  if (receipt.schemaVersion === 2) {
+    if (receipt.handoffHistorySha256 !== handoffHistoryDigest(priorHandoffs))
+      throw new Error("Reviewed public handoff history changed");
+  } else if (handoffs.hasHistory || handoffs.active)
+    throw new Error("This older release has no public handoff history binding");
+  if (handoffs.active) {
+    bindNativeHandoff(handoffs.active, receipt, serialized);
+    if (handoffs.active.role === "source-retired") return "retired";
+  }
   return "released";
 }

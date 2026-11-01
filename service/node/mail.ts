@@ -65,7 +65,11 @@ export async function deliverNativeAccountMail(
   });
   try {
     return await withNativeRecoveryCustody(directory, async () => {
-      if (database.recoveryState(config.secret) === "quarantined")
+      if (
+        !["ordinary", "released"].includes(
+          database.recoveryState(config.secret, false, config.origin),
+        )
+      )
         throw new Error("Account delivery remains quarantined");
       await migrateNativeDatabase(
         database,
