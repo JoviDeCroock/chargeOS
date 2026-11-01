@@ -77,6 +77,10 @@ This research did not access a competitor’s authenticated customer portal, exe
 - [Plugchoice overview](https://support.plugchoice.com/en/articles/12930254-what-is-plugchoice) and [developer proposition](https://plugchoice.com/en/solutions/developers) — close competitor offering free management, an OCPP proxy/API, and broad backend compatibility; continued dependence on its cloud must be independently verified.
 - [OCA migration whitepaper](https://openchargealliance.org/ocpp-info-whitepapers/migrating-charging-stations/) — direct evidence that backend migration is a real operational category.
 
+## OCPP 1.6 security profiles — checked 2026-11-01
+
+- [OCPP 1.6 Security Whitepaper, edition 4 (2026-02-05)](https://openchargealliance.org/ocpp-info-whitepapers/ocpp-1-6-security-whitepaper-4th-edition/): A00.FR.203/205 and A00.FR.302/304 say the Basic-auth username is the charge-point identity and the password is stored in `AuthorizationKey`, "Minimal 16-bytes long … Hexadecimal represented (20 bytes maximum, represented as a string of up to 40 hexadecimal digits)". It also defines `SecurityEventNotification` and its security event types, which chargeOS records. This is the specification; individual chargers can still impose stricter or looser vendor-specific rules, which must be recorded per exact device.
+
 ## EnergyVision integrated competitor benchmark — checked 2026-10-28
 
 - [Residential bundle](https://www.energyvision.be/nl-be/energieoplossingen/een-thuislaadpunt-zonder-investering): energy, solar, installed charging, app and solar-aware charging modes. Advertised scope, not hands-on compatibility proof.

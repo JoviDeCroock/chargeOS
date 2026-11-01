@@ -9,10 +9,11 @@ Use Node 22+ and pnpm 11. Copy `.env.example` to a local `.env`, restrict it to 
 ```sh
 cp .env.example .env
 chmod 600 .env
-openssl rand -hex 32
+openssl rand -hex 20   # CHARGEOS_STATION_SECRET (charger password)
+openssl rand -hex 32   # CHARGEOS_OWNER_API_TOKEN
 ```
 
-`CHARGEOS_STATION_SECRET` authenticates the charge point. `CHARGEOS_OWNER_API_TOKEN` authenticates the owner console. They must be independent. `CHARGEOS_OWNER_TAGS` contains comma-separated OCPP 1.6 tag values, seeds the durable desired set on first boot, and never belongs in source control or screenshots.
+`CHARGEOS_STATION_SECRET` authenticates the charge point. Use 32-40 hexadecimal digits: the [OCPP 1.6 security whitepaper](https://openchargealliance.org/ocpp-info-whitepapers/ocpp-1-6-security-whitepaper-4th-edition/) (edition 4, A00.FR.205) stores the Basic-auth password in `AuthorizationKey` as 16-20 bytes written as up to 40 hexadecimal digits, and conforming chargers may refuse anything else. chargeOS still accepts any secret of at least 16 characters (so existing deployments keep working) but prints a startup warning for each station whose password does not have that shape. Rotating a password means changing it on the charger too, so plan it as a maintenance step. `CHARGEOS_OWNER_API_TOKEN` authenticates the owner console. They must be independent. `CHARGEOS_OWNER_TAGS` contains comma-separated OCPP 1.6 tag values, seeds the durable desired set on first boot, and never belongs in source control or screenshots.
 
 Every sensitive setting also accepts an exclusive `_FILE` form: `CHARGEOS_STATION_SECRET_FILE`, `CHARGEOS_OWNER_API_TOKEN_FILE`, and `CHARGEOS_OWNER_TAGS_FILE`. Setting both forms is an error. Host secret files must be regular non-symlinks with no group/other access. Files mounted under `/run/secrets` must be read-only; this narrow rule supports Compose file secrets without making arbitrary host files permissive. Station and API secrets are exactly one line. Owner tags may be comma- or newline-separated.
 

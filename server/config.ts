@@ -107,6 +107,21 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
   };
 }
 
+/**
+ * The OCPP 1.6 security whitepaper (edition 4, A00.FR.205) stores the Basic-auth password in
+ * `AuthorizationKey`: at least 16 bytes, at most 20 bytes, written as up to 40 hexadecimal digits.
+ * Other secrets still authenticate, but conforming chargers may refuse to store them. Returns
+ * station IDs only; never the secret or its length.
+ */
+export function stationSecretInteroperabilityAdvisories(config: GatewayConfig): readonly string[] {
+  return configuredStations(config)
+    .filter(({ secret }) => !/^[0-9A-Fa-f]{32,40}$/u.test(secret))
+    .map(
+      ({ id }) =>
+        `Station ${id}: its password is not 32-40 hexadecimal digits (16-20 bytes) as the OCPP 1.6 security whitepaper requires for AuthorizationKey. Some chargers may refuse it; generate one with "openssl rand -hex 20".`,
+    );
+}
+
 export function configuredStations(config: GatewayConfig): readonly StationConfig[] {
   return (
     config.stations ?? [

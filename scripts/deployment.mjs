@@ -183,7 +183,9 @@ export async function prepareDeployment(input, parent = join(repositoryRoot, ".c
   const save = (name, content, mode = 0o600) =>
     writeFile(join(directory, name), content, { flag: "wx", mode });
   const ownerToken = randomBytes(36).toString("base64url");
-  const stationSecret = randomBytes(36).toString("base64url");
+  // OCPP 1.6 security whitepaper (A00.FR.205): the Basic-auth password is at least 16 bytes and at
+  // most 20 bytes written as up to 40 hexadecimal digits. Longer or non-hex secrets can be refused.
+  const stationSecret = randomBytes(20).toString("hex");
   const installId = `${input.name}-${randomBytes(6).toString("hex")}`;
   const caddyfile = await readFile(new URL("../deploy/Caddyfile", import.meta.url), "utf8");
   const environment = {

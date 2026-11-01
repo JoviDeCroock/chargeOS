@@ -1,7 +1,7 @@
 import { loadEnvFile } from "node:process";
 
 import { createOwnerApi } from "./api.js";
-import { configForStation, loadConfig } from "./config.js";
+import { configForStation, loadConfig, stationSecretInteroperabilityAdvisories } from "./config.js";
 import { NdjsonEvidenceStore } from "./events.js";
 import { createChargeGateway } from "./gateway.js";
 import { openOwnerTagRegistries, withOwnerTagRegistries } from "./owner-tags.js";
@@ -39,6 +39,9 @@ console.log(`chargeOS owner UI/API listening on http://${config.apiHost}:${confi
 console.log(
   "Internet-facing use requires TLS/WSS termination; plaintext is for local development only.",
 );
+for (const advisory of stationSecretInteroperabilityAdvisories(config)) {
+  console.warn(`Warning: ${advisory}`);
+}
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.once(signal, () => {
