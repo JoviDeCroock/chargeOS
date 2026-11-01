@@ -208,7 +208,16 @@ try {
     );
     assert(checkpoint.status === 200, `${stepId} checkpoint returned ${checkpoint.status}`);
   }
-  const targetManifest = syntheticMigrationTarget();
+  // Host and Docker VM wall clocks can differ briefly. Timestamp this
+  // synthetic manifest on its target runtime; keep the future-time gate strict.
+  const targetCreatedAt = run("docker", [
+    "exec",
+    chargeosId,
+    "node",
+    "-p",
+    "new Date().toISOString()",
+  ]).trim();
+  const targetManifest = syntheticMigrationTarget(targetCreatedAt);
   const targetManifestSha256 = createHash("sha256").update(targetManifest, "utf8").digest("hex");
   const migrationAuthorization = await httpsRequest(
     ownerDomain,
@@ -1023,10 +1032,10 @@ function createSyntheticClient(tlsPort, continuityReady = false) {
   return syntheticClient;
 }
 
-function syntheticMigrationTarget() {
+function syntheticMigrationTarget(createdAt) {
   return `${JSON.stringify(
     {
-      createdAt: new Date().toISOString(),
+      createdAt,
       evidence: {
         configurationBackupSha256: "6".padStart(64, "0"),
         configurationPathEvidenceSha256: "3".padStart(64, "0"),
