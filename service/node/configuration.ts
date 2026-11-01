@@ -3,10 +3,14 @@ import { resolve } from "node:path";
 import { parseEnv } from "node:util";
 import { localConfiguration, type ServiceEnv } from "../auth.js";
 
-export function nativeConfiguration(environment: NodeJS.ProcessEnv = process.env) {
+export function requireNativeRuntime(): void {
   const [major, minor] = process.versions.node.split(".").map(Number);
   if (major! < 22 || (major === 22 && minor! < 22))
     throw new Error("Native commercial service requires Node.js 22.22 or newer");
+}
+
+export function nativeConfiguration(environment: NodeJS.ProcessEnv = process.env) {
+  requireNativeRuntime();
   const path = resolve(environment.SERVICE_NATIVE_CONFIG ?? "service/.dev.vars");
   const original = lstatSync(path);
   const descriptor = openSync(

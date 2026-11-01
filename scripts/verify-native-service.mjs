@@ -148,8 +148,77 @@ try {
     !captured.includes(authSecret) && !captured.includes(delivery),
     "Native restart logged sensitive data",
   );
+  const passphrase = "synthetic native commercial recovery phrase!";
+  const passphraseFile = join(directory, "recovery.passphrase");
+  const bundle = join(directory, "commercial.bundle"),
+    target = join(directory, "replacement");
+  await writeFile(passphraseFile, passphrase + "\n", { mode: 0o600 });
+  const recoveryCommand = (args, env = environment) =>
+    execFileSync(
+      process.execPath,
+      [
+        "dist/native-service/service/node/recovery-cli.js",
+        ...args,
+        "--passphrase-file",
+        passphraseFile,
+      ],
+      { cwd: root, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    );
+  const exported = JSON.parse(recoveryCommand(["export", "--output", bundle]));
+  const freshHostEnvironment = {
+    ...environment,
+    SERVICE_NATIVE_CONFIG: join(directory, "lost-source-config"),
+  };
+  assert(
+    JSON.parse(recoveryCommand(["inspect", "--input", bundle], freshHostEnvironment)).accounts ===
+      1,
+    "Compiled commercial inspection required lost source configuration or lost accounts",
+  );
+  const restored = JSON.parse(
+    recoveryCommand(["restore", "--input", bundle, "--target", target], freshHostEnvironment),
+  );
+  assert(
+    restored.status === "quarantined" && restored.snapshotSha256 === exported.snapshotSha256,
+    "Compiled commercial restore did not retain snapshot identity/quarantine",
+  );
+  const failedStart = spawn(process.execPath, ["dist/native-service/service/node/main.js"], {
+    cwd: root,
+    env: {
+      ...environment,
+      SERVICE_NATIVE_CONFIG: join(target, "service.vars"),
+      SERVICE_NATIVE_DATA: join(target, "data"),
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let recoveryOutput = "";
+  failedStart.stdout.on("data", (chunk) => {
+    recoveryOutput += chunk;
+  });
+  failedStart.stderr.on("data", (chunk) => {
+    recoveryOutput += chunk;
+  });
+  const failureTimer = setTimeout(() => failedStart.kill("SIGKILL"), 5000);
+  let failedCode, failedSignal;
+  try {
+    [failedCode, failedSignal] = await once(failedStart, "exit");
+  } finally {
+    clearTimeout(failureTimer);
+  }
+  assert(
+    failedCode !== 0 &&
+      !failedSignal &&
+      recoveryOutput.includes("quarantined") &&
+      !recoveryOutput.includes("listening on"),
+    "Compiled native service did not refuse quarantined startup before listening",
+  );
+  assert(
+    !recoveryOutput.includes(authSecret) &&
+      !recoveryOutput.includes(delivery) &&
+      !recoveryOutput.includes(passphrase),
+    "Compiled recovery/startup exposed secret material",
+  );
   console.log(
-    "Native commercial runtime passed: compiled boot and migrations, local verification, scoped-cookie login, organization/session persistence, clean restart and no HTTP outbox or secret logging.",
+    "Native commercial runtime passed: compiled boot and migrations, local verification, scoped-cookie login, organization/session persistence, clean restart, encrypted backup/inspection without source config, fresh-path quarantined restore and startup refusal, with no HTTP outbox or secret logging.",
   );
 } finally {
   await stop().catch(() => {});

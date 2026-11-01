@@ -29,6 +29,7 @@ Read [VISION.md](VISION.md) and [docs/README.md](docs/README.md) before changing
 - Keep plain-language task guides in `docs/guides/` aligned with every user-facing setup, deployment, account, RFID, AI/search or device workflow. Serve them through `/help`; label online operator references and unsupported or unverified steps honestly.
 - Run adversarial reviews at critical trust boundaries and before promoting deployment, credential, charger or financial changes. Fix concrete findings and add meaningful regression coverage. Make incremental commits for independently reviewable slices.
 - Do not open pull requests. Keep incremental commits, complete the required checks and adversarial reviews, then merge verified work to `main` and push `main`.
+- Native commercial recovery uses its own encrypted format. Validate the finished consistent SQLite copy against exact schema/migration history and every organization's snapshot/receipt/journal integrity. Restore only into a new private package, remove all old authentication credentials, rotate the auth secret and quarantine inside SQLite before publication. Ordinary startup and outbox must refuse quarantine even when the database is moved or its marker row is removed. Do not add an operational release switch without current identity/roster, financial reconciliation and fresh credential-enrollment evidence.
 
 - Use Preact and TypeScript for the frontend and TypeScript for the backend.
 - Prefer a small adapter over coupling the public domain model to a specific OCPP engine.

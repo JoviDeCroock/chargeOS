@@ -1,6 +1,7 @@
 import { constants, closeSync, lstatSync, mkdirSync, openSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import * as sqlite from "node:sqlite";
 
 const connectionOptions = {
   enableForeignKeyConstraints: true,
@@ -16,6 +17,7 @@ function requireSqliteCapabilities(): void {
   try {
     const statement = probe.prepare("SELECT 1 AS value, 2 AS value");
     if (
+      typeof sqlite.backup !== "function" ||
       typeof statement.columns !== "function" ||
       typeof statement.setReturnArrays !== "function" ||
       typeof statement.sourceSQL !== "string" ||
@@ -77,7 +79,7 @@ function parameters(values: unknown[]): SQLInputValue[] {
 export class NativeCommercialDatabase implements D1Database {
   readonly path: string;
   readonly #database: DatabaseSync;
-  constructor(directory: string) {
+  constructor(directory: string, options: { recoveryInspection?: boolean } = {}) {
     requireSqliteCapabilities();
     mkdirSync(directory, { recursive: true, mode: 0o700 });
     const info = lstatSync(directory);
@@ -92,8 +94,19 @@ export class NativeCommercialDatabase implements D1Database {
       // makes a successful atomic batch durable before its promise resolves.
       this.#database.exec("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;");
       this.checkIntegrity();
-    } catch {
+      if (
+        !options.recoveryInspection &&
+        this.#database
+          .prepare("SELECT 1 FROM sqlite_schema WHERE name='_chargeos_native_recovery'")
+          .get()
+      )
+        throw new Error("quarantined");
+    } catch (error) {
       this.#database.close();
+      if (error instanceof Error && error.message === "quarantined")
+        throw new Error(
+          "Commercial recovery is quarantined; current access and financial reconciliation are required before service can resume",
+        );
       throw new Error("Commercial database failed startup verification");
     }
   }
@@ -108,6 +121,24 @@ export class NativeCommercialDatabase implements D1Database {
       this.#database.prepare("PRAGMA foreign_key_check").all().length !== 0
     )
       throw new Error("Commercial database integrity check failed");
+  }
+  async snapshotTo(directory: string): Promise<string> {
+    const info = lstatSync(directory);
+    if (!info.isDirectory() || info.isSymbolicLink() || (info.mode & 0o077) !== 0)
+      throw new Error("Snapshot target must be a private directory");
+    const path = join(directory, "commercial.sqlite");
+    // backup() replaces its target. Reserve a private file inside an exclusively
+    // created scratch directory; never pass it a caller's existing database.
+    closeSync(
+      openSync(
+        path,
+        constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW,
+        0o600,
+      ),
+    );
+    await sqlite.backup(this.#database, path);
+    privateFile(path, false);
+    return path;
   }
   prepare(query: string): D1PreparedStatement {
     return new NativeStatement(this, query, []);

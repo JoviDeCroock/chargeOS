@@ -26,7 +26,7 @@ For a local trial without Cloudflare or Wrangler, ask your administrator to inst
 
 Verification and invitation links are collected locally; no email is sent yet. Your administrator can retrieve one with `pnpm service:native:outbox --recipient person@example.test --kind verify-email`, changing the email to the intended test account. The link is secret: open it privately and do not include it in screenshots or support messages. `invitation` and `reset-password` are the other supported link kinds.
 
-Use synthetic test accounts. The database stores local account and financial data without encryption, and a complete commercial backup/restore is not available yet. Keep the private database and authentication configuration off shared drives. Do not copy a live database as a recovery procedure.
+Use synthetic test accounts. The running database stores local account and financial data without encryption. An [encrypted native backup](recovery.md#back-up-employer-accounts-and-reimbursements) can restore a quarantined copy of the records; reopening a restored employer service is not supported yet. Keep the private database and authentication configuration off shared drives. Do not copy a live database as a recovery procedure.
 
 The existing Wrangler/D1 development runtime remains available as an alternative; it stores a different database. Do not run both on port 9091 or expect accounts to transfer automatically. See [Local commercial service](../commercial-service.md) for both options.
 

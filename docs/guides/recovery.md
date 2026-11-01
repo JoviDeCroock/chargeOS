@@ -22,6 +22,20 @@ Your AI provider key is not in the bundle and is not needed to restore charging 
 
 Use the documented create-only restore procedure. It refuses to overwrite an existing ledger. The replacement needs fresh DNS and certificate settings, and its proxy arrangement must be rechecked. Do not point two independently running edges at the same charger during the move.
 
-The current encrypted recovery format is single-station. Use one station per recoverable edge when you depend on this guarantee. Commercial account/reimbursement disaster recovery and a complete multi-station bundle remain separate unfinished work.
+The current owner-edge encrypted recovery format is single-station. Use one station per recoverable edge when you depend on this guarantee. A complete multi-station bundle remains separate unfinished work.
 
 Charging during a server outage still depends on the card list already stored in the charger and its tested offline behavior. A recovery file, software test or AI answer does not prove that physical behavior; see [Connect a charging station](connect-a-charger.md).
+
+## Back up employer accounts and reimbursements
+
+The local employer workspace has a separate backup. The charger recovery bundle above does not contain its accounts or reimbursement records.
+
+Ask your administrator to use the [native commercial backup commands](../commercial-service.md#encrypted-native-backup-and-quarantined-restore). They need a private backup folder and a separate passphrase file. Keep the encrypted file and passphrase in different places, away from the server. Keep the matching chargeOS software revision too. The current procedure covers the native Node/SQLite service, up to 64 MiB; it does not import the alternative Cloudflare/Wrangler database.
+
+1. Your administrator creates the encrypted backup and runs **inspect** to check it.
+2. They test **restore** into a new private folder. It refuses an existing folder.
+3. They keep the original backup and separately held membership, session and financial records needed to check what changed afterward.
+
+A restored copy is **quarantined**: chargeOS refuses to start it as a working employer service. Old passwords, login sessions, email links, invitations and authenticator credentials cannot be used. This prevents an old backup from silently restoring access that somebody later revoked. People will need fresh identity checks and credentials before access can resume.
+
+The process to reconcile current access and financial records and reopen the restored service is still being built. Do not remove the quarantine marker or assume the backup date proves today's balance. Use this procedure to preserve and test recovery of local records; it is not yet a complete employer-service disaster-recovery procedure. It sends no payment and changes no charger card list.
