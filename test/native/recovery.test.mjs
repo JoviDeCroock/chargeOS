@@ -37,7 +37,7 @@ import { nativeHosting } from "../../service/configuration.ts";
 import { nativeConfiguration } from "../../service/node/configuration.ts";
 
 const passphrase = "synthetic commercial recovery passphrase!";
-let directory, bundle, originalSummary, financial, employer;
+let directory, bundle, originalSummary, financial, employer, retainedSupport;
 beforeAll(async () => {
   directory = await mkdtemp(join(tmpdir(), "chargeos-commercial-recovery-test-"));
   bundle = join(directory, "commercial.bundle");
@@ -64,6 +64,35 @@ beforeAll(async () => {
     },
   );
   expect(accepted.status).toBe(200);
+  const supportRoot = `/service/api/v1/organizations/${employer.org.id}/support`;
+  const opened = await employer.driver.browser.request(supportRoot, {
+    mutationId: crypto.randomUUID(),
+    subject: "Question about corrected reimbursement",
+    topic: "statement-amount",
+    statementId: original.id,
+    message: "Please explain the retained original and adjustment.",
+  });
+  expect(opened.status).toBe(201);
+  retainedSupport = await opened.json();
+  expect(
+    (
+      await employer.admin.browser.request(`${supportRoot}/${retainedSupport.case.id}/resolve`, {
+        mutationId: crypto.randomUUID(),
+        expectedRevision: 1,
+        message: "Both financial versions remain in the statement history.",
+        resolution: "record-reviewed",
+      })
+    ).status,
+  ).toBe(200);
+  expect(
+    (
+      await employer.driver.browser.request(`${supportRoot}/${retainedSupport.case.id}/close`, {
+        mutationId: crypto.randomUUID(),
+        expectedRevision: 2,
+        confirmation: "I checked the answer and confirm this issue is resolved",
+      })
+    ).status,
+  ).toBe(200);
   await invite(employer.admin.browser, employer.org, "pending-recovery@example.test");
   await employer.admin.browser.request(`${auth}/request-password-reset`, {
     email: employer.admin.email,
@@ -119,6 +148,19 @@ it("restores an HTTPS-origin backup only as fresh local quarantine without publi
   ).toThrow(/quarantined/);
   const restored = new NativeCommercialDatabase(join(target, "data"), { recoveryInspection: true });
   try {
+    expect(
+      await restored
+        .prepare(
+          "SELECT status,revision,statement_id,statement_sha256 FROM support_case WHERE id=?",
+        )
+        .bind(retainedSupport.case.id)
+        .first(),
+    ).toEqual({
+      status: "closed",
+      revision: 3,
+      statement_id: retainedSupport.case.statement.id,
+      statement_sha256: retainedSupport.case.statement.snapshotSha256,
+    });
     expect(
       JSON.parse(
         await restored

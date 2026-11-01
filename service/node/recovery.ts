@@ -7,6 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serviceConfiguration, type ServiceSettings } from "../configuration.js";
 import { financialJournal, readFinancialData } from "../reimbursement-journal.js";
+import { validateSupportHistory } from "../support-history.js";
 import { migrateNativeDatabase, readNativeMigrations } from "./migrations.js";
 import { NativeCommercialDatabase } from "./sqlite.js";
 import {
@@ -96,6 +97,7 @@ export async function inspectNativeCommercialDatabase(
     )
       throw new Error("Commercial migration history differs from this software");
     database.checkIntegrity();
+    await validateSupportHistory({ SERVICE_DB: database });
     const organizations = await database
       .prepare("SELECT id FROM organization ORDER BY id")
       .all<{ id: string }>();

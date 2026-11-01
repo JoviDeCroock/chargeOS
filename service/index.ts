@@ -2,6 +2,7 @@ import { signupEmailAllowed, signupDelivery } from "./configuration.js";
 import { deliveryAdmission, publicSignupAdmission, publicRequestAdmission } from "./delivery.js";
 import { HttpError, input, json, textValue } from "./http.js";
 import { handleReimbursements } from "./reimbursements.js";
+import { handleSupport } from "./support.js";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { createServiceAuth, serviceConfiguration, type ServiceEnv } from "./auth.js";
@@ -217,6 +218,8 @@ async function route(request: Request, env: ServiceEnv): Promise<Response> {
   if (!match?.[1]) throw new HttpError(404, "Not found");
   const org = await resolveOrganization(match[1]);
   const child = match[2] ?? "";
+  if (child === "support" || child.startsWith("support/"))
+    return handleSupport(request, env, org, actorId, child === "support" ? "" : child.slice(8));
   if (child === "money" || child.startsWith("money/"))
     return handleReimbursements(
       request,

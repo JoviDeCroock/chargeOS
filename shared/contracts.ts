@@ -234,6 +234,7 @@ export type {
 } from "./observation.js";
 
 export type * from "./service.js";
+export type * from "./support.js";
 
 export type * from "./reimbursement.js";
 
