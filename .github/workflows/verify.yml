@@ -49,6 +49,8 @@ jobs:
         run: pnpm verify:company-runtime
       - name: Exercise isolated managed company ingress and credential bootstrap
         run: pnpm verify:company-managed-runtime
+      - name: Exercise reviewed public company recovery
+        run: pnpm verify:company-recovery-runtime
       - name: Verify AI relay credential redaction
         run: pnpm verify:ai-relay
       - name: Exercise the managed raw deployment template

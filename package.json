@@ -48,7 +48,9 @@
     "service:native:mail": "tsx service/node/mail-cli.ts",
     "verify:service-mail-runtime": "node scripts/verify-native-mail.mjs",
     "verify:company-runtime": "node scripts/verify-company-runtime.mjs",
-    "verify:company-managed-runtime": "node scripts/verify-company-managed-runtime.mjs"
+    "verify:company-managed-runtime": "node scripts/verify-company-managed-runtime.mjs",
+    "service:native:public-handoff": "tsx service/node/public-handoff-cli.ts",
+    "verify:company-recovery-runtime": "node scripts/verify-company-recovery-runtime.mjs"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.14",

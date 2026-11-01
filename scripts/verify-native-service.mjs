@@ -3,7 +3,7 @@ import { lstat, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { request as rawRequest } from "node:http";
 import { createServer as createTcpServer } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { once } from "node:events";
 import { createHmac } from "node:crypto";
@@ -20,6 +20,7 @@ await writeFile(
 );
 const environment = {
   ...process.env,
+  SERVICE_MODE: "local",
   SERVICE_NATIVE_CONFIG: configuration,
   SERVICE_NATIVE_DATA: join(directory, "data"),
   SERVICE_NATIVE_PORT: "0",
@@ -617,6 +618,49 @@ try {
     SERVICE_NATIVE_CONFIG: join(secondTarget, "service.vars"),
     SERVICE_NATIVE_DATA: join(secondTarget, "data"),
   });
+  // Optional output for the separate disposable Docker recovery drill. It is
+  // always synthetic, create-only and outside this verifier's deleted source.
+  if (process.env.CHARGEOS_SYNTHETIC_PUBLIC_CAPSULE) {
+    const capsule = process.env.CHARGEOS_SYNTHETIC_PUBLIC_CAPSULE;
+    const prepared = JSON.parse(
+      execFileSync(
+        process.execPath,
+        [
+          "dist/native-service/service/node/public-handoff-cli.js",
+          "prepare",
+          "--manifest",
+          reviewFile,
+          "--target",
+          capsule,
+          "--origin",
+          "https://accounts.example.test",
+          "--confirm",
+          "I authorize this reviewed recovery at the exact HTTPS address after stopping all previous service copies",
+        ],
+        {
+          cwd: root,
+          env: enrollmentEnvironment,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      ),
+    );
+    assert(
+      prepared.status === "prepared" && prepared.sourceState === "retired",
+      "Compiled public capsule did not retire its stopped source",
+    );
+    await assertRefusedStartup(enrollmentEnvironment);
+    await writeFile(
+      join(dirname(capsule), "synthetic-login.json"),
+      JSON.stringify({
+        email,
+        password: newPassword,
+        totpURI: authenticator.totpURI,
+        oldCookies: [...cookies],
+      }),
+      { mode: 0o600, flag: "wx" },
+    );
+  }
   console.log(
     "Native commercial runtime passed: compiled process lease/duplicate exclusion, active-upload SIGTERM drain, online checkpoint, failed-start lease cleanup, origin-bound release/startup, boot and migrations, local verification, scoped-cookie login, organization/session persistence, clean restart, encrypted backup/inspection without source config, financial checkpoint, fresh-path quarantined restore, restore-bound recovery review, one-time fresh password/TOTP enrollment, cross-process lifecycle exclusion, atomic reviewed release, normal fresh-MFA sign-in and released-source backup restored into fresh quarantine, with no HTTP outbox or secret logging.",
   );
