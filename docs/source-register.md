@@ -81,6 +81,14 @@ This research did not access a competitor’s authenticated customer portal, exe
 
 - [OCPP 1.6 Security Whitepaper, edition 4 (2026-02-05)](https://openchargealliance.org/ocpp-info-whitepapers/ocpp-1-6-security-whitepaper-4th-edition/): A00.FR.203/205 and A00.FR.302/304 say the Basic-auth username is the charge-point identity and the password is stored in `AuthorizationKey`, "Minimal 16-bytes long … Hexadecimal represented (20 bytes maximum, represented as a string of up to 40 hexadecimal digits)". It also defines `SecurityEventNotification` and its security event types, which chargeOS records. This is the specification; individual chargers can still impose stricter or looser vendor-specific rules, which must be recorded per exact device.
 
+## OCPP 1.6 core specification — checked 2026-11-01
+
+- OCPP 1.6 edition 2 (Open Charge Alliance), read from the copy published in the [mobilityhouse/ocpp repository](https://github.com/mobilityhouse/ocpp/blob/master/docs/v16/ocpp-1.6%20edition%202.pdf) (SHA-256 `2dff43381502ca107b788d6aaeacc8ba329ff97a0e6dbc85401cec7d8ad7bd45`; the [OCA protocol page](https://openchargealliance.org/protocols/open-charge-point-protocol/) is the canonical download). Section 9.1.1: `AllowOfflineTxForUnknownId` is "optional … If this key exists, the Charge Point supports Unknown Offline Authorization. If this key reports a value of true, Unknown Offline Authorization is enabled." Section 3.5.4: "When offline, a Charge Point MAY allow automatic authorization of any 'unknown' identifiers … Operation of the Unknown Offline Authorization capability, when supported, is reported (and controlled, where possible) by the AllowOfflineTxForUnknownId configuration key." chargeOS reads an explicit `unknownKey` answer for that key as the safe state.
+
+## EVerest software-in-the-loop charger — checked 2026-11-01
+
+- [EVerest demo images](https://github.com/EVerest/everest-demo) `ghcr.io/everest/everest-demo/manager:2025.10.0-single-phase` (everest-core `c86cd9c`, 2025-11-05; [libocpp](https://github.com/EVerest/libocpp) v0.30.3), pinned by digest in `scripts/interop-everest.mjs`. EVerest is a Linux Foundation Energy charger stack whose libocpp is used in production chargers. Its OCPP 1.6 configuration ships `LocalAuthorizeOffline=false` and has no `AllowOfflineTxForUnknownId` key. `pnpm interop:everest` is an interoperability check against this independent implementation; it is not evidence for any physical charger, model or vendor.
+
 ## EnergyVision integrated competitor benchmark — checked 2026-10-28
 
 - [Residential bundle](https://www.energyvision.be/nl-be/energieoplossingen/een-thuislaadpunt-zonder-investering): energy, solar, installed charging, app and solar-aware charging modes. Advertised scope, not hands-on compatibility proof.

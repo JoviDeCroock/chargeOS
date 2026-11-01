@@ -65,6 +65,16 @@ export const PROFILES = Object.freeze({
     readonlyKeys: [],
     vendorMessages: true,
   },
+  "unknown-offline-unsupported": {
+    description:
+      "Does not implement Unknown Offline Authorization, so it reports AllowOfflineTxForUnknownId as an unknown key (OCPP 1.6 section 9.1.1), and ships with offline local authorization off.",
+    configuration: Object.fromEntries(
+      Object.entries({ ...SAFE_CONFIGURATION, LocalAuthorizeOffline: "false" }).filter(
+        ([key]) => key !== "AllowOfflineTxForUnknownId",
+      ),
+    ),
+    readonlyKeys: [],
+  },
   "local-list-unsupported": {
     description:
       "Has no local authorization list. chargeOS must report the gap and keep synchronization blocked.",

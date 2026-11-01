@@ -86,6 +86,26 @@ describe("BYOK troubleshooting boundary", () => {
     expect(result.context.authorization.pendingRevocations).toBe(1);
     expect(result.sha256).toBe(preview().sha256);
   });
+  it("shares fixed readiness explanations but still withholds look-alikes", () => {
+    const base = snapshot();
+    const withObserved = (observed: string) =>
+      troubleshootingPreview({
+        ...base,
+        readiness: {
+          ...base.readiness!,
+          checks: [{ id: "unknown-tags-rejected", label: "x", observed, state: "pass" }],
+        },
+      }).context.checks[0]?.observed;
+    for (const fixed of [
+      "not offered by this charger, so unknown cards are never authorized offline",
+      "not supported by this charger",
+    ]) {
+      expect(withObserved(fixed)).toBe(fixed);
+    }
+    expect(withObserved("not supported by this charger OWNER-CARD-1")).toBe(
+      "unrecognized value (withheld)",
+    );
+  });
   it("rejects unapproved, malformed, injected endpoint/tool and key-in-question requests", () => {
     for (const patch of [
       { consent: false },

@@ -105,6 +105,92 @@ describe("assessOwnerContinuity", () => {
     );
   });
 
+  it("passes unknown-tag rejection when the charger does not offer Unknown Offline Authorization", () => {
+    // OCPP 1.6 edition 2, section 9.1.1: the key exists only when the capability is supported.
+    const response = {
+      ...configuration({
+        LocalAuthListEnabled: "true",
+        LocalAuthListMaxLength: "42",
+        LocalAuthorizeOffline: "true",
+        SendLocalListMaxLength: "42",
+      }),
+      unknownKey: ["AllowOfflineTxForUnknownId"],
+    };
+    const result = assessOwnerContinuity(response, { listVersion: 1 }, 1);
+    expect(result.state).toBe("ready");
+    expect(result.checks).toContainEqual(
+      expect.objectContaining({
+        id: "unknown-tags-rejected",
+        observed: "not offered by this charger, so unknown cards are never authorized offline",
+        state: "pass",
+      }),
+    );
+    expect(planOwnerContinuityPreparation(response)).toContainEqual({
+      currentValue: null,
+      desiredValue: "false",
+      key: "AllowOfflineTxForUnknownId",
+      state: "already-safe",
+    });
+  });
+
+  it("never passes unknown-tag rejection when the answer also reports the key as present", () => {
+    const base = {
+      LocalAuthListEnabled: "true",
+      LocalAuthListMaxLength: "42",
+      LocalAuthorizeOffline: "true",
+      SendLocalListMaxLength: "42",
+    };
+    const contradictions = [
+      // Present without a value: the key exists, so the capability exists.
+      [{ key: "AllowOfflineTxForUnknownId", readonly: false }],
+      // Present in another letter case and enabled.
+      [{ key: "allowofflinetxforunknownid", readonly: false, value: "true" }],
+      [{ key: "AllowOfflineTxForUnknownId", readonly: false, value: "true" }],
+    ];
+    for (const extra of contradictions) {
+      const base_ = configuration(base);
+      const response = {
+        configurationKey: [...base_.configurationKey, ...extra],
+        unknownKey: ["AllowOfflineTxForUnknownId"],
+      };
+      const result = assessOwnerContinuity(response, { listVersion: 1 }, 1);
+      expect(result.state).not.toBe("ready");
+      expect(result.checks).toContainEqual(
+        expect.objectContaining({
+          id: "unknown-tags-rejected",
+          state: expect.not.stringMatching(/^pass$/u),
+        }),
+      );
+      expect(planOwnerContinuityPreparation(response)).not.toContainEqual(
+        expect.objectContaining({ key: "AllowOfflineTxForUnknownId", state: "already-safe" }),
+      );
+    }
+  });
+
+  it("never passes unknown-tag rejection when the key is merely missing from the answer", () => {
+    const response = configuration({
+      LocalAuthListEnabled: "true",
+      LocalAuthListMaxLength: "42",
+      LocalAuthorizeOffline: "true",
+      SendLocalListMaxLength: "42",
+    });
+    const result = assessOwnerContinuity(response, { listVersion: 1 }, 1);
+    expect(result.state).toBe("unknown");
+    expect(result.checks).toContainEqual(
+      expect.objectContaining({ id: "unknown-tags-rejected", state: "unknown" }),
+    );
+    expect(planOwnerContinuityPreparation(response)).toContainEqual(
+      expect.objectContaining({ key: "AllowOfflineTxForUnknownId", state: "blocked" }),
+    );
+    // Only this one optional key is read as safe when unsupported; required keys still fail.
+    expect(
+      planOwnerContinuityPreparation({
+        configurationKey: [],
+        unknownKey: ["LocalAuthorizeOffline"],
+      }),
+    ).toContainEqual(expect.objectContaining({ key: "LocalAuthorizeOffline", state: "blocked" }));
+  });
+
   it("does not read malformed capacities as numbers", () => {
     const result = assessOwnerContinuity(
       configuration({

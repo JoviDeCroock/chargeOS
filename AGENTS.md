@@ -79,6 +79,7 @@ Read [VISION.md](VISION.md) and [docs/README.md](docs/README.md) before changing
 - Container/dependency changes must keep exact base versions, the lockfile, deployment smoke test, and CI SBOM aligned. An SBOM artifact is inventory, not a signature or vulnerability clearance.
 - Stable release tags must exactly match `package.json`. Keep third-party actions pinned by full SHA, checkout credentials non-persistent, job permissions explicit, production advisories fail-closed, the GHCR candidate commit-addressed, and the public version create-only. Run the production drill against the exact candidate digest, attest its build provenance and CycloneDX SBOM, then promote as the final step. Never publish `latest` or treat an attestation or point-in-time advisory result as field, compatibility, vulnerability, or maintainer-identity proof.
 - Use `pnpm verify:runtime` after changing the production image, proxy, secret mounts, network boundary, OCPP transport, authentication, or redaction. It is a disposable synthetic runtime proof, never exact-device or field evidence.
+- Use `pnpm interop:everest` (Docker) after changing the OCPP gateway, authorization, readiness checks or remote commands. It runs the owner, offline and replay workflow against EVerest's independent OCPP 1.6J charge point. Keep its images pinned by digest. It is interoperability evidence against one implementation, never a device, vendor or Freedom Test claim.
 
 ## Canonical commands
 
@@ -96,6 +97,7 @@ pnpm verify
 pnpm verify:deployment
 pnpm verify:release
 pnpm verify:runtime
+pnpm interop:everest
 ```
 
 Do not declare a charger liberated from unit tests alone. The release gate is a witnessed charger test with WAN loss, backend loss, charge-point restart, successful owner RFID charging, and recovery replay.

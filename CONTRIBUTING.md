@@ -21,6 +21,17 @@ Open `http://127.0.0.1:5173` and sign in with `CHARGEOS_OWNER_API_TOKEN`. The si
 
 Simulator profiles are named after a protocol behavior, never a brand. A profile working against chargeOS is not evidence that any real charger works.
 
+The built-in simulator and chargeOS share one reading of the specification. To check against an independent implementation, run `pnpm interop:everest` (Docker; the EVerest image is about 16 GB on first pull). It points [EVerest](https://github.com/EVerest)'s OCPP 1.6J charge point at a throwaway edge and runs the following, which takes about five minutes:
+
+- owner-continuity preparation and card synchronization;
+- an online session;
+- backend loss with an offline owner session and a refused unknown card;
+- replay after chargeOS returns;
+- remote start and stop;
+- a remote reset followed by a restart while chargeOS is down.
+
+Run it after changing the gateway, authorization, readiness checks or remote commands. It is interoperability evidence, not device evidence.
+
 ## Checks
 
 Fast loop while you work:

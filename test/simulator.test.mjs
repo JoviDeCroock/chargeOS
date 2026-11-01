@@ -95,6 +95,27 @@ describe("pnpm simulate charge point", () => {
     ]);
   });
 
+  it("unknown-offline-unsupported: prepares only the offline setting; chargeOS still rejects unknown cards online", async () => {
+    await start("unknown-offline-unsupported");
+    const before = await gateway.inspectLocalAuthorization(config.stationId);
+    expect(before.state).toBe("blocked");
+    expect(before.checks).toContainEqual(
+      expect.objectContaining({ id: "unknown-tags-rejected", state: "pass" }),
+    );
+    const result = await gateway.prepareOwnerContinuity(config.stationId, {
+      confirmation: CONTINUITY_PREPARATION_PHRASE,
+    });
+    expect(result.state).toBe("ready");
+    expect(result.changes.map(({ key }) => key)).toEqual(["LocalAuthorizeOffline"]);
+    expect(charger.configuration.has("AllowOfflineTxForUnknownId")).toBe(false);
+    await expect(gateway.syncOwnerList(config.stationId)).resolves.toMatchObject({
+      status: "Accepted",
+    });
+    await expect(charger.runSession({ tag: "not-an-owner-card" })).resolves.toMatchObject({
+      authorization: "Invalid",
+    });
+  });
+
   it("read-only-settings: refuses preparation before changing anything", async () => {
     await start("read-only-settings");
     await expect(
