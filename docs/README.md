@@ -31,7 +31,7 @@ Choose the smallest relevant canonical layer. Read all documents in **Always** b
 - [Current recovery review](commercial-service.md#prepare-a-current-recovery-review): original-source financial checkpoints, complete current roster/eligibility decisions and private evidence binding before fresh enrollment or release.
 - [Fresh recovery enrollment](commercial-service.md#fresh-recovery-credential-enrollment): reviewed one-use links, new password/TOTP setup, targeted reissue and drained lifecycle custody; employer access stays quarantined.
 - [Reviewed local reopening](commercial-service.md#reopen-a-reviewed-local-recovery): atomic roster/eligibility cutover, fresh normal MFA, retained operator history and fresh quarantine on every later restore.
-- [Native company HTTPS pilot](company-hosting.md): guided Docker setup, dedicated proxy, verified signup, Secure cookies and bounded mail admission; managed-cloud company setup and public recovery/resumption remain pending.
+- [Native company HTTPS pilot](company-hosting.md): guided Docker/Coolify setup, dedicated ingress, verified signup, Secure cookies and bounded mail admission; live platform acceptance and public recovery/resumption remain pending.
 - [Native SMTP account delivery](commercial-service.md#native-smtp-account-delivery): opt-in future links, mandatory verified TLS, durable leases/retries and recovery drain; the separate operator-managed native HTTPS pilot has its own deployment gates.
 - [ADR 0003](decisions/0003-separate-commercial-worker.md): separate commercial Worker/D1 boundary, owner isolation and portability gates.
 

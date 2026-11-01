@@ -66,7 +66,11 @@ it("erases SMTP fields before awaiting setup, renders no credentials and locks a
   expect(button.disabled).toBe(true);
   expect(fetcher.mock.calls[0][0]).toBe("/deploy/company");
   expect(fetcher.mock.calls[0][1].headers["X-Setup-Token"]).toBe("a".repeat(64));
-  expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({ ...data, deploy: true });
+  expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({
+    ...data,
+    target: "docker",
+    deploy: true,
+  });
   complete({
     ok: true,
     json: async () => ({
@@ -79,6 +83,55 @@ it("erases SMTP fields before awaiting setup, renders no credentials and locks a
   expect(doc.getElementById("result").textContent).not.toContain(data.smtpPassword);
   expect(doc.getElementById("result").textContent).not.toContain(data.smtpUsername);
   expect(button.disabled).toBe(true);
+  expect(w.localStorage.length + w.sessionStorage.length).toBe(0);
+});
+it("switches managed fields accessibly, erases the API token before submission and distinguishes submitted from healthy", async () => {
+  const w = page();
+  let finish;
+  w.fetch = vi.fn(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  w.eval(script);
+  const d = w.document,
+    target = d.getElementById("target"),
+    fields = d.getElementById("company-cloud");
+  expect(fields.disabled).toBe(true);
+  expect(fields.hidden).toBe(true);
+  target.value = "coolify";
+  target.dispatchEvent(new w.Event("change"));
+  expect(fields.disabled).toBe(false);
+  expect(fields.hidden).toBe(false);
+  d.getElementById("cloudToken").value = "synthetic-private-cloud-token";
+  d.getElementById("cloudPrivacyConfirmed").checked = true;
+  d.getElementById("company-setup").dispatchEvent(
+    new w.SubmitEvent("submit", {
+      bubbles: true,
+      cancelable: true,
+      submitter: d.querySelector('button[value="deploy"]'),
+    }),
+  );
+  expect(d.getElementById("cloudToken").value).toBe("");
+  expect(JSON.parse(w.fetch.mock.calls[0][1].body)).toMatchObject({
+    target: "coolify",
+    cloudPrivacyConfirmed: true,
+    cloudToken: "synthetic-private-cloud-token",
+  });
+  finish({
+    ok: true,
+    json: async () => ({
+      status: "submitted",
+      target: "coolify",
+      companyUrl: "https://accounts.example.test/service",
+      directory: "/private/example",
+    }),
+  });
+  await vi.waitFor(() => expect(d.getElementById("result").hidden).toBe(false));
+  expect(d.getElementById("result-title").textContent).toContain("submitted");
+  expect(d.getElementById("result-message").textContent).toContain("not a health check");
+  expect(d.getElementById("result").textContent).not.toContain("synthetic-private-cloud-token");
   expect(w.localStorage.length + w.sessionStorage.length).toBe(0);
 });
 it("requires the original terminal nonce and leaves credentials empty after an uncertain failure", async () => {

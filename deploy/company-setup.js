@@ -4,6 +4,16 @@ const form = document.getElementById("company-setup"),
   status = document.getElementById("status"),
   error = document.getElementById("error");
 document.getElementById("owner-setup").href = `/#${nonce}`;
+function destination() {
+  const cloud = document.getElementById("target").value === "coolify";
+  const fields = document.getElementById("company-cloud");
+  fields.hidden = !cloud;
+  fields.disabled = !cloud;
+  document.getElementById("cloud-prerequisites").hidden = !cloud;
+  document.getElementById("docker-prerequisites").hidden = cloud;
+}
+document.getElementById("target").addEventListener("change", destination);
+destination();
 document.getElementById("smtpSecurity").addEventListener("change", (event) => {
   const port = document.getElementById("smtpPort");
   if (["587", "465"].includes(port.value))
@@ -19,14 +29,19 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (form.dataset.busy) return;
   const values = Object.fromEntries(new FormData(form));
+  if (values.target === "coolify")
+    values.cloudPrivacyConfirmed = document.getElementById("cloudPrivacyConfirmed").checked;
   values.deploy = event.submitter?.value === "deploy";
   form.dataset.busy = "true";
   for (const control of form.elements) control.disabled = true;
   document.getElementById("smtpPassword").value = "";
   document.getElementById("smtpUsername").value = "";
+  document.getElementById("cloudToken").value = "";
   error.hidden = true;
   status.textContent = values.deploy
-    ? "Preparing and starting company accounts. Keep this tab and terminal open while Docker builds the software."
+    ? values.target === "coolify"
+      ? "Creating your dedicated company destination and submitting the pinned deployment. Keep this tab and terminal open."
+      : "Preparing and starting company accounts. Keep this tab and terminal open while Docker builds the software."
     : "Preparing your private company setup files…";
   let success = false;
   try {
@@ -52,9 +67,15 @@ form.addEventListener("submit", async (event) => {
     document.getElementById("result-title").textContent =
       result.status === "containers-started"
         ? "Your company containers have started"
-        : "Your company setup files are ready";
+        : result.status === "submitted"
+          ? "Your company deployment was submitted"
+          : "Your company setup files are ready";
     document.getElementById("result-message").textContent =
-      "Check DNS, HTTPS and actual mailbox delivery before using the synthetic pilot. Read START-HERE.txt for status, restart and stop instructions.";
+      result.target === "coolify"
+        ? result.status === "prepared"
+          ? "These are review files only; no cloud request was sent. Read START-HERE.txt to review them and submit a separately named installation through the wizard."
+          : "Inspect the existing Coolify application, dedicated network and private logs. Confirm HTTPS, mailbox delivery and persistent records before using test accounts. Submitted is not a health check; read START-HERE.txt."
+        : "Check DNS, HTTPS and actual mailbox delivery before using the synthetic pilot. Read START-HERE.txt for status, restart and stop instructions.";
     document.getElementById("result").hidden = false;
     status.textContent =
       "Setup saved. This form is locked to prevent accidental duplicate deployments.";
@@ -68,8 +89,12 @@ form.addEventListener("submit", async (event) => {
     status.textContent = "";
   } finally {
     delete form.dataset.busy;
-    if (!success) for (const control of form.elements) control.disabled = false;
+    if (!success) {
+      for (const control of form.elements) control.disabled = false;
+      destination();
+    }
     delete values.smtpPassword;
     delete values.smtpUsername;
+    delete values.cloudToken;
   }
 });

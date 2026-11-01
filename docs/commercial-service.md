@@ -1,6 +1,6 @@
 # Commercial account service
 
-> Native HTTPS Docker pilot: the separate [company-hosting contract](company-hosting.md) now supports synthetic public-origin account verification and Secure sessions. Local commands below retain their loopback boundary. Managed-cloud company deployment and complete public recovery/resumption are still pending.
+> Native HTTPS Docker pilot: the separate [company-hosting contract](company-hosting.md) now supports synthetic public-origin account verification and Secure sessions. Local commands below retain their loopback boundary. An isolated Coolify company adapter now has synthetic runtime proof; live platform acceptance and complete public recovery/resumption are still pending.
 
 Implemented 2026-10-28. This is a real local account/organization service with persistent SQLite/D1 records. It remains separate from the fictional `/preview`, browser-memory `/observe` and physical owner console `/`. [ADR 0003](decisions/0003-separate-commercial-worker.md) records the hosting/storage boundary.
 

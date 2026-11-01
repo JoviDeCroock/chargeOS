@@ -12,22 +12,34 @@
       <a class="brand" id="owner-setup" href="/">chargeOS · owner setup</a>
       <h1>Set up company accounts</h1>
       <p class="intro">
-        Create your employee and finance workspace on a Docker server you control. Fill in your web
-        address and mail provider, then deploy with one click.
+        Create your employee and finance workspace on your own Docker server or through Coolify.
+        Fill in your web address and mail provider, then deploy with one click.
       </p>
       <p class="note">
-        This is a synthetic HTTPS pilot. It does not connect to chargers. Company managed-cloud
-        setup and public recovery/resumption remain pending. Use test accounts while evaluating it.
+        Use test accounts while evaluating this HTTPS pilot. It does not connect to chargers. Public
+        recovery and resumption remain pending.
       </p>
       <form id="company-setup">
         <fieldset>
-          <legend>Your server and web address</legend>
-          <p>
-            Run setup on the computer or server that will host the workspace. Local Docker on Linux
-            or Docker Desktop on macOS is required; remote SSH/TCP contexts are not supported. The
-            server needs ports 80 and 443 available and a dedicated public entrance without an extra
-            proxy or CDN.
+          <legend>Where to deploy</legend>
+          <label for="target">Hosting</label>
+          <select id="target" name="target">
+            <option value="docker">Docker on this computer or server</option>
+            <option value="coolify">Managed through Coolify</option>
+          </select>
+          <p id="docker-prerequisites">
+            Local Docker on Linux or Docker Desktop on macOS is required. Run setup on the host,
+            with ports 80 and 443 available. Remote SSH/TCP Docker contexts are unsupported. Ask IT
+            to prepare a dedicated entrance without an extra proxy or CDN.
           </p>
+          <p id="cloud-prerequisites" hidden>
+            Ask your Coolify operator to prepare a connected server, DNS and the settings below.
+            Local Docker is not needed. This small pilot uses Traefik and a separate company
+            network; it cannot use an existing shared destination.
+          </p>
+        </fieldset>
+        <fieldset>
+          <legend>Your server and web address</legend>
           <label for="name">Name this installation</label
           ><input
             id="name"
@@ -76,6 +88,90 @@
             maxlength="254"
             autocomplete="email"
           />
+        </fieldset>
+        <fieldset id="company-cloud" hidden disabled>
+          <legend>Your Coolify operator’s settings</legend>
+          <p>
+            Your operator can supply these values together. Use verified images built from the
+            reviewed chargeOS revision. Cloud submission starts a deployment; check its result
+            before opening test accounts.
+          </p>
+          <label for="cloudOrigin">Trusted Coolify HTTPS address</label>
+          <input
+            id="cloudOrigin"
+            name="cloudOrigin"
+            type="url"
+            required
+            value="https://app.coolify.io"
+          />
+          <label for="cloudToken">Coolify API token</label>
+          <input
+            id="cloudToken"
+            name="cloudToken"
+            type="password"
+            required
+            maxlength="512"
+            autocomplete="off"
+          />
+          <small
+            >Used for this submission only and never saved in the setup folder. Only use a Coolify
+            address you trust.</small
+          >
+          <div class="fields">
+            <div>
+              <label for="projectId">Project ID</label
+              ><input id="projectId" name="projectId" required maxlength="128" />
+            </div>
+            <div>
+              <label for="serverId">Connected server ID</label
+              ><input id="serverId" name="serverId" required maxlength="128" />
+            </div>
+          </div>
+          <label for="environment">Environment name</label>
+          <input id="environment" name="environment" required value="production" maxlength="64" />
+          <label for="image">Verified company runtime image</label>
+          <input
+            id="image"
+            name="image"
+            required
+            placeholder="ghcr.io/your-company/accounts@sha256:…"
+          />
+          <label for="proxyImage">Verified company proxy image</label>
+          <input
+            id="proxyImage"
+            name="proxyImage"
+            required
+            placeholder="ghcr.io/your-company/accounts-proxy@sha256:…"
+          />
+          <small
+            >Each reference ends with @sha256: and a 64-character digest. The two images and
+            deployment template must come from the same reviewed source revision.</small
+          >
+          <label for="gitRepository">Trusted chargeOS GitHub repository</label>
+          <input
+            id="gitRepository"
+            name="gitRepository"
+            required
+            type="url"
+            value="https://github.com/JoviDeCroock/chargeOS"
+          />
+          <label for="gitBranch">Repository branch</label>
+          <input id="gitBranch" name="gitBranch" required value="main" maxlength="128" />
+          <label for="gitCommit">Reviewed repository commit</label>
+          <input id="gitCommit" name="gitCommit" required pattern="[a-f0-9]{40}" maxlength="40" />
+          <label for="githubAppId">Coolify GitHub App ID (private repository only)</label>
+          <input id="githubAppId" name="githubAppId" maxlength="128" />
+          <label class="check"
+            ><input
+              id="cloudPrivacyConfirmed"
+              name="cloudPrivacyConfirmed"
+              type="checkbox"
+              required
+            />
+            My operator confirmed Traefik with account URL/request/error logs and traffic analytics
+            disabled, no extra proxy or CDN, and an exclusive fresh company network. They will
+            inspect its membership after submission.</label
+          >
         </fieldset>
         <fieldset>
           <legend>Send account emails</legend>
@@ -132,9 +228,10 @@
             autocomplete="off"
           />
           <small
-            >Saved only in this installation's private settings file. Never share the setup folder
-            or include it in support messages. Certificates must pass normal verification;
-            private-CA mail servers need administrator setup.</small
+            >Saved in this installation’s private settings; managed hosting also retains it in
+            trusted Coolify configuration. Never share the setup folder or include it in support
+            messages. Certificates must pass normal verification; private-CA mail servers need
+            administrator setup.</small
           >
           <label for="smtpSender">Allowed sender email</label
           ><input
@@ -149,7 +246,7 @@
         </fieldset>
         <label class="check"
           ><input id="confirmed" type="checkbox" required />I control this server and hostname, have
-          checked the Docker destination, and authorize this mail provider to send account
+          checked the hosting destination, and authorize this mail provider to send account
           links.</label
         >
         <div class="actions">
