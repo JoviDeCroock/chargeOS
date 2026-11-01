@@ -21,11 +21,11 @@ Use [Several chargers and brands](brands.md) to find the evidence for your exact
 
 For the first Alfen target, the exact procedure is in the [Alfen migration runbook](../alfen-genesis-runbook.md). Use the supported manufacturer tool and the instructions matching your firmware. Other models require their own documented procedure; do not copy Alfen setting names into another charger.
 
-Before the switch, follow the console's **Genesis plan** and the **Liberate my charger** panel. Record the existing device identity, prerequisite evidence and backups while the current provider remains connected. Have your operator prepare the exact target manifest, then have the owner authorize that target and its maintenance window in chargeOS. The installer switches only while that authorization is active. The [runbook](../alfen-genesis-runbook.md) gives the full sequence.
+Before the switch, follow the **Genesis plan** on the console's **Overview** page and the **Liberate my charger** page in the sidebar. Record the existing device identity, prerequisite evidence and backups while the current provider remains connected. Have your operator prepare the exact target manifest, then have the owner authorize that target and its maintenance window in chargeOS. The installer switches only while that authorization is active. The [runbook](../alfen-genesis-runbook.md) gives the full sequence.
 
 Many steps ask for a SHA-256 digest. This is a 64-character fingerprint of a file, such as a photo or configuration export. It shows which file you mean without uploading it. On macOS, `shasum -a 256 <file>` prints it; on most Linux systems, `sha256sum <file>` does. Keep the original file privately outside chargeOS. Hash evidence files only; never hash a password, card identifier or recovery passphrase into a checkpoint.
 
-1. In the **Freedom Test** panel, fill in **Exact device identity**: article number, hardware revision, country, the vendor, model and firmware exactly as the charger will report them, connectivity, prior operator, endpoint configuration path and the digest of your inventory evidence. Click **Save exact device identity**. The migration checks use this inventory.
+1. On the **Freedom Test** page, fill in **Exact device identity**: article number, hardware revision, country, the vendor, model and firmware exactly as the charger will report them, connectivity, prior operator, endpoint configuration path and the digest of your inventory evidence. Click **Save exact device identity**. The migration checks use this inventory.
 2. In **Liberate my charger**, paste the digest for each owner-recorded checkpoint and click **Confirm checkpoint**, or **Record stop** if something is missing or unsafe. chargeOS fills in the other steps from the device inventory and its own records.
 3. When every pre-switch checkpoint passes, select the target manifest file from your operator, choose the transport and the authorization window, and type the displayed phrase.
 4. Click **Authorize documented endpoint-change window**. The panel shows when the window expires.
@@ -36,7 +36,7 @@ Opening the enclosure, touching wiring or changing a SIM is installer work with 
 
 ## Check charging after the move
 
-The Freedom Test is the witnessed field test that shows whether owner charging survives an outage on your exact charger. Record it in the console's **Freedom Test** panel.
+The Freedom Test is the witnessed field test that shows whether owner charging survives an outage on your exact charger. Record it on the console's **Freedom Test** page.
 
 1. After the switch, check **Observed boot identity**. It must say it matches the authorized pre-switch inventory. A mismatch is a stop condition.
 2. Synchronize the owner card, run a real owner-card charge online and present an unknown card. chargeOS marks these automatic steps from its own records.
@@ -49,7 +49,7 @@ Finally, create an encrypted recovery bundle and keep a copy away from the serve
 
 ## Troubleshoot the connection
 
-Start in the owner console. The top bar shows **Station connected** or **Station offline**. After the charger's first start-up message (a BootNotification), the **Station** panel shows its hardware and firmware.
+Start in the owner console. The bar at the top of every page shows **Station connected** or **Station offline**. After the charger's first start-up message (a BootNotification), the **Station** panel on the **Overview** page shows its hardware and firmware.
 
 chargeOS does not record refused connection attempts in its evidence ledger, so a failed login only looks like **Station offline**. Your administrator can read the proxy log to see the HTTP status code. From a setup-wizard folder, the command is `docker compose -f compose.json logs caddy`. For a manual production deployment, use the same `logs caddy` command with its production file options. Logs contain addresses and charger identities, so keep them private.
 

@@ -14,25 +14,29 @@ If the console reports that the token is not valid, paste it again without extra
 
 ## Choose a charger
 
-With one charger, the console opens that charger directly. With several chargers, it opens the **Fleet overview**. Each row shows connection, owner-card state, offline readiness and anything that needs attention. Click **Manage** to open one charger, or use the **Charger** menu in the top bar to switch.
+With one charger, the console opens that charger's **Overview** directly. With several chargers, it opens **All chargers**, the fleet overview. Each row shows connection, owner-card state, offline readiness and anything that needs attention. Click **Manage** to open one charger, or use the **Charger** menu in the sidebar to switch. The bar at the top of every page names the selected charger and shows whether it is connected.
 
 Every action applies only to the charger you selected. Check the name before adding a card or exporting evidence. The fleet view is a convenience; each charger keeps its own identity, password, card list and evidence.
 
 Several chargers on one installation need a private stations file. The setup wizard does not create it. Your administrator copies `config/stations.example.json`, gives every charger a unique identity, password and owner-card list, and points `CHARGEOS_STATIONS_FILE` at it; see the [fleet configuration](../owner-edge-operations.md). The current encrypted recovery bundle covers one charger only, so use one charger per installation where recovery matters. See [Several chargers and brands](brands.md).
 
-## Read the main panels
+## Find your way around
 
-- **Genesis plan** at the top lists the next safe action. It is guidance; it never performs work and is not evidence that a step happened. **Stop condition** means keep the evidence and resolve the problem before continuing.
-- **Offline readiness** shows whether the charger reported the settings needed for offline owner charging. **Software prerequisites pass** is not a physical test.
-- **Station** shows **Connected** or **Offline**, the hardware and firmware the charger reported, and each connector's status.
-- **Owner authorization** manages owner cards; see [Add or remove an RFID card](rfid.md).
+The sidebar lists the pages for the selected charger. On a phone it becomes a row you can swipe sideways. A small dot next to a page means it has something to look at: amber for pending changes, red for a stop condition or failure.
+
+- **Overview** answers the main question first. **Offline readiness** shows whether the charger reported the settings needed for offline owner charging, as a ring with one segment per check. **Software prerequisites pass** is not a physical test. **At a glance** summarizes every other page; click a row to open it. **Station** shows the hardware, firmware and each connector's status. The **Genesis plan** lists the next safe action first, the remaining ones below it, and the six migration phases with the current one highlighted. It is guidance; it never performs work and is not evidence that a step happened. **Stop condition** means keep the evidence and resolve the problem before continuing.
+- **Charging** shows whether a session is in progress, the **Charger controls** for remote commands (see below), and **Energy history**, the list of sessions.
+- **Owner cards** manages owner cards and the **Guarded actions** that inspect and synchronize them; see [Add or remove an RFID card](rfid.md).
 - **Liberate my charger** and **Freedom Test** record migration and field-test evidence; see [Connect a charging station](connect-a-charger.md).
-- **Charger controls** sends remote commands while the charger is connected; see below.
-- **Energy history** lists sessions. **Latest owner ledger events** shows recent records from the evidence ledger, the tamper-evident log chargeOS keeps.
+- **Delegated access** gives someone temporary read access; see below.
+- **Evidence** shows **Latest owner ledger events**, recent records from the evidence ledger, the tamper-evident log chargeOS keeps.
+- **AI troubleshooting** lets you ask your own AI provider about this charger; see [Use your own AI key](ai-help.md).
+
+Each page has its own address, so the browser's back button and bookmarks work.
 
 ## Control the charger remotely
 
-The **Charger controls** panel works only while the charger shows **Connected**, and only you (the owner) can use it.
+The **Charger controls** panel on the **Charging** page works only while the charger shows **Connected**, and only you (the owner) can use it.
 
 - **Start remotely**: pick a connector and one of your owner cards (shown by its pseudonym, never the card number). The charger starts a session as if that card had been presented.
 - **Stop session #…**: appears for each session that is currently charging.
@@ -53,7 +57,7 @@ None of these commands changes your owner card list or the settings that let you
 Use this when an installer, employer or energy provider needs to see information about one charger. They get a limited, expiring read-only secret. They cannot change cards, settings or the charger, and they do not become an owner.
 
 1. Select the right charger.
-2. In **Delegated access**, choose a **Delegate role**. **Installer** can read station status, diagnostics, the migration dossier and unreviewed Freedom Test evidence. **Employer reimbursement** can read session times and energy only, without card identities. **Energy provider** can read station and connector status only.
+2. Open **Delegated access** in the sidebar and choose a **Delegate role**. **Installer** can read station status, diagnostics, the migration dossier and unreviewed Freedom Test evidence. **Employer reimbursement** can read session times and energy only, without card identities. **Energy provider** can read station and connector status only.
 3. Choose **Expires after**: 1, 7, 30 or 90 days. Pick the shortest period that covers the work.
 4. Click **Issue one-time secret**. Copy it immediately and send it privately to that one person. chargeOS cannot show it again.
 5. Click **Dismiss secret** when you have copied it.
@@ -64,10 +68,10 @@ The secret does not open the owner console. The recipient uses it with the charg
 
 Each export downloads a file for the selected charger. None of them is a recovery backup.
 
-- **Export redacted continuity evidence** (in **Guarded actions**): a support file without secrets or raw card identifiers. Its name ends in `-continuity.json`, but it cannot restore anything.
-- **Export migration dossier** (in **Liberate my charger**): the recorded migration checkpoints.
-- **Export unreviewed report** (in **Freedom Test**): the recorded field-test results.
-- **Export field review pack** (in **Freedom Test**): the migration dossier, Freedom Test report and redacted evidence in one file for an independent reviewer.
+- **Export redacted continuity evidence** (on the **Evidence** page): a support file without secrets or raw card identifiers. Its name ends in `-continuity.json`, but it cannot restore anything.
+- **Export migration dossier** (on the **Liberate my charger** page): the recorded migration checkpoints.
+- **Export unreviewed report** (on the **Freedom Test** page): the recorded field-test results.
+- **Export field review pack** (on the **Freedom Test** page): the migration dossier, Freedom Test report and redacted evidence in one file for an independent reviewer.
 
 A reviewer can check that a field review pack is internally consistent with `pnpm field-pack verify --pack <file>`. That check needs no token. It does not prove who made the pack, when, or that the separately held photos and backups are true.
 

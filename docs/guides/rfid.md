@@ -4,10 +4,10 @@ An RFID card is the physical card or tag you hold against the charger. chargeOS 
 
 ## Add a card
 
-1. Open the owner console and choose the correct charger in the **Charger** menu.
-2. In the **Owner authorization** panel, type the card's actual OCPP identifier into **Add owner RFID identifier**. It can be up to 20 characters. Treat it as private information.
+1. Open the owner console and check the charger name at the top of the page. With several chargers, choose the correct one in the **Charger** menu in the sidebar.
+2. Open **Owner cards** in the sidebar. In the **Owner authorization** panel, type the card's actual OCPP identifier into **Add owner RFID identifier**. It can be up to 20 characters. Treat it as private information.
 3. Click **Add desired tag**. This saves your intention; it does not yet update the charger.
-4. Click **Inspect offline capabilities**. The **Offline readiness** card lists each check. Resolve any missing or failed check before synchronizing.
+4. In **Guarded actions** on the same page, click **Inspect**. The **Overview** page shows the result as **Offline readiness**, with a ring segment and a line for each check. Resolve any missing or failed check before synchronizing.
 5. Click **Synchronize owner tags** while the charger is connected, and confirm the prompt. The button stays disabled until every readiness check passes.
 6. Check that the panel says **Charger list matches desired owner access** and that **Latest completed attempt** shows the new revision with **Accepted**. A pending or rejected result does not make the card usable at the charger.
 7. Test the actual card. Then ask your administrator for a fresh encrypted recovery bundle; see [Back up and recover](recovery.md).
@@ -18,8 +18,8 @@ The console uses a private pseudonym when showing a card. It does not display th
 
 ## Remove a card
 
-1. Find the card's displayed pseudonym in the correct charger's **Owner authorization** list.
-2. Type the displayed phrase about possible stale access into the confirmation box.
+1. Open **Owner cards** for the correct charger and find the card's displayed pseudonym in the **Owner authorization** list.
+2. Open **Remove a card** below the list and type the displayed phrase about possible stale access into the confirmation box.
 3. Click **Revoke desired tag** next to that pseudonym, then inspect and synchronize the full list.
 4. Check that the charger accepted the new revision, and ask for a new recovery bundle.
 
