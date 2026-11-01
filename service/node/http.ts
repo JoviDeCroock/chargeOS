@@ -11,35 +11,48 @@ class RequestError extends Error {
     super(message);
   }
 }
-export function createNativeCommercialServer(env: ServiceEnv) {
+export function createNativeCommercialServer(env: ServiceEnv, handler: typeof worker = worker) {
   const config = localConfiguration(env);
   if (!config)
     throw new Error(
       "The native commercial service requires explicit loopback development configuration",
     );
   let listeningHost = "";
+  let closing = false,
+    closed: Promise<void> | undefined;
+  const inFlight = new Set<Promise<void>>();
   const server = createServer(
     { maxHeaderSize: 16_384, requestTimeout: 15_000, headersTimeout: 5000 },
     (request, response) => {
-      void handle(request, response).catch((error: unknown) => {
-        if (response.headersSent || response.destroyed) {
-          response.destroy();
-          return;
-        }
-        const status = error instanceof RequestError ? error.status : 500;
-        response.writeHead(status, {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-store",
-          "X-Content-Type-Options": "nosniff",
-          Connection: "close",
+      if (closing) {
+        response.writeHead(503, { "Cache-Control": "no-store", Connection: "close" });
+        response.end();
+        return;
+      }
+      const work = handle(request, response)
+        .catch((error: unknown) => {
+          if (response.headersSent || response.destroyed) {
+            response.destroy();
+            return;
+          }
+          const status = error instanceof RequestError ? error.status : 500;
+          response.writeHead(status, {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+            Connection: "close",
+          });
+          response.end(
+            JSON.stringify({
+              error:
+                error instanceof RequestError ? error.message : "Commercial service request failed",
+            }),
+          );
+        })
+        .finally(() => {
+          inFlight.delete(work);
         });
-        response.end(
-          JSON.stringify({
-            error:
-              error instanceof RequestError ? error.message : "Commercial service request failed",
-          }),
-        );
-      });
+      inFlight.add(work);
     },
   );
   server.maxHeadersCount = 40;
@@ -81,7 +94,7 @@ export function createNativeCommercialServer(env: ServiceEnv) {
     }
     request.setTimeout(0);
     const method = request.method ?? "GET";
-    const result = await worker.fetch(
+    const result = await handler.fetch(
       new Request(url.href, {
         method,
         headers,
@@ -125,9 +138,17 @@ export function createNativeCommercialServer(env: ServiceEnv) {
       listeningHost = `127.0.0.1:${address.port}`;
       return address.port;
     },
-    close: () =>
-      new Promise<void>((resolve, reject) =>
-        server.close((error) => (error ? reject(error) : resolve())),
-      ),
+    close: () => {
+      if (closed) return closed;
+      closing = true;
+      closed = (async () => {
+        const error = await new Promise<Error | undefined>((resolve) => server.close(resolve));
+        // A disconnected socket can disappear before its async auth work ends.
+        // Custody and database lifetime follow handler promises, not sockets.
+        while (inFlight.size) await Promise.allSettled(inFlight);
+        if (error) throw error;
+      })();
+      return closed;
+    },
   };
 }

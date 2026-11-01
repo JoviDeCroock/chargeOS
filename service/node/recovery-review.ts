@@ -67,7 +67,10 @@ export async function withNativeRecoveryCustody<T>(
       await rm(lock, { recursive: true, force: true });
   }
 }
-async function requirePersistentOutput(directory: string, output: string): Promise<void> {
+export async function requirePersistentRecoveryOutput(
+  directory: string,
+  output: string,
+): Promise<void> {
   const lock = await realpath(join(directory, ".recovery-lifecycle")),
     parent = await realpath(dirname(output));
   const path = relative(lock, parent);
@@ -260,7 +263,7 @@ export async function checkpointNativeCommercial(
 }
 export async function createNativeRecoveryReviewTemplate(directory: string, output: string) {
   return withNativeRecoveryCustody(directory, async () => {
-    await requirePersistentOutput(directory, output);
+    await requirePersistentRecoveryOutput(directory, output);
     const current = await inspectQuarantine(directory);
     try {
       const orgs = await current.database
@@ -357,6 +360,284 @@ function canonical(value: unknown): string {
       : item,
   );
 }
+/** Caller must retain lifecycle custody until it has consumed this evaluation. */
+export async function evaluateNativeRecoveryReview(
+  directory: string,
+  manifestFile: string,
+  now = new Date(),
+) {
+  const bytes = await readPrivateRecoveryFile(manifestFile, MAX_REVIEW_BYTES),
+    manifest: unknown = JSON.parse(bytes.toString("utf8"));
+  exactObject(manifest, [
+    "format",
+    "schemaVersion",
+    "restoreId",
+    "businessSha256",
+    "provenanceSha256",
+    "reviewedThrough",
+    "confirmation",
+    "sourceRetirementEvidenceFile",
+    "financialCheckpointFile",
+    "organizations",
+  ]);
+  if (
+    manifest.format !== "chargeos-commercial-recovery-review" ||
+    manifest.schemaVersion !== 1 ||
+    manifest.confirmation !== RECOVERY_REVIEW_CONFIRMATION
+  )
+    throw new Error("Complete the recovery review and its exact confirmation");
+  const reviewedThrough = iso(manifest.reviewedThrough),
+    reviewedAt = Date.parse(reviewedThrough);
+  if (
+    !Number.isFinite(now.getTime()) ||
+    reviewedAt > now.getTime() ||
+    now.getTime() - reviewedAt >= DAY
+  )
+    throw new Error("Recovery review must cover a current time within the last 24 hours");
+  const current = await inspectQuarantine(directory);
+  try {
+    if (
+      manifest.restoreId !== current.root.restoreId ||
+      manifest.provenanceSha256 !== current.root.provenanceSha256 ||
+      manifest.businessSha256 !== current.businessSha256
+    )
+      throw new Error(
+        "Recovery review does not match the restored identities and business records",
+      );
+    const checkpointBytes = await readPrivateRecoveryFile(
+      text(manifest.financialCheckpointFile),
+      MAX_REVIEW_BYTES,
+    );
+    const checkpoint: unknown = JSON.parse(checkpointBytes.toString("utf8"));
+    exactObject(checkpoint, ["format", "schemaVersion", "capturedAt", "organizations"]);
+    if (
+      checkpoint.format !== "chargeos-commercial-financial-checkpoint" ||
+      checkpoint.schemaVersion !== 1 ||
+      Date.parse(iso(checkpoint.capturedAt)) < Date.parse(current.root.backupCompletedAt) ||
+      Date.parse(iso(checkpoint.capturedAt)) > reviewedAt
+    )
+      throw new Error(
+        "Use a financial checkpoint captured after the backup and before the reviewed cut-off",
+      );
+    const checkpointOrgs = list(checkpoint.organizations, 1000)
+      .map((org) => {
+        exactObject(org, ["id", "financialSha256"]);
+        return { id: text(org.id), financialSha256: hash(org.financialSha256) };
+      })
+      .sort((a, b) => compare(a.id, b.id));
+    if (
+      canonical(checkpointOrgs) !==
+      canonical([...current.organizations].sort((a, b) => compare(a.id, b.id)))
+    )
+      throw new Error(
+        "Financial checkpoint differs from this snapshot; reconcile missing or changed records before continuing",
+      );
+    const sourceRetirementEvidenceSha256 = await evidence(manifest.sourceRetirementEvidenceFile);
+    const orgs = await current.database
+      .prepare("SELECT id,name,created_by FROM organization ORDER BY id")
+      .all<{ id: string; name: string; created_by: string }>();
+    const suppliedOrgs = list(manifest.organizations, 1000),
+      seen = new Set<string>(),
+      normalized = [];
+    let selected = 0,
+      removed = 0;
+    if (suppliedOrgs.length !== orgs.results.length)
+      throw new Error("Review every restored organization");
+    for (const supplied of suppliedOrgs) {
+      exactObject(supplied, [
+        "id",
+        "financialEvidenceFile",
+        "rosterEvidenceFile",
+        "members",
+        "eligibilityEnds",
+        "reference",
+      ]);
+      const org = orgs.results.find((item) => item.id === supplied.id);
+      if (!org || seen.has(org.id))
+        throw new Error("Duplicate or foreign organization in recovery review");
+      seen.add(org.id);
+      const members = (
+        await current.database
+          .prepare(
+            "SELECT m.user_id,u.email,m.role FROM membership m JOIN user u ON u.id=m.user_id WHERE m.organization_id=? ORDER BY m.user_id",
+          )
+          .bind(org.id)
+          .all<{ user_id: string; email: string; role: string }>()
+      ).results;
+      const assignments = (
+        await current.database
+          .prepare(
+            "SELECT a.id,a.employee_id,a.effective_from,a.effective_until,e.effective_until AS existing_until FROM reimbursement_assignment a LEFT JOIN reimbursement_assignment_end e ON e.assignment_id=a.id WHERE a.organization_id=? ORDER BY a.id",
+          )
+          .bind(org.id)
+          .all<{
+            id: string;
+            employee_id: string;
+            effective_from: number;
+            effective_until: number;
+            existing_until: number | null;
+          }>()
+      ).results;
+      const reference = {
+        organizationName: org.name,
+        protectedCreatorId: org.created_by,
+        assignments: assignments.map((assignment) => ({
+          id: assignment.id,
+          employeeId: assignment.employee_id,
+          effectiveFrom: new Date(assignment.effective_from).toISOString(),
+          effectiveUntil: new Date(assignment.effective_until).toISOString(),
+          existingEnd:
+            assignment.existing_until === null
+              ? null
+              : new Date(assignment.existing_until).toISOString(),
+        })),
+      };
+      if (canonical(supplied.reference) !== canonical(reference))
+        throw new Error("Recovery reference information changed");
+      const suppliedMembers = list(supplied.members, 10000),
+        memberIds = new Set<string>(),
+        normalizedMembers = [],
+        removedIds = new Set<string>();
+      if (suppliedMembers.length !== members.length)
+        throw new Error("Decide every existing membership explicitly");
+      for (const item of suppliedMembers) {
+        exactObject(item, ["userId", "email", "role", "decision", "identityEvidenceFile"]);
+        const member = members.find((row) => row.user_id === item.userId);
+        if (
+          !member ||
+          memberIds.has(member.user_id) ||
+          member.email !== item.email ||
+          !["keep", "remove"].includes(String(item.decision))
+        )
+          throw new Error("Recovery membership must match the immutable reviewed identity");
+        memberIds.add(member.user_id);
+        const role = text(item.role);
+        if (member.user_id === org.created_by && (item.decision !== "keep" || role !== "admin"))
+          throw new Error(
+            "Current recovery requires the original organization creator to remain its protected administrator",
+          );
+        if (item.decision === "keep") {
+          if (member.user_id !== org.created_by && !["finance", "driver"].includes(role))
+            throw new Error("Unsupported recovered administrator succession");
+          const identityEvidenceSha256 = await evidence(item.identityEvidenceFile);
+          normalizedMembers.push({
+            userId: member.user_id,
+            email: member.email,
+            role,
+            decision: "keep",
+            identityEvidenceSha256,
+          });
+          selected++;
+        } else {
+          if (role !== member.role || item.identityEvidenceFile !== "")
+            throw new Error(
+              "Removed membership must retain its recorded role and have no enrollment evidence",
+            );
+          normalizedMembers.push({
+            userId: member.user_id,
+            email: member.email,
+            role,
+            decision: "remove",
+            identityEvidenceSha256: null,
+          });
+          removedIds.add(member.user_id);
+          removed++;
+        }
+      }
+      if (
+        !normalizedMembers.some(
+          (member) =>
+            member.userId === org.created_by &&
+            member.role === "admin" &&
+            member.decision === "keep",
+        )
+      )
+        throw new Error("Recovery requires a current protected organization creator");
+      const expectedEnds = assignments.filter((assignment) =>
+          removedIds.has(assignment.employee_id),
+        ),
+        suppliedEnds = list(supplied.eligibilityEnds, 10000),
+        endIds = new Set<string>(),
+        normalizedEnds = [];
+      if (suppliedEnds.length !== expectedEnds.length)
+        throw new Error("Reconcile every removed employee assignment explicitly");
+      for (const end of suppliedEnds) {
+        exactObject(end, ["assignmentId", "expectedExistingUntil", "effectiveUntil"]);
+        const assignment = expectedEnds.find((row) => row.id === end.assignmentId);
+        if (!assignment || endIds.has(assignment.id))
+          throw new Error("Duplicate or foreign eligibility end");
+        endIds.add(assignment.id);
+        const existing =
+            assignment.existing_until === null
+              ? null
+              : new Date(assignment.existing_until).toISOString(),
+          effectiveUntil = iso(end.effectiveUntil),
+          time = Date.parse(effectiveUntil);
+        if (
+          end.expectedExistingUntil !== existing ||
+          (existing !== null && effectiveUntil !== existing)
+        )
+          throw new Error("Immutable eligibility end conflicts with the recovery decision");
+        if (
+          time < assignment.effective_from ||
+          time > assignment.effective_until ||
+          (time > reviewedAt && time !== assignment.effective_from)
+        )
+          throw new Error("Eligibility end is outside the reviewed assignment interval");
+        normalizedEnds.push({
+          assignmentId: assignment.id,
+          expectedExistingUntil: existing,
+          effectiveUntil,
+        });
+      }
+      normalized.push({
+        organizationId: org.id,
+        financialSha256: current.organizations.find((row) => row.id === org.id)!.financialSha256,
+        financialEvidenceSha256: await evidence(supplied.financialEvidenceFile),
+        rosterEvidenceSha256: await evidence(supplied.rosterEvidenceFile),
+        members: normalizedMembers.sort((a, b) => compare(a.userId, b.userId)),
+        eligibilityEnds: normalizedEnds.sort((a, b) => compare(a.assignmentId, b.assignmentId)),
+      });
+    }
+    const report = {
+      format: "chargeos-commercial-validated-recovery-review",
+      schemaVersion: 1,
+      restoreId: current.root.restoreId,
+      snapshotSha256: current.root.snapshotSha256,
+      businessSha256: current.businessSha256,
+      provenanceSha256: current.root.provenanceSha256,
+      manifestSha256: sha(bytes),
+      financialCheckpointSha256: sha(checkpointBytes),
+      sourceRetirementEvidenceSha256,
+      reviewedThrough,
+      expiresAt: new Date(reviewedAt + DAY).toISOString(),
+      operatorAttestation: RECOVERY_REVIEW_CONFIRMATION,
+      organizations: normalized.sort((a, b) => compare(a.organizationId, b.organizationId)),
+      status: "reviewed-not-enrolled",
+      reopeningAllowed: false,
+    };
+    if (
+      (await provenance(current.database)).provenanceSha256 !== current.root.provenanceSha256 ||
+      (await businessFingerprint(current.database)) !== current.businessSha256
+    )
+      throw new Error("Recovery records changed during review validation");
+    const serialized = JSON.stringify(report, null, 2) + "\n";
+    if (Buffer.byteLength(serialized) > MAX_REVIEW_BYTES)
+      throw new Error("Validated recovery review exceeds its size boundary");
+    return {
+      report,
+      status: report.status,
+      restoreId: report.restoreId,
+      reviewSha256: sha(canonical(report)),
+      selectedMemberships: selected,
+      removedMemberships: removed,
+      reopeningAllowed: false,
+    };
+  } finally {
+    current.database.close();
+  }
+}
+
 export async function validateNativeRecoveryReview(
   directory: string,
   manifestFile: string,
@@ -364,276 +645,13 @@ export async function validateNativeRecoveryReview(
   now = new Date(),
 ) {
   return withNativeRecoveryCustody(directory, async () => {
-    await requirePersistentOutput(directory, output);
-    const bytes = await readPrivateRecoveryFile(manifestFile, MAX_REVIEW_BYTES),
-      manifest: unknown = JSON.parse(bytes.toString("utf8"));
-    exactObject(manifest, [
-      "format",
-      "schemaVersion",
-      "restoreId",
-      "businessSha256",
-      "provenanceSha256",
-      "reviewedThrough",
-      "confirmation",
-      "sourceRetirementEvidenceFile",
-      "financialCheckpointFile",
-      "organizations",
-    ]);
-    if (
-      manifest.format !== "chargeos-commercial-recovery-review" ||
-      manifest.schemaVersion !== 1 ||
-      manifest.confirmation !== RECOVERY_REVIEW_CONFIRMATION
-    )
-      throw new Error("Complete the recovery review and its exact confirmation");
-    const reviewedThrough = iso(manifest.reviewedThrough),
-      reviewedAt = Date.parse(reviewedThrough);
-    if (
-      !Number.isFinite(now.getTime()) ||
-      reviewedAt > now.getTime() ||
-      now.getTime() - reviewedAt >= DAY
-    )
-      throw new Error("Recovery review must cover a current time within the last 24 hours");
-    const current = await inspectQuarantine(directory);
-    try {
-      if (
-        manifest.restoreId !== current.root.restoreId ||
-        manifest.provenanceSha256 !== current.root.provenanceSha256 ||
-        manifest.businessSha256 !== current.businessSha256
-      )
-        throw new Error(
-          "Recovery review does not match the restored identities and business records",
-        );
-      const checkpointBytes = await readPrivateRecoveryFile(
-        text(manifest.financialCheckpointFile),
-        MAX_REVIEW_BYTES,
-      );
-      const checkpoint: unknown = JSON.parse(checkpointBytes.toString("utf8"));
-      exactObject(checkpoint, ["format", "schemaVersion", "capturedAt", "organizations"]);
-      if (
-        checkpoint.format !== "chargeos-commercial-financial-checkpoint" ||
-        checkpoint.schemaVersion !== 1 ||
-        Date.parse(iso(checkpoint.capturedAt)) < Date.parse(current.root.backupCompletedAt) ||
-        Date.parse(iso(checkpoint.capturedAt)) > reviewedAt
-      )
-        throw new Error(
-          "Use a financial checkpoint captured after the backup and before the reviewed cut-off",
-        );
-      const checkpointOrgs = list(checkpoint.organizations, 1000)
-        .map((org) => {
-          exactObject(org, ["id", "financialSha256"]);
-          return { id: text(org.id), financialSha256: hash(org.financialSha256) };
-        })
-        .sort((a, b) => compare(a.id, b.id));
-      if (
-        canonical(checkpointOrgs) !==
-        canonical([...current.organizations].sort((a, b) => compare(a.id, b.id)))
-      )
-        throw new Error(
-          "Financial checkpoint differs from this snapshot; reconcile missing or changed records before continuing",
-        );
-      const sourceRetirementEvidenceSha256 = await evidence(manifest.sourceRetirementEvidenceFile);
-      const orgs = await current.database
-        .prepare("SELECT id,name,created_by FROM organization ORDER BY id")
-        .all<{ id: string; name: string; created_by: string }>();
-      const suppliedOrgs = list(manifest.organizations, 1000),
-        seen = new Set<string>(),
-        normalized = [];
-      let selected = 0,
-        removed = 0;
-      if (suppliedOrgs.length !== orgs.results.length)
-        throw new Error("Review every restored organization");
-      for (const supplied of suppliedOrgs) {
-        exactObject(supplied, [
-          "id",
-          "financialEvidenceFile",
-          "rosterEvidenceFile",
-          "members",
-          "eligibilityEnds",
-          "reference",
-        ]);
-        const org = orgs.results.find((item) => item.id === supplied.id);
-        if (!org || seen.has(org.id))
-          throw new Error("Duplicate or foreign organization in recovery review");
-        seen.add(org.id);
-        const members = (
-          await current.database
-            .prepare(
-              "SELECT m.user_id,u.email,m.role FROM membership m JOIN user u ON u.id=m.user_id WHERE m.organization_id=? ORDER BY m.user_id",
-            )
-            .bind(org.id)
-            .all<{ user_id: string; email: string; role: string }>()
-        ).results;
-        const assignments = (
-          await current.database
-            .prepare(
-              "SELECT a.id,a.employee_id,a.effective_from,a.effective_until,e.effective_until AS existing_until FROM reimbursement_assignment a LEFT JOIN reimbursement_assignment_end e ON e.assignment_id=a.id WHERE a.organization_id=? ORDER BY a.id",
-            )
-            .bind(org.id)
-            .all<{
-              id: string;
-              employee_id: string;
-              effective_from: number;
-              effective_until: number;
-              existing_until: number | null;
-            }>()
-        ).results;
-        const reference = {
-          organizationName: org.name,
-          protectedCreatorId: org.created_by,
-          assignments: assignments.map((assignment) => ({
-            id: assignment.id,
-            employeeId: assignment.employee_id,
-            effectiveFrom: new Date(assignment.effective_from).toISOString(),
-            effectiveUntil: new Date(assignment.effective_until).toISOString(),
-            existingEnd:
-              assignment.existing_until === null
-                ? null
-                : new Date(assignment.existing_until).toISOString(),
-          })),
-        };
-        if (canonical(supplied.reference) !== canonical(reference))
-          throw new Error("Recovery reference information changed");
-        const suppliedMembers = list(supplied.members, 10000),
-          memberIds = new Set<string>(),
-          normalizedMembers = [],
-          removedIds = new Set<string>();
-        if (suppliedMembers.length !== members.length)
-          throw new Error("Decide every existing membership explicitly");
-        for (const item of suppliedMembers) {
-          exactObject(item, ["userId", "email", "role", "decision", "identityEvidenceFile"]);
-          const member = members.find((row) => row.user_id === item.userId);
-          if (
-            !member ||
-            memberIds.has(member.user_id) ||
-            member.email !== item.email ||
-            !["keep", "remove"].includes(String(item.decision))
-          )
-            throw new Error("Recovery membership must match the immutable reviewed identity");
-          memberIds.add(member.user_id);
-          const role = text(item.role);
-          if (member.user_id === org.created_by && (item.decision !== "keep" || role !== "admin"))
-            throw new Error(
-              "Current recovery requires the original organization creator to remain its protected administrator",
-            );
-          if (item.decision === "keep") {
-            if (member.user_id !== org.created_by && !["finance", "driver"].includes(role))
-              throw new Error("Unsupported recovered administrator succession");
-            const identityEvidenceSha256 = await evidence(item.identityEvidenceFile);
-            normalizedMembers.push({
-              userId: member.user_id,
-              email: member.email,
-              role,
-              decision: "keep",
-              identityEvidenceSha256,
-            });
-            selected++;
-          } else {
-            if (role !== member.role || item.identityEvidenceFile !== "")
-              throw new Error(
-                "Removed membership must retain its recorded role and have no enrollment evidence",
-              );
-            normalizedMembers.push({
-              userId: member.user_id,
-              email: member.email,
-              role,
-              decision: "remove",
-              identityEvidenceSha256: null,
-            });
-            removedIds.add(member.user_id);
-            removed++;
-          }
-        }
-        if (
-          !normalizedMembers.some(
-            (member) =>
-              member.userId === org.created_by &&
-              member.role === "admin" &&
-              member.decision === "keep",
-          )
-        )
-          throw new Error("Recovery requires a current protected organization creator");
-        const expectedEnds = assignments.filter((assignment) =>
-            removedIds.has(assignment.employee_id),
-          ),
-          suppliedEnds = list(supplied.eligibilityEnds, 10000),
-          endIds = new Set<string>(),
-          normalizedEnds = [];
-        if (suppliedEnds.length !== expectedEnds.length)
-          throw new Error("Reconcile every removed employee assignment explicitly");
-        for (const end of suppliedEnds) {
-          exactObject(end, ["assignmentId", "expectedExistingUntil", "effectiveUntil"]);
-          const assignment = expectedEnds.find((row) => row.id === end.assignmentId);
-          if (!assignment || endIds.has(assignment.id))
-            throw new Error("Duplicate or foreign eligibility end");
-          endIds.add(assignment.id);
-          const existing =
-              assignment.existing_until === null
-                ? null
-                : new Date(assignment.existing_until).toISOString(),
-            effectiveUntil = iso(end.effectiveUntil),
-            time = Date.parse(effectiveUntil);
-          if (
-            end.expectedExistingUntil !== existing ||
-            (existing !== null && effectiveUntil !== existing)
-          )
-            throw new Error("Immutable eligibility end conflicts with the recovery decision");
-          if (
-            time < assignment.effective_from ||
-            time > assignment.effective_until ||
-            (time > reviewedAt && time !== assignment.effective_from)
-          )
-            throw new Error("Eligibility end is outside the reviewed assignment interval");
-          normalizedEnds.push({
-            assignmentId: assignment.id,
-            expectedExistingUntil: existing,
-            effectiveUntil,
-          });
-        }
-        normalized.push({
-          organizationId: org.id,
-          financialSha256: current.organizations.find((row) => row.id === org.id)!.financialSha256,
-          financialEvidenceSha256: await evidence(supplied.financialEvidenceFile),
-          rosterEvidenceSha256: await evidence(supplied.rosterEvidenceFile),
-          members: normalizedMembers.sort((a, b) => compare(a.userId, b.userId)),
-          eligibilityEnds: normalizedEnds.sort((a, b) => compare(a.assignmentId, b.assignmentId)),
-        });
-      }
-      const report = {
-        format: "chargeos-commercial-validated-recovery-review",
-        schemaVersion: 1,
-        restoreId: current.root.restoreId,
-        snapshotSha256: current.root.snapshotSha256,
-        businessSha256: current.businessSha256,
-        provenanceSha256: current.root.provenanceSha256,
-        manifestSha256: sha(bytes),
-        financialCheckpointSha256: sha(checkpointBytes),
-        sourceRetirementEvidenceSha256,
-        reviewedThrough,
-        expiresAt: new Date(reviewedAt + DAY).toISOString(),
-        operatorAttestation: RECOVERY_REVIEW_CONFIRMATION,
-        organizations: normalized.sort((a, b) => compare(a.organizationId, b.organizationId)),
-        status: "reviewed-not-enrolled",
-        reopeningAllowed: false,
-      };
-      if (
-        (await provenance(current.database)).provenanceSha256 !== current.root.provenanceSha256 ||
-        (await businessFingerprint(current.database)) !== current.businessSha256
-      )
-        throw new Error("Recovery records changed during review validation");
-      const serialized = JSON.stringify(report, null, 2) + "\n";
-      if (Buffer.byteLength(serialized) > MAX_REVIEW_BYTES)
-        throw new Error("Validated recovery review exceeds its size boundary");
-      await writePrivateRecoveryFile(output, serialized);
-      return {
-        status: report.status,
-        restoreId: report.restoreId,
-        reviewSha256: sha(canonical(report)),
-        selectedMemberships: selected,
-        removedMemberships: removed,
-        reopeningAllowed: false,
-      };
-    } finally {
-      current.database.close();
-    }
+    await requirePersistentRecoveryOutput(directory, output);
+    const { report, ...summary } = await evaluateNativeRecoveryReview(directory, manifestFile, now);
+    await writePrivateRecoveryFile(output, JSON.stringify(report, null, 2) + "\n");
+    return summary;
   });
 }
+
+export type EvaluatedNativeRecoveryReview = Awaited<
+  ReturnType<typeof evaluateNativeRecoveryReview>
+>;

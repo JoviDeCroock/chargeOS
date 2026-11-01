@@ -14,6 +14,44 @@ async function open() {
   return `http://127.0.0.1:${await server.listen(0)}`;
 }
 const password = "synthetic native service password!";
+it("drains async handlers after a client disconnect before reporting shutdown complete", async () => {
+  let enter,
+    finish,
+    completed = false;
+  const entered = new Promise((resolve) => {
+      enter = resolve;
+    }),
+    gate = new Promise((resolve) => {
+      finish = resolve;
+    });
+  server = createNativeCommercialServer(env, {
+    async fetch() {
+      enter();
+      await gate;
+      await env.SERVICE_DB.prepare(
+        "INSERT INTO local_outbox(id,kind,recipient,url,created_at,expires_at) VALUES('drain-test','verify-email','synthetic@example.test','http://127.0.0.1:5173/service',0,1)",
+      ).run();
+      completed = true;
+      return Response.json({ complete: true });
+    },
+  });
+  const port = await server.listen(0);
+  const client = httpRequest({ hostname: "127.0.0.1", port, path: "/service/api/drain-test" });
+  client.on("error", () => {});
+  client.end();
+  await entered;
+  client.destroy();
+  let settled = false;
+  const stopped = server.close().then(() => {
+    settled = true;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(settled).toBe(false);
+  expect(completed).toBe(false);
+  finish();
+  await stopped;
+  expect(completed).toBe(true);
+});
 class Browser {
   cookies = new Map();
   constructor(base) {
