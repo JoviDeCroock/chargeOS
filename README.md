@@ -76,6 +76,8 @@ pnpm dev
 
 Use `pnpm migration-manifest --help` to hash the exact owner-held backup/evidence files directly into a secret-free target plan and verify it before authorizing an endpoint-change window.
 
+No charger yet? In a second terminal run `pnpm simulate --session`. A synthetic OCPP 1.6J charge point connects with the `.env` station credentials, runs one owner-card charge and then stays online, so you can try inspection, continuity preparation and card synchronization from the console. `pnpm simulate --list-profiles` shows behavior profiles such as `unsafe-defaults` and `upper-case-uid`. A simulator is not evidence that any real charger works. See [CONTRIBUTING](CONTRIBUTING.md#development-without-a-charger).
+
 Open `http://127.0.0.1:5173`, enter `CHARGEOS_OWNER_API_TOKEN`, and point the provisioned test charge point at `ws://127.0.0.1:9000/<CHARGEOS_STATION_ID>` using the configured Basic password. Plaintext WebSockets are local-lab only; internet-facing deployment requires TLS/WSS termination.
 
 For multiple chargers, create an owner-only copy of [`config/stations.example.json`](config/stations.example.json), remove the legacy single-station variables, and set `CHARGEOS_STATIONS_FILE` to its absolute path. The authenticated app opens on the fleet overview when the registry contains more than one charger. Each station keeps a unique Basic secret, independent desired RFID registry, one active socket, and station-scoped API/evidence projection.

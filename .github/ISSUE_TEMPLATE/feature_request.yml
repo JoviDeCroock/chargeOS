@@ -1,0 +1,21 @@
+name: Feature request
+description: Suggest a capability for owners, drivers, employers or operators.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Owner or user outcome
+      description: Who needs this, and what can they do afterwards that they can't do today?
+    validations:
+      required: true
+  - type: textarea
+    id: offline
+    attributes:
+      label: Effect on offline owner charging
+      description: chargeOS must never weaken charging for an already-authorized owner when chargeOS, the network or vendor clouds are down. How does this feature behave in those cases?
+  - type: input
+    id: parity
+    attributes:
+      label: Related feature register row (optional)
+      description: An ID from docs/product-parity.json, such as P08.
