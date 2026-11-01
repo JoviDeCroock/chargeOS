@@ -43,6 +43,13 @@ export async function readSmtpConfiguration(
   mountedSecrets = false,
 ): Promise<SmtpConfiguration> {
   const value: unknown = JSON.parse(readRuntimeFile(path, 16384, mountedSecrets));
+  return smtpConfiguration(value, (caPath) => readRuntimeFile(caPath, 65536, mountedSecrets));
+}
+/** Shared by the file reader and fresh managed-deployment initialization. */
+export function smtpConfiguration(
+  value: unknown,
+  readCa: (path: string) => string,
+): SmtpConfiguration {
   exactObject(value, [
     "format",
     "schemaVersion",
@@ -88,7 +95,7 @@ export async function readSmtpConfiguration(
   if (value.caFile !== null) {
     if (typeof value.caFile !== "string" || !value.caFile.length)
       throw new Error("Use a private CA file or null");
-    config.ca = readRuntimeFile(value.caFile, 65536, mountedSecrets);
+    config.ca = readCa(value.caFile);
     if (!config.ca.includes("-----BEGIN CERTIFICATE-----") || config.ca.includes("PRIVATE KEY"))
       throw new Error("Use only a CA certificate");
   }
