@@ -12,6 +12,8 @@ import type { EvidenceEvent } from "./events.js";
 export const STATION_COMMAND_TIMEOUT_MS = 30_000;
 const UNANSWERED_AFTER_MS = STATION_COMMAND_TIMEOUT_MS + 30_000;
 const MAX_PROJECTED_COMMANDS = 20;
+/** Only charger messages received this soon after the answer count as the command's outcome. */
+export const OBSERVATION_WINDOW_MS = 5 * 60_000;
 
 export class StationCommandInputError extends Error {
   constructor(message: string) {
@@ -140,6 +142,36 @@ export function activeTransactions(
 }
 
 /**
+ * Connectors that currently hold a session. A start with no recorded stop stops counting once the
+ * charger later reports that connector `Available` (for example after a power cut lost the stop),
+ * so a phantom session cannot block remote start forever.
+ */
+export function occupiedConnectors(events: readonly EvidenceEvent[]): ReadonlySet<number> {
+  const byConnector = new Map<number, number>();
+  for (const event of events) {
+    const payload = record(event.payload);
+    if (
+      event.message === "StartTransaction" &&
+      typeof payload.transactionId === "number" &&
+      typeof payload.connectorId === "number"
+    ) {
+      byConnector.set(payload.connectorId, payload.transactionId);
+    } else if (event.message === "StopTransaction" && typeof payload.transactionId === "number") {
+      for (const [connectorId, transactionId] of byConnector) {
+        if (transactionId === payload.transactionId) byConnector.delete(connectorId);
+      }
+    } else if (
+      event.message === "StatusNotification" &&
+      typeof payload.connectorId === "number" &&
+      payload.status === "Available"
+    ) {
+      byConnector.delete(payload.connectorId);
+    }
+  }
+  return new Set(byConnector.keys());
+}
+
+/**
  * Build the owner-visible command history: what was requested, what the charger answered and what
  * later charger messages show actually happened. A missing answer never becomes success.
  */
@@ -213,7 +245,13 @@ export function buildStationCommands(
       ) {
         current = { ...current, state: "uncertain", status: "no-answer-recorded" };
       }
-      return { ...current, observed: observedOutcome(current, events.slice(requestedIndex + 1)) };
+      return {
+        ...current,
+        observed:
+          current.state === "accepted" && current.resolvedAt !== null
+            ? observedOutcome(current, current.resolvedAt, events.slice(requestedIndex + 1))
+            : null,
+      };
     })
     .sort((left, right) => right.requestedAt.localeCompare(left.requestedAt))
     .slice(0, MAX_PROJECTED_COMMANDS);
@@ -229,23 +267,32 @@ function answeredState(type: StationCommandType, status: string): StationCommand
 
 function observedOutcome(
   command: StationCommandRecord,
+  answeredAt: string,
   later: readonly EvidenceEvent[],
 ): string | null {
-  if (command.state === "failed" || command.state === "rejected") return null;
+  const answered = Date.parse(answeredAt);
+  const inWindow = later.filter((event) => {
+    const at = Date.parse(event.at);
+    return at >= answered - 1_000 && at <= answered + OBSERVATION_WINDOW_MS;
+  });
   switch (command.type) {
     case "RemoteStartTransaction": {
-      const start = later.find(
-        (event) =>
+      // Same connector and the same card chargeOS sent, received shortly after the answer.
+      const start = inWindow.find((event) => {
+        const payload = record(event.payload);
+        return (
           event.message === "StartTransaction" &&
-          record(event.payload).connectorId === command.connectorId,
-      );
+          payload.connectorId === command.connectorId &&
+          payload.idTag === command.tagPseudonym
+        );
+      });
       const transactionId = record(start?.payload).transactionId;
       return typeof transactionId === "number"
         ? `Session #${transactionId} started on connector ${command.connectorId}`
         : null;
     }
     case "RemoteStopTransaction":
-      return later.some(
+      return inWindow.some(
         (event) =>
           event.message === "StopTransaction" &&
           record(event.payload).transactionId === command.transactionId,
@@ -253,19 +300,34 @@ function observedOutcome(
         ? `Session #${command.transactionId} stopped`
         : null;
     case "Reset": {
-      const boot = later.find((event) => event.message === "BootNotification");
+      // A restart shows up as the connection dropping and a new BootNotification.
+      const disconnect = inWindow.findIndex((event) => event.message === "Disconnected");
+      const boot =
+        disconnect < 0
+          ? undefined
+          : inWindow.slice(disconnect + 1).find((event) => event.message === "BootNotification");
       return boot ? `Charger restarted and reconnected at ${boot.at}` : null;
     }
     case "UnlockConnector":
       return command.status === "Unlocked" ? "Charger reported the connector unlocked" : null;
     case "ChangeAvailability": {
-      const status = later.findLast(
-        (event) =>
+      const latest = new Map<number, string>();
+      for (const event of inWindow) {
+        const payload = record(event.payload);
+        if (
           event.message === "StatusNotification" &&
-          (command.connectorId === 0 || record(event.payload).connectorId === command.connectorId),
-      );
-      const value = record(status?.payload).status;
-      return typeof value === "string" ? `Connector now reports ${value}` : null;
+          typeof payload.connectorId === "number" &&
+          typeof payload.status === "string" &&
+          (command.connectorId === 0 || payload.connectorId === command.connectorId)
+        ) {
+          latest.set(payload.connectorId, payload.status);
+        }
+      }
+      if (!latest.size) return null;
+      return [...latest]
+        .sort(([left], [right]) => left - right)
+        .map(([connectorId, status]) => `Connector ${connectorId} now reports ${status}`)
+        .join("; ");
     }
   }
 }

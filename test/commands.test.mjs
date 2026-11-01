@@ -177,7 +177,7 @@ describe("owner station commands (P08/P09)", () => {
     });
     await vi.waitFor(() =>
       expect(commands(evidence)[0]).toMatchObject({
-        observed: "Connector now reports Available",
+        observed: "Connector 1 now reports Available",
         state: "accepted",
         type: "ChangeAvailability",
       }),
@@ -334,6 +334,166 @@ describe("owner station commands (P08/P09)", () => {
       (event) => event.message === "StationCommandRequested",
     );
     expect(requested.map((event) => event.stationId)).toEqual(["OFFICE_1"]);
+  });
+
+  it("never credits a command with an unrelated, late or unaccepted charger message", () => {
+    const at = (iso, event) => ({ ...event, at: iso });
+    const events = [
+      at(
+        "2026-11-01T10:00:00.000Z",
+        evidenceEvent("REMOTE_1", "system", "StationCommandRequested", {
+          commandId: "start",
+          connectorId: 1,
+          tagPseudonym: OWNER_PSEUDONYM,
+          type: "RemoteStartTransaction",
+        }),
+      ),
+      at(
+        "2026-11-01T10:00:01.000Z",
+        evidenceEvent("REMOTE_1", "station-to-csms", "StationCommandResult", {
+          commandId: "start",
+          status: "Accepted",
+        }),
+      ),
+      // A different card starts on the same connector: not this command's outcome.
+      at(
+        "2026-11-01T10:00:05.000Z",
+        evidenceEvent("REMOTE_1", "station-to-csms", "StartTransaction", {
+          connectorId: 1,
+          idTag: `tag_${"1".repeat(24)}`,
+          transactionId: 7,
+        }),
+      ),
+      at(
+        "2026-11-01T10:01:00.000Z",
+        evidenceEvent("REMOTE_1", "system", "StationCommandRequested", {
+          commandId: "reset",
+          resetType: "Soft",
+          type: "Reset",
+        }),
+      ),
+      at(
+        "2026-11-01T10:01:01.000Z",
+        evidenceEvent("REMOTE_1", "station-to-csms", "StationCommandResult", {
+          commandId: "reset",
+          status: "Accepted",
+        }),
+      ),
+      // An unrelated reboot days later is outside the observation window.
+      at("2026-11-05T09:00:00.000Z", evidenceEvent("REMOTE_1", "system", "Disconnected", {})),
+      at(
+        "2026-11-05T09:00:30.000Z",
+        evidenceEvent("REMOTE_1", "station-to-csms", "BootNotification", {}),
+      ),
+      at(
+        "2026-11-05T09:01:00.000Z",
+        evidenceEvent("REMOTE_1", "system", "StationCommandRequested", {
+          commandId: "late-start",
+          connectorId: 2,
+          tagPseudonym: OWNER_PSEUDONYM,
+          type: "RemoteStartTransaction",
+        }),
+      ),
+      at(
+        "2026-11-05T09:01:30.000Z",
+        evidenceEvent("REMOTE_1", "system", "StationCommandFailed", {
+          commandId: "late-start",
+          reason: "timeout",
+        }),
+      ),
+      // The owner card does start later, but the command was uncertain, so it is not credited.
+      at(
+        "2026-11-05T09:02:00.000Z",
+        evidenceEvent("REMOTE_1", "station-to-csms", "StartTransaction", {
+          connectorId: 2,
+          idTag: OWNER_PSEUDONYM,
+          transactionId: 8,
+        }),
+      ),
+    ];
+    const byId = new Map(
+      buildStationCommands(events, new Date("2026-11-05T10:00:00.000Z")).map((command) => [
+        command.commandId,
+        command,
+      ]),
+    );
+    expect(byId.get("start")).toMatchObject({ observed: null, state: "accepted" });
+    expect(byId.get("reset")).toMatchObject({ observed: null, state: "accepted" });
+    expect(byId.get("late-start")).toMatchObject({ observed: null, state: "uncertain" });
+  });
+
+  it("does not let a session that lost its stop block remote start once the connector is Available", async () => {
+    const evidence = await start();
+    // A start whose stop was lost (for example in a power cut) is still in the ledger…
+    await evidence.append(
+      evidenceEvent(config.stationId, "station-to-csms", "StartTransaction", {
+        connectorId: 1,
+        idTag: OWNER_PSEUDONYM,
+        transactionId: 41,
+      }),
+    );
+    await expect(
+      gateway.sendStationCommand(config.stationId, {
+        connectorId: 1,
+        tagPseudonym: OWNER_PSEUDONYM,
+        type: "RemoteStartTransaction",
+      }),
+    ).rejects.toThrow(/session/i);
+    // …until the charger reports that connector free again.
+    await charger.status("Available", 1);
+    await expect(
+      gateway.sendStationCommand(config.stationId, {
+        connectorId: 1,
+        tagPseudonym: OWNER_PSEUDONYM,
+        type: "RemoteStartTransaction",
+      }),
+    ).resolves.toMatchObject({ state: "accepted" });
+    expect(evidence.events.some((event) => event.message === "StationCommandRequested")).toBe(true);
+  });
+
+  it("records a command as sent only when it leaves, never while queued behind another call", async () => {
+    const evidence = new MemoryEvidenceStore();
+    gateway = createChargeGateway(config, evidence, { commandTimeoutMs: 300 });
+    const server = await gateway.listen(0, "127.0.0.1");
+    rawClient = new RPCClient({
+      endpoint: `ws://127.0.0.1:${server.address().port}`,
+      identity: config.stationId,
+      password: STATION_SECRET,
+      protocols: ["ocpp1.6"],
+      reconnect: false,
+      strictMode: true,
+    });
+    let releaseConfiguration;
+    rawClient.handle(
+      "GetConfiguration",
+      () =>
+        new Promise((resolve) => {
+          releaseConfiguration = () => resolve({ configurationKey: [] });
+        }),
+    );
+    rawClient.handle("GetLocalListVersion", async () => ({ listVersion: 0 }));
+    const resetReceived = [];
+    rawClient.handle("Reset", async () => {
+      resetReceived.push(Date.now());
+      return { status: "Accepted" };
+    });
+    await rawClient.connect();
+
+    const inspection = gateway.inspectLocalAuthorization(config.stationId);
+    await vi.waitFor(() => expect(releaseConfiguration).toBeTypeOf("function"));
+    const reset = gateway.sendStationCommand(config.stationId, {
+      confirmation: STATION_RESET_PHRASE,
+      resetType: "Soft",
+      type: "Reset",
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(evidence.events.some((event) => event.message === "StationCommandRequested")).toBe(
+      false,
+    );
+    releaseConfiguration();
+    await inspection;
+    await expect(reset).resolves.toMatchObject({ state: "accepted" });
+    expect(resetReceived).toHaveLength(1);
   });
 
   it("validates input strictly and never makes a charger Inoperative", () => {

@@ -82,7 +82,7 @@ Owner remote commands (remote start/stop, restart, unlock and make-available) ar
 - **Permanent company loss:** command history is ordinary evidence carried in continuity bundles. No command state is needed to charge.
 - **One week disconnected:** no change.
 
-A remote start uses a desired owner card, so it adds no credential the charger would not already accept locally.
+A remote start uses a desired owner card. If that card was added but not yet acknowledged in the charger's local list, the remote start works online only; it never adds the card to the charger's offline list.
 
 The readiness check now also requires `LocalAuthListMaxLength` to cover every desired owner tag. A key the charger explicitly reports as unknown fails its check rather than staying unknown. Both changes can only block synchronization; neither can loosen it.
 

@@ -16,6 +16,7 @@ import {
 import {
   activeTransactions,
   buildStationCommands,
+  occupiedConnectors,
   STATION_COMMAND_TIMEOUT_MS,
   StationCommandConflictError,
 } from "./commands.js";
@@ -93,7 +94,7 @@ export function createChargeGateway(
   const peers = new Map<string, OcppPeer>();
   const connectedAt = new Map<string, string>();
   const pendingConnections = new Map<string, Socket>();
-  const commandQueues = new Map<string, Promise<unknown>>();
+  const stationOperations = new Map<string, Promise<unknown>>();
 
   const server = new RPCServer({
     maxBadMessages: 3,
@@ -410,7 +411,7 @@ export function createChargeGateway(
         if (!idTag) {
           throw new StationCommandConflictError("Remote start needs a current desired owner card");
         }
-        if ([...active.values()].some(({ connectorId }) => connectorId === input.connectorId)) {
+        if (occupiedConnectors(stationEvents).has(input.connectorId)) {
           throw new StationCommandConflictError("A session is already active on that connector");
         }
         params = { connectorId: input.connectorId, idTag };
@@ -451,22 +452,45 @@ export function createChargeGateway(
       type: input.type,
       ...requested,
     });
-    await record(evidence, stationConfig, stationId, "csms-to-station", method, {
-      commandId,
-      ...params,
-    });
-    try {
-      const response = await peer.call(method, params, {
-        callTimeoutMs: commandTimeoutMs,
-      });
-      await record(evidence, stationConfig, stationId, "station-to-csms", "StationCommandResult", {
-        commandId,
-        status: readStatus(response),
-      });
-    } catch (error) {
+    const notSent = async () => {
       await record(evidence, stationConfig, stationId, "system", "StationCommandFailed", {
         commandId,
-        reason: commandFailureReason(error),
+        reason: "not-sent",
+      });
+    };
+    try {
+      await record(evidence, stationConfig, stationId, "csms-to-station", method, {
+        commandId,
+        ...params,
+      });
+    } catch (error) {
+      await notSent().catch(() => undefined);
+      throw error;
+    }
+    // The socket may have closed while evidence was being written.
+    const currentPeer = peers.get(stationId);
+    let outcome: { readonly reason: string } | { readonly status: string };
+    if (currentPeer !== peer) {
+      outcome = { reason: "not-sent" };
+    } else {
+      try {
+        const response = await peer.call(method, params, { callTimeoutMs: commandTimeoutMs });
+        outcome = { status: readStatus(response) };
+      } catch (error) {
+        outcome = { reason: commandFailureReason(error) };
+      }
+    }
+    // A failed write here propagates: the ledger then shows no answer (uncertain), never a
+    // fabricated failure reason.
+    if ("status" in outcome) {
+      await record(evidence, stationConfig, stationId, "station-to-csms", "StationCommandResult", {
+        commandId,
+        status: outcome.status,
+      });
+    } else {
+      await record(evidence, stationConfig, stationId, "system", "StationCommandFailed", {
+        commandId,
+        reason: outcome.reason,
       });
     }
     const command = buildStationCommands(
@@ -480,7 +504,7 @@ export function createChargeGateway(
     return (await inspectState(stationId)).assessment;
   }
 
-  return {
+  const gateway: ChargeGateway = {
     async close() {
       await server.close({ awaitPending: true });
     },
@@ -581,18 +605,7 @@ export function createChargeGateway(
       });
       return { assessment, changes, state: "ready" };
     },
-    sendStationCommand(stationId, input) {
-      const previous = commandQueues.get(stationId) ?? Promise.resolve();
-      const run = previous.then(() => sendCommand(stationId, input));
-      commandQueues.set(
-        stationId,
-        run.then(
-          () => undefined,
-          () => undefined,
-        ),
-      );
-      return run;
-    },
+    sendStationCommand: sendCommand,
     async syncOwnerList(stationId) {
       const stationConfig = configForStation(config, stationId);
       const assessment = await inspect(stationId);
@@ -632,6 +645,33 @@ export function createChargeGateway(
       }
       return { listVersion, status };
     },
+  };
+
+  // Every chargeOS-initiated exchange with one charger runs one at a time, so a command's
+  // csms-to-station record is written only when it is actually about to be sent, never while it
+  // waits behind an inspection or synchronization in the OCPP library's call queue.
+  function serialized<T>(stationId: string, operation: () => Promise<T>): Promise<T> {
+    const previous = stationOperations.get(stationId) ?? Promise.resolve();
+    const run = previous.then(operation);
+    stationOperations.set(
+      stationId,
+      run.then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    return run;
+  }
+
+  return {
+    ...gateway,
+    inspectLocalAuthorization: (stationId) =>
+      serialized(stationId, () => gateway.inspectLocalAuthorization(stationId)),
+    prepareOwnerContinuity: (stationId, input) =>
+      serialized(stationId, () => gateway.prepareOwnerContinuity(stationId, input)),
+    sendStationCommand: (stationId, input) =>
+      serialized(stationId, () => gateway.sendStationCommand(stationId, input)),
+    syncOwnerList: (stationId) => serialized(stationId, () => gateway.syncOwnerList(stationId)),
   };
 }
 
@@ -743,6 +783,7 @@ const UNCERTAIN_RPC_ERRORS = new Set([
 
 function commandFailureReason(error: unknown): string {
   if (error instanceof Error && error.constructor.name === "TimeoutError") return "timeout";
+  if (error instanceof Error && /socket not open/i.test(error.message)) return "not-sent";
   const code = recordValue(error).rpcErrorCode;
   if (typeof code === "string" && /^[A-Za-z]{1,40}$/.test(code)) {
     return UNCERTAIN_RPC_ERRORS.has(code) ? `unreadable-reply:${code}` : `call-error:${code}`;

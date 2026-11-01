@@ -156,9 +156,15 @@ export function createSimulatedCharger(options) {
   });
 
   client.handle("Reset", async ({ params }) => {
-    log(`<- Reset ${params.type} -> Accepted (simulated restart: BootNotification follows)`);
+    log(`<- Reset ${params.type} -> Accepted (simulated restart: reconnect and BootNotification)`);
     setTimeout(() => {
-      void boot().catch(() => undefined);
+      void (async () => {
+        activeSessions.clear();
+        await client.close({ code: 1000, reason: "Simulated restart" });
+        await client.connect();
+        log("reconnected after simulated restart");
+        await boot();
+      })().catch((error) => log(`simulated restart failed: ${error.message}`));
     }, 50);
     return { status: "Accepted" };
   });
