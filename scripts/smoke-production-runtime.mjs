@@ -1003,6 +1003,7 @@ function createSyntheticClient(tlsPort, continuityReady = false) {
     AllowOfflineTxForUnknownId: continuityReady ? "false" : "true",
     AuthorizationCacheEnabled: "true",
     LocalAuthListEnabled: continuityReady ? "true" : "false",
+    LocalAuthListMaxLength: "100",
     LocalAuthorizeOffline: continuityReady ? "true" : "false",
     SendLocalListMaxLength: "100",
     TransactionMessageAttempts: "3",

@@ -78,6 +78,7 @@ it("creates private non-overwriting Docker files with unique credentials, file-s
   expect(await readFile(join(directory, "secrets/owner_tags"), "utf8")).toBe("AABBCCDD");
   expect(receipt.ownerToken.length).toBeGreaterThanOrEqual(32);
   expect(receipt.stationSecret).not.toBe(receipt.ownerToken);
+  expect(receipt.stationSecret).toMatch(/^[0-9a-f]{40}$/);
   expect(model.services.chargeos.networks).toEqual(["chargeos-internal"]);
   expect(model.services.chargeos.ports).toBeUndefined();
   expect(model.networks["chargeos-internal"].internal).toBe(true);

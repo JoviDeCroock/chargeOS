@@ -15,7 +15,7 @@ import {
   type StationConfig,
 } from "./config.js";
 import { evidenceEvent, type EvidenceEvent, type EvidenceStore } from "./events.js";
-import { pseudonymizeTag } from "./tag.js";
+import { foldIdTag, pseudonymizeTag } from "./tag.js";
 
 const OWNER_TAG_STATE_SCHEMA_VERSION = 1 as const;
 const MAXIMUM_OWNER_TAGS = 10_000;
@@ -174,10 +174,24 @@ export class OwnerTagRegistry {
       if (action === "added" && this.#tags.has(tag)) {
         throw new OwnerTagConflictError("Owner tag is already in desired state");
       }
+      if (
+        action === "added" &&
+        [...this.#tags].some((existing) => foldIdTag(existing) === foldIdTag(tag))
+      ) {
+        throw new OwnerTagConflictError(
+          "Owner tag differs only in letter case from a desired tag; OCPP compares tags case-insensitively",
+        );
+      }
       if (action === "removed" && !this.#tags.has(tag)) {
         throw new OwnerTagConflictError("Owner tag is not in desired state");
       }
-      if (action === "removed" && this.#tags.size === 1) {
+      // Online authorization folds letter case, so revoking a tag must also revoke any legacy
+      // case variant that was seeded or restored before variants were refused on add.
+      const removedVariants =
+        action === "removed"
+          ? [...this.#tags].filter((existing) => foldIdTag(existing) === foldIdTag(tag))
+          : [];
+      if (action === "removed" && this.#tags.size - removedVariants.length < 1) {
         throw new OwnerTagConflictError("At least one desired owner tag must remain");
       }
       if (action === "added" && this.#tags.size >= MAXIMUM_OWNER_TAGS) {
@@ -187,7 +201,7 @@ export class OwnerTagRegistry {
       const previous = createState([...this.#tags], this.#version, this.#stationSecret);
       const nextTags = new Set(this.#tags);
       if (action === "added") nextTags.add(tag);
-      else nextTags.delete(tag);
+      else for (const variant of removedVariants) nextTags.delete(variant);
       const next = createState([...nextTags], this.#version + 1, this.#stationSecret);
       await this.#persist(next);
       const tagPseudonym = `tag_${pseudonymizeTag(tag, this.#stationSecret)}`;
@@ -198,6 +212,9 @@ export class OwnerTagRegistry {
           stateHmac: next.integrityHmac,
           stateVersion: next.version,
           tagPseudonym,
+          ...(removedVariants.length > 1
+            ? { caseVariantsRemoved: removedVariants.length - 1 }
+            : {}),
         });
       } catch (auditError) {
         try {

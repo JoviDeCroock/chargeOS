@@ -1,0 +1,81 @@
+name: Charger evidence
+description: Share observed behavior of one exact charger so it can become a Charger Freedom Matrix row.
+labels: ["charger-evidence"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Report one exact device. A brand or product family is not enough: two chargers with the same badge can behave differently.
+        Redact before you share. Never include a station password, owner token, raw RFID card number, recovery bundle or passphrase.
+        Opening an enclosure, touching wiring or changing a SIM is installer work with the power isolated. Don't do it to produce evidence.
+  - type: input
+    id: vendor-model
+    attributes:
+      label: Vendor and full model / article number
+      placeholder: "Example: Vendor X, article 123-456-789"
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware revision
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware version (as reported in BootNotification, if known)
+    validations:
+      required: true
+  - type: input
+    id: market
+    attributes:
+      label: Country / market and connectivity
+      placeholder: "BE, Ethernet"
+  - type: textarea
+    id: configuration-path
+    attributes:
+      label: Configuration path
+      description: Which supported manufacturer tool or interface was used to set the OCPP endpoint and local authorization settings, and who held the administrator access.
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: What actually happened. Cover the endpoint change, local list acceptance, LocalAuthListMaxLength / SendLocalListMaxLength, offline owner charging, unknown-card rejection, restart while offline and replay after reconnection, whichever you tested.
+    validations:
+      required: true
+  - type: input
+    id: evidence-url
+    attributes:
+      label: Evidence link
+      description: Link to a redacted field pack, photos with personal data removed, or a primary manufacturer source.
+    validations:
+      required: true
+  - type: input
+    id: evidence-date
+    attributes:
+      label: Observation date
+      placeholder: YYYY-MM-DD
+    validations:
+      required: true
+  - type: dropdown
+    id: confidence
+    attributes:
+      label: Confidence
+      options:
+        - "High: witnessed on this exact device with recorded evidence"
+        - "Medium: observed, but evidence is partial"
+        - "Low: manufacturer documentation or hearsay only"
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I removed secrets, raw card numbers and personal data from everything above.
+          required: true
+        - label: I understand this report does not by itself make the charger "supported" or "liberated".
+          required: true

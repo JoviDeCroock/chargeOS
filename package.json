@@ -17,6 +17,7 @@
     "format:check": "oxfmt --check .",
     "lint": "oxlint --deny-warnings scripts server service src test vite.config.ts vitest.service.config.ts vitest.service-native.config.mjs",
     "migration-manifest": "tsx server/migration-manifest-cli.ts",
+    "simulate": "node scripts/simulate-charger.mjs",
     "start": "node dist/server/main.js",
     "test": "vitest run --reporter=verbose",
     "typecheck": "tsc --noEmit && tsc -p service/tsconfig.json",

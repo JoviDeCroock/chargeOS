@@ -1,0 +1,59 @@
+name: Bug report
+description: Something in chargeOS behaves differently from its documentation.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste station passwords, owner API tokens, raw RFID card numbers, recovery bundles, passphrases or personal charging records. Use the redacted export or field pack and synthetic values.
+        If owner charging or a secret is at risk, use the private security report instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected and what you saw instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Owner console / API
+        - OCPP gateway / charger connection
+        - RFID cards / local list
+        - Evidence, export or continuity recovery
+        - Deployment (Docker / Compose / Caddy)
+        - Commercial accounts / reimbursements (/service)
+        - Documentation / guides
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: charging-impact
+    attributes:
+      label: Can a previously authorized owner still charge?
+      options:
+        - "Yes, charging is unaffected"
+        - "No, owner charging is blocked (also file a private security report)"
+        - Not tested / not applicable
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: chargeOS version or commit
+      placeholder: v0.1.0 or a commit hash
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "Node 22.22.x on Debian 12, compose.production.yaml"
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted evidence
+      description: Relevant redacted events (for example ProtocolMessageRejected), log lines with secrets removed, or reproduction steps with `pnpm simulate`.
+      render: text

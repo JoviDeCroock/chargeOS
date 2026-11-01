@@ -12,7 +12,7 @@ The first target is an Alfen Eve Single S/Pro line charger in Belgium. The first
 
 ## Start here
 
-- [Plain-language help](docs/guides/README.md) — installation, deployment, charger connections, AI keys/search, brands, people, RFID cards, reimbursements and recovery. Also available in the app at `/help`.
+- [Plain-language help](docs/guides/README.md) — installation, deployment, the owner console, charger connections and connection troubleshooting, AI keys/search, brands, people, RFID cards, reimbursements and recovery. Also available in the app at `/help`.
 - Run `node scripts/deploy.mjs` for the guided Docker or Coolify Cloud setup. See [deployment boundaries and prerequisites](docs/deployment-setup.md).
 
 - [Replacement plan and feature parity](docs/product-parity.md) — current product direction, UX brief, delivery boundaries, acceptance criteria and switching gates.
@@ -75,6 +75,8 @@ pnpm dev
 ```
 
 Use `pnpm migration-manifest --help` to hash the exact owner-held backup/evidence files directly into a secret-free target plan and verify it before authorizing an endpoint-change window.
+
+No charger yet? In a second terminal run `pnpm simulate --session`. A synthetic OCPP 1.6J charge point connects with the `.env` station credentials, runs one owner-card charge and then stays online, so you can try inspection, continuity preparation and card synchronization from the console. `pnpm simulate --list-profiles` shows behavior profiles such as `unsafe-defaults` and `upper-case-uid`. A simulator is not evidence that any real charger works. See [CONTRIBUTING](CONTRIBUTING.md#development-without-a-charger).
 
 Open `http://127.0.0.1:5173`, enter `CHARGEOS_OWNER_API_TOKEN`, and point the provisioned test charge point at `ws://127.0.0.1:9000/<CHARGEOS_STATION_ID>` using the configured Basic password. Plaintext WebSockets are local-lab only; internet-facing deployment requires TLS/WSS termination.
 

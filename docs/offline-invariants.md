@@ -68,6 +68,15 @@ The production HTTPS/WSS boundary changes online transport, not charger-local au
 
 Connection, payload, malformed-message, and valid-message rate limits are also online-path controls. Exceeding one closes or rejects the backend connection, records only a bounded data-free rate event where applicable, and never edits desired or acknowledged authorization state. The charger must therefore fall back to its synchronized local list exactly as in backend loss. Exact model/firmware traffic must be observed before lowering defaults, and reconnection plus replay must be included in the witnessed test.
 
+Multi-vendor protocol tolerance is also limited to the online path. Case-insensitive online tag matching, `DataTransfer`/firmware/diagnostics/security/log notification acknowledgements, and `ProtocolMessageRejected` audits change only how chargeOS answers or records a connected charger. Here is the effect on each failure row:
+
+- **Hosted, WAN/DNS or local-edge loss:** no change. No response is sent, and the charger falls back to its acknowledged local list.
+- **Isolated restart:** no change. Nothing here writes charger configuration or the local list.
+- **Permanent company loss:** no change. The rejection audits are carried in continuity bundles and bounded during compaction.
+- **One week disconnected:** no change. A schema-invalid transaction message that the charger keeps retrying stays rejected and visible after reconnection instead of being silently accepted or normalized. That data loss belongs to the exact-device buffer test.
+
+The readiness check now also requires `LocalAuthListMaxLength` to cover every desired owner tag. A key the charger explicitly reports as unknown fails its check rather than staying unknown. Both changes can only block synchronization; neither can loosen it.
+
 Evidence-capacity exhaustion is another backend-loss mode. chargeOS refuses the whole append before altering the hash chain and reports degraded health; it never deletes owner evidence or rewrites authorization state to stay online. OCPP responses that require durable evidence may therefore fail, while already-synchronized owner charging must continue locally. Recovery requires verified continuity evidence and deliberately provisioned capacity, never manual truncation.
 
 Archive rollover is a planned backend outage, not a charger command. The owner first holds a matching encrypted bundle, stops the edge, atomically rolls the active bytes into a verified segment, records the linked audit in a new active file, verifies a schema-3 post-archive bundle, and restarts. During that interval every failure-matrix row behaves like local-edge/backend loss: the synchronized owner list must continue locally, while UI, commands, and persistence degrade. Rollover never changes desired/acknowledged tags, charger settings, transaction evidence, or device behavior. It restores active-file headroom but retains all archive bytes, so total-volume exhaustion still requires more owner-controlled storage rather than deletion.

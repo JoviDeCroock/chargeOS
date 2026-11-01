@@ -5,14 +5,14 @@
       "id": "ALFEN_HOME",
       "label": "Driveway",
       "site": "Home",
-      "secret": "replace-with-a-unique-long-random-station-secret",
+      "secret": "replace-with-output-of-openssl-rand-hex-20",
       "ownerTags": ["owner-home-card"]
     },
     {
       "id": "ALFEN_OFFICE_1",
       "label": "Office bay 1",
       "site": "Brussels office",
-      "secret": "replace-with-a-different-long-random-station-secret",
+      "secret": "replace-with-a-different-openssl-rand-hex-20-output",
       "ownerTags": ["owner-office-card"]
     }
   ]

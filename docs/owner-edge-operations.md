@@ -9,10 +9,11 @@ Use Node 22+ and pnpm 11. Copy `.env.example` to a local `.env`, restrict it to 
 ```sh
 cp .env.example .env
 chmod 600 .env
-openssl rand -hex 32
+openssl rand -hex 20   # CHARGEOS_STATION_SECRET (charger password)
+openssl rand -hex 32   # CHARGEOS_OWNER_API_TOKEN
 ```
 
-`CHARGEOS_STATION_SECRET` authenticates the charge point. `CHARGEOS_OWNER_API_TOKEN` authenticates the owner console. They must be independent. `CHARGEOS_OWNER_TAGS` contains comma-separated OCPP 1.6 tag values, seeds the durable desired set on first boot, and never belongs in source control or screenshots.
+`CHARGEOS_STATION_SECRET` authenticates the charge point. Use 32-40 hexadecimal digits: the [OCPP 1.6 security whitepaper](https://openchargealliance.org/ocpp-info-whitepapers/ocpp-1-6-security-whitepaper-4th-edition/) (edition 4, A00.FR.205) stores the Basic-auth password in `AuthorizationKey` as 16-20 bytes written as up to 40 hexadecimal digits, and conforming chargers may refuse anything else. chargeOS still accepts any secret of at least 16 characters (so existing deployments keep working) but prints a startup warning for each station whose password does not have that shape. Rotating a password means changing it on the charger too, so plan it as a maintenance step. `CHARGEOS_OWNER_API_TOKEN` authenticates the owner console. They must be independent. `CHARGEOS_OWNER_TAGS` contains comma-separated OCPP 1.6 tag values, seeds the durable desired set on first boot, and never belongs in source control or screenshots.
 
 Every sensitive setting also accepts an exclusive `_FILE` form: `CHARGEOS_STATION_SECRET_FILE`, `CHARGEOS_OWNER_API_TOKEN_FILE`, and `CHARGEOS_OWNER_TAGS_FILE`. Setting both forms is an error. Host secret files must be regular non-symlinks with no group/other access. Files mounted under `/run/secrets` must be read-only; this narrow rule supports Compose file secrets without making arbitrary host files permissive. Station and API secrets are exactly one line. Owner tags may be comma- or newline-separated.
 
@@ -130,7 +131,7 @@ docker compose \
 
 The charger endpoint is `wss://<ocpp-domain>/<station-id>`. The owner console is `https://<owner-domain>/`. Production Compose enables `CHARGEOS_TRUST_PROXY_HEADERS` so failed-authentication limits use the client address Caddy supplies instead of one shared container address. This is safe only while Caddy is the sole peer on the internal network and chargeOS has no host port. Never enable it on an exposed listener or join an untrusted container to that network. Do not add a CDN or second proxy until its forwarding and trust chain are explicitly configured and tested. Confirm certificate validation on the exact charger before authorizing a migration. Back up the chargeOS data volume through the continuity workflow; treat the Caddy data volume as sensitive because it contains certificate private material.
 
-The deployment applies the same accepted-connection ceiling at Caddy and Node, caps complete WebSocket messages before OCPP parsing, token-buckets valid RPC calls, drops dangling peers through keep-alive, and closes after repeated malformed messages. These are resource bounds, not volumetric denial-of-service absorption: restrict exposure with the host firewall and monitor CPU, memory, rejected upgrades, `ProtocolRateLimitExceeded`, and reconnect behavior.
+The deployment applies the same accepted-connection ceiling at Caddy and Node, caps complete WebSocket messages before OCPP parsing, token-buckets valid RPC calls, drops dangling peers through keep-alive, and closes after repeated malformed messages. These are resource bounds, not volumetric denial-of-service absorption: restrict exposure with the host firewall and monitor CPU, memory, rejected upgrades, `ProtocolRateLimitExceeded`, `ProtocolMessageRejected`, and reconnect behavior. A `ProtocolMessageRejected` event names the OCPP method and the first failing JSON path (for example `StartTransaction` at `/timestamp`) without storing payload values. Repeated rejections of a transaction message mean the charger's firmware does not conform to the OCPP 1.6J schema for that field. Record it in the device's Freedom Matrix evidence; do not loosen validation.
 
 ## Guarded operating sequence
 

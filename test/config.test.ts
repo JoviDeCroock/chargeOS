@@ -4,7 +4,11 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { configuredStations, loadConfig } from "../server/config.js";
+import {
+  configuredStations,
+  loadConfig,
+  stationSecretInteroperabilityAdvisories,
+} from "../server/config.js";
 
 describe("loadConfig", () => {
   it("requires explicit station and owner credentials", () => {
@@ -20,6 +24,27 @@ describe("loadConfig", () => {
         CHARGEOS_STATION_SECRET: "short",
       }),
     ).toThrow("at least 16 characters");
+  });
+
+  it("warns, without revealing the secret, when a charger password breaks the OCPP security shape", () => {
+    const base = {
+      CHARGEOS_OWNER_API_TOKEN: "owner-token-at-least-thirty-two-characters",
+      CHARGEOS_OWNER_TAGS: "owner",
+      CHARGEOS_STATION_ID: "station",
+    };
+    const conforming = loadConfig({ ...base, CHARGEOS_STATION_SECRET: "a".repeat(40) });
+    expect(stationSecretInteroperabilityAdvisories(conforming)).toEqual([]);
+    const legacySecret = "legacy_base64url-secret-that-is-48-characters-xx";
+    const legacy = loadConfig({ ...base, CHARGEOS_STATION_SECRET: legacySecret });
+    const advisories = stationSecretInteroperabilityAdvisories(legacy);
+    expect(advisories).toHaveLength(1);
+    expect(advisories[0]).toContain("Station station");
+    expect(advisories.join(" ")).not.toContain(legacySecret);
+    expect(
+      stationSecretInteroperabilityAdvisories(
+        loadConfig({ ...base, CHARGEOS_STATION_SECRET: "0123456789abcdef0123456789abcdef0" }),
+      ),
+    ).toEqual([]);
   });
 
   it("loads a fail-closed provision", () => {

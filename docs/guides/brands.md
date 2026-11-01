@@ -10,6 +10,17 @@ The matrix includes research rows for Alfen, ABB, Easee, Zaptec, Smappee, Wallbo
 
 The first physical target is an Alfen Eve Single S/Pro line charger in Belgium. A witnessed exact-device migration and offline test remain required. For another brand, obtain a supported manufacturer procedure and prove the same owner charging and recovery behavior before using it in service.
 
+## How chargeOS copes with differences between chargers
+
+Manufacturers interpret the protocol slightly differently. chargeOS handles the common differences that are safe to handle, and shows you the rest so you don't miss them:
+
+- **Card numbers in upper or lower case.** The protocol treats card identifiers as case-insensitive, so `04A1B2C3` and `04a1b2c3` count as the same card. chargeOS won't let you add two cards that differ only in letter case.
+- **Manufacturer-specific messages.** Some chargers send private `DataTransfer` messages, firmware or diagnostics status, or security events. chargeOS acknowledges them so the charger doesn't keep retrying, and records only which kind of message arrived. It does not store private manufacturer data, manufacturer names chosen by the device, or free-text device logs.
+- **Messages that break the protocol rules.** If a charger sends a message that doesn't follow the OCPP 1.6J format (for example a start time in an unrecognized format), chargeOS refuses it and records a `ProtocolMessageRejected` event naming the message and the field. It never stores the contents. Repeated rejections of start, meter or stop messages mean that firmware can lose session records. Note it as evidence for your exact device and ask the manufacturer or your installer about a firmware fix. Don't use that charger for reimbursed sessions until the rejections stop.
+- **Settings the charger doesn't have.** The readiness check asks for the local card-list settings and both list sizes (`SendLocalListMaxLength` and `LocalAuthListMaxLength`). If the charger says it doesn't support one of them, the check shows "not supported by this charger" and card synchronization stays blocked. A charger without a working local card list can't keep charging for you when the internet or chargeOS is down.
+
+These behaviours are tested with simulated chargers that reproduce each difference. The simulations are named after the behaviour, not a brand, and passing them says nothing about whether a particular model works.
+
 ## Use a fleet
 
 One chargeOS edge can show several provisioned chargers belonging to the same owner. The fleet view lets you pick a charger and inspect its own connection, cards, sessions and migration evidence. Chargers may have different brands if each exact device has been independently validated.

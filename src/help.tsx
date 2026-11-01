@@ -10,6 +10,7 @@ const order = [
   "README",
   "install",
   "deploy",
+  "owner-console",
   "connect-a-charger",
   "ai-help",
   "brands",

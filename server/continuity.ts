@@ -925,6 +925,7 @@ function compactOperationalEvidence(events: readonly EvidenceEvent[]): readonly 
   const latestStatusByConnector = new Map<number, number>();
   const delegateUseIndexes: number[] = [];
   const rateLimitIndexes: number[] = [];
+  const protocolRejectionIndexes: number[] = [];
   const replayCountByTransaction = new Map<number, number>();
   const meterFingerprints = new Map<number, Set<string>>();
   const retainedMeterCount = new Map<number, number>();
@@ -957,6 +958,10 @@ function compactOperationalEvidence(events: readonly EvidenceEvent[]): readonly 
     }
     if (event.message === "ProtocolRateLimitExceeded") {
       rateLimitIndexes.push(index);
+      continue;
+    }
+    if (event.message === "ProtocolMessageRejected" && event.direction === "system") {
+      protocolRejectionIndexes.push(index);
       continue;
     }
     if (event.message === "StartTransaction" && Number.isSafeInteger(payload.transactionId)) {
@@ -1010,6 +1015,7 @@ function compactOperationalEvidence(events: readonly EvidenceEvent[]): readonly 
 
   for (const index of delegateUseIndexes.slice(0, -100)) keep[index] = false;
   for (const index of rateLimitIndexes.slice(0, -20)) keep[index] = false;
+  for (const index of protocolRejectionIndexes.slice(0, -20)) keep[index] = false;
 
   return events.flatMap((event, index) => {
     if (!keep[index]) return [];
