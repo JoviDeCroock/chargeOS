@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -165,6 +165,18 @@ try {
       { cwd: root, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
     );
   const exported = JSON.parse(recoveryCommand(["export", "--output", bundle]));
+  const reviewCommand = (args, env = environment) =>
+    execFileSync(
+      process.execPath,
+      ["dist/native-service/service/node/recovery-review-cli.js", ...args],
+      { cwd: root, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    );
+  const checkpoint = join(directory, "financial-checkpoint.json");
+  assert(
+    JSON.parse(reviewCommand(["checkpoint", "--output", checkpoint])).status ===
+      "checkpoint-created",
+    "Compiled financial checkpoint failed",
+  );
   const freshHostEnvironment = {
     ...environment,
     SERVICE_NATIVE_CONFIG: join(directory, "lost-source-config"),
@@ -180,6 +192,62 @@ try {
   assert(
     restored.status === "quarantined" && restored.snapshotSha256 === exported.snapshotSha256,
     "Compiled commercial restore did not retain snapshot identity/quarantine",
+  );
+  const reviewFile = join(directory, "review.json"),
+    reportFile = join(directory, "reviewed.json"),
+    proof = join(directory, "operator-evidence.txt");
+  assert(
+    JSON.parse(
+      reviewCommand(
+        ["template", "--data", join(target, "data"), "--output", reviewFile],
+        freshHostEnvironment,
+      ),
+    ).reopeningAllowed === false,
+    "Compiled review template implied reopening",
+  );
+  const review = JSON.parse(await readFile(reviewFile, "utf8"));
+  await writeFile(
+    proof,
+    "Synthetic current identity, employer roster, unpaid financial register and source-retirement evidence for this local drill only.",
+    { mode: 0o600 },
+  );
+  review.confirmation =
+    "I reviewed current identities, employer access, financial records and retirement of the previous service";
+  review.reviewedThrough = new Date().toISOString();
+  review.sourceRetirementEvidenceFile = proof;
+  review.financialCheckpointFile = checkpoint;
+  for (const org of review.organizations) {
+    org.financialEvidenceFile = proof;
+    org.rosterEvidenceFile = proof;
+    for (const member of org.members) {
+      member.decision = "keep";
+      member.identityEvidenceFile = proof;
+    }
+  }
+  await writeFile(reviewFile, JSON.stringify(review));
+  const validated = JSON.parse(
+    reviewCommand(
+      [
+        "validate",
+        "--data",
+        join(target, "data"),
+        "--manifest",
+        reviewFile,
+        "--output",
+        reportFile,
+      ],
+      freshHostEnvironment,
+    ),
+  );
+  assert(
+    validated.status === "reviewed-not-enrolled" &&
+      validated.reopeningAllowed === false &&
+      validated.selectedMemberships === 1,
+    "Compiled recovery review changed enrollment or release authority",
+  );
+  assert(
+    !(await readFile(reportFile, "utf8")).includes(authSecret),
+    "Compiled review exposed the service auth secret",
   );
   const failedStart = spawn(process.execPath, ["dist/native-service/service/node/main.js"], {
     cwd: root,
@@ -218,7 +286,7 @@ try {
     "Compiled recovery/startup exposed secret material",
   );
   console.log(
-    "Native commercial runtime passed: compiled boot and migrations, local verification, scoped-cookie login, organization/session persistence, clean restart, encrypted backup/inspection without source config, fresh-path quarantined restore and startup refusal, with no HTTP outbox or secret logging.",
+    "Native commercial runtime passed: compiled boot and migrations, local verification, scoped-cookie login, organization/session persistence, clean restart, encrypted backup/inspection without source config, financial checkpoint, fresh-path quarantined restore, restore-bound recovery review and startup refusal, with no HTTP outbox or secret logging.",
   );
 } finally {
   await stop().catch(() => {});

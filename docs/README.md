@@ -28,6 +28,7 @@ Choose the smallest relevant canonical layer. Read all documents in **Always** b
 - [Commercial service](commercial-service.md): real local accounts, MFA/recovery, organizations, invitations, role isolation and local delivery.
 - [Native commercial runtime](commercial-service.md#native-sqlite-runtime): the same local workflows on Node/SQLite, full business-test parity, private custody and compiled restart verification.
 - [Native commercial backup](commercial-service.md#encrypted-native-backup-and-quarantined-restore): encrypted snapshot, financial integrity verification and create-only quarantined restore; operational reopening remains unfinished.
+- [Current recovery review](commercial-service.md#prepare-a-current-recovery-review): original-source financial checkpoints, complete current roster/eligibility decisions and private evidence binding before fresh enrollment or release.
 - [ADR 0003](decisions/0003-separate-commercial-worker.md): separate commercial Worker/D1 boundary, owner isolation and portability gates.
 
 - [Local observation](local-observation.md): functional read-only CSV mapping, provenance, deterministic reimbursement drafts and amount checks.

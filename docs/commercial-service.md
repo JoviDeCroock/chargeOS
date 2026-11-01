@@ -63,6 +63,47 @@ Primary implementation reference checked 2026-11-01: [Node.js 22.22 SQLite backu
 
 Recovery verification on 2026-11-01 passed `pnpm verify`: 131 owner/UI, 26 Worker and 45 native tests (including nine recovery tests), release validation, web/server/Worker/native builds and the compiled recovery drill. Independent adversarial review found and verified fixes for wildcard-based schema filtering and replacement-directory cleanup. Four initial owner/UI timeouts on a busy shared host were resolved by bounding file concurrency to two workers; assertions and timeout limits were retained. The focused rerun and complete verification then passed.
 
+## Prepare a current recovery review
+
+Reopening begins with a private review of current identity, employer access, financial records and source retirement. These commands prepare and validate that review; they do not enroll credentials, change memberships/eligibility, release quarantine or make a payment. Their output is `reviewed-not-enrolled`, with `reopeningAllowed: false`. Fresh enrollment and final release remain unfinished.
+
+While the original native service and its configuration remain available, create a financial checkpoint **after** the corresponding encrypted backup:
+
+```sh
+pnpm service:native:recovery-review checkpoint --output /private/backup/current-financial-checkpoint.json
+```
+
+The command uses a consistent SQLite backup and the same exact schema, migration and financial integrity checks as encrypted export. It writes a private, create-only per-organization fingerprint covering policies, assignments/ends, statement snapshots, adjustment receipts and duplicate-session reservations. It changes no source record. Keep it off-server with the matching backup and separately held current financial records. A checkpoint is not a backup: it contains fingerprints, not recoverable business rows. Its software-reported time is not an external timestamp or financial authority.
+
+On a restored, still-quarantined copy:
+
+```sh
+pnpm service:native:recovery-review template --data /private/recovery/company/data --output /private/review/company-review.json
+pnpm service:native:recovery-review validate --data /private/recovery/company/data --manifest /private/review/company-review.json --output /private/review/validated-review.json
+```
+
+Template and validation need no source auth configuration or passphrase. They inspect the private restored database, verify its exact quarantine schema/provenance and financial integrity, and bind the review to its restore epoch plus immutable identities and business records. Authentication-only fields that fresh enrollment will change are excluded from the business fingerprint; user ID, name, email, image and original creation time remain bound. Changed identities, membership, policy, eligibility, snapshots, receipts, reservations, audits or quarantine provenance invalidate an existing template.
+
+An administrator completes the generated JSON using actual current evidence. It starts unreviewed; empty fields and `unreviewed` decisions fail validation. Do not edit its reference section or substitute evidence from the restored database for independently reviewed current records.
+
+- Set `reviewedThrough` to the actual current review time as a complete UTC ISO timestamp. It must be no more than 24 hours old and cannot be in the future.
+- Supply `financialCheckpointFile` from the original source, captured after this backup and no later than the review time. Every organization and financial fingerprint must match exactly. A mismatch or missing post-snapshot financial record blocks progress; this tool cannot reconstruct or waive lost decisions.
+- Supply `sourceRetirementEvidenceFile`: an administrator-reviewed record that the previous commercial service has been stopped and fenced against restarting. An unreachable server is not proof it was retired. This fences commercial account/finance writes, never charger-local authorization.
+- For every organization, provide private `financialEvidenceFile` and `rosterEvidenceFile` paths. Decide every existing member explicitly as `keep` or `remove`, retaining the exact reviewed user ID and email. A kept member needs a private `identityEvidenceFile` checked against current identity. Removed members use an empty identity-evidence path and retain their recorded role in the review.
+- The original organization creator must still be a current, kept `admin`. Other kept members may be `finance` or `driver`. Administrator succession remains unsupported; changing a historical creator or silently promoting another admin is not a recovery shortcut.
+- For every assignment belonging to a removed member, add one `eligibilityEnds` entry with its `assignmentId`, exact `expectedExistingUntil` (timestamp or null) and reviewed `effectiveUntil`. Use the reference intervals. Every assignment needs a decision, including an already-ended one. Existing immutable ends must match exactly; conflicting or missing dates block validation. A new end must be inside its assignment and no later than the review time, except a not-yet-started assignment may end at its start, leaving no eligible interval. No end is applied by this command.
+- Set `confirmation` to `I reviewed current identities, employer access, financial records and retirement of the previous service` only after that review is complete.
+
+Evidence files must be nonempty, private regular files without final symlinks/hardlinks, at most 16 MiB each. Review inputs/outputs are bounded to 4 MiB, with at most 1,000 organizations and 10,000 member/end decisions per organization. Do not use passwords, RFID values, auth configuration or recovery keys as evidence. Paths are consumed locally and replaced by SHA-256 digests in the normalized report. The report still contains private user IDs/emails and role decisions; it is not a shareable support export. Hashes establish which bytes the operator reviewed, not HR truth, mailbox custody, financial completeness or source retirement.
+
+The report binds the source provenance, business state, input manifest, checkpoint, external evidence, exact roster/eligibility decisions and a 24-hour expiry. Validation rechecks immutable state before publishing, writes no business/authentication mutations, and cannot make ordinary startup accept quarantine. Final reopening must revalidate this binding, enroll fresh credentials/MFA, drain enrollment and record a reviewed release for the same epoch. Merely possessing this report does not authorize reopening.
+
+Review commands take exclusive `.recovery-lifecycle` custody under the data directory and record their PID/time there. They refuse an existing lock and never silently reclaim one. If a process was interrupted, an administrator must verify that it and its requests have stopped before assessing/removing stale custody. Cleanup checks directory identity and preserves a replacement directory. Keep outputs outside this temporary directory, including symlink aliases; otherwise they would disappear at cleanup. Outputs are private and create-only.
+
+The native regression suite covers complete multi-organization decisions, real approved reimbursement records, immutable eligibility conflicts, stale/divergent checkpoints, protected administrators, identity/business mutations, actual cross-restore binding, unsafe evidence, occupied/transient outputs and lifecycle contention/replacement. The compiled drill captures a checkpoint, builds and validates a review on a new restore without source configuration, then proves normal startup still refuses before listening. These are local synthetic workflow checks, not current customer evidence.
+
+Verification on 2026-11-01 passed `pnpm verify`: 131 owner/UI, 26 Worker and 54 native tests, release validation, all four builds and the compiled checkpoint/review/recovery drill. The nine new review tests include a real oversized finished database, ensuring a source that grows during backup is bounded before schema/financial inspection. Independent adversarial review found the transient-output cleanup issue; realpath-based rejection, including symlink aliases, fixes it. The final review found no remaining blocker for this read-only stage.
+
 ## Account lifecycle and local delivery
 
 Create a synthetic account with a password of at least 12 characters. Sign-in requires verification. Verification, reset and invitation links are written to `local_outbox`; no external message is sent. Inspect the local operator outbox with:

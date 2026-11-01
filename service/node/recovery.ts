@@ -22,7 +22,7 @@ import {
 } from "./recovery-files.js";
 
 const migrationsDirectory = fileURLToPath(new URL("../migrations", import.meta.url));
-const quarantineSql =
+export const NATIVE_RECOVERY_QUARANTINE_SQL =
   "CREATE TABLE _chargeos_native_recovery (id INTEGER PRIMARY KEY CHECK(id=1), provenance_json TEXT NOT NULL)";
 const digest = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
 type Configuration = Pick<ServiceEnv, "SERVICE_MODE" | "SERVICE_ORIGIN" | "SERVICE_AUTH_SECRET">;
@@ -51,15 +51,21 @@ async function schema(database: NativeCommercialDatabase) {
     )
     .raw();
 }
-async function validateDatabase(
+export async function inspectNativeCommercialDatabase(
   database: NativeCommercialDatabase,
+  quarantine = false,
 ): Promise<Omit<CommercialRecoverySummary, "backupCompletedAt" | "snapshotSha256">> {
+  const pages = (await database.prepare("PRAGMA page_count").first<number>("page_count"))!,
+    pageSize = (await database.prepare("PRAGMA page_size").first<number>("page_size"))!;
+  if (pages * pageSize > MAX_COMMERCIAL_DATABASE_BYTES)
+    throw new Error("Commercial database exceeds the supported recovery size boundary");
   const scratch = await mkdtemp(join(tmpdir(), "chargeos-commercial-schema-"));
   let reference: NativeCommercialDatabase | undefined;
   try {
     reference = new NativeCommercialDatabase(scratch);
     const migrations = readNativeMigrations(migrationsDirectory);
     await migrateNativeDatabase(reference, migrations);
+    if (quarantine) await reference.prepare(NATIVE_RECOVERY_QUARANTINE_SQL).run();
     if (JSON.stringify(await schema(database)) !== JSON.stringify(await schema(reference)))
       throw new Error("Commercial database schema differs from the checked-in migrations");
     const applied = await database
@@ -181,7 +187,7 @@ export async function exportCommercialRecovery(
     source.close();
     source = undefined;
     snapshot = new NativeCommercialDatabase(staging);
-    const summary = await validateDatabase(snapshot);
+    const summary = await inspectNativeCommercialDatabase(snapshot);
     snapshot.close();
     snapshot = undefined;
     const bytes = await readPrivateRecoveryFile(
@@ -218,7 +224,7 @@ export async function inspectCommercialRecovery(
   );
   const { snapshot, bytes } = await parseSnapshot(serialized, passphrase);
   return withSnapshot(bytes, async (database) => ({
-    ...(await validateDatabase(database)),
+    ...(await inspectNativeCommercialDatabase(database)),
     backupCompletedAt: snapshot.backupCompletedAt,
     snapshotSha256: snapshot.databaseSha256,
   }));
@@ -237,7 +243,7 @@ export async function restoreCommercialRecovery(
   if (!parent.isDirectory() || parent.isSymbolicLink() || (parent.mode & 0o077) !== 0)
     throw new Error("Restore parent must be an existing private directory without a final symlink");
   return withSnapshot(bytes, async (database) => {
-    const summary = await validateDatabase(database);
+    const summary = await inspectNativeCommercialDatabase(database);
     const provenance = {
       restoreId: randomUUID(),
       sourceBundleSha256: digest(serialized),
@@ -261,7 +267,7 @@ export async function restoreCommercialRecovery(
       database.prepare("DELETE FROM rate_limit"),
       database.prepare("UPDATE user SET email_verified=0,two_factor_enabled=0"),
       database.prepare("UPDATE invitation SET status='revoked' WHERE status='pending'"),
-      database.prepare(quarantineSql),
+      database.prepare(NATIVE_RECOVERY_QUARANTINE_SQL),
       database
         .prepare("INSERT INTO _chargeos_native_recovery VALUES (1,?)")
         .bind(JSON.stringify(provenance)),
