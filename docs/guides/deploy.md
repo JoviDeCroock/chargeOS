@@ -7,22 +7,25 @@ Deployment starts the server software. It does not change your charging station'
 1. Open setup as described in [Install the software](install.md).
 2. Choose **Docker on this computer or server**. Docker starts on the computer running setup, using its active Docker context. Confirm that this is the intended server.
 3. Name the installation. Use a new name only for a separate installation; an existing setup is never overwritten.
-4. Enter the charger's exact OCPP identity and the actual RFID identifier of one owner card. Your installer can find these. A serial number or the number printed on a card may be different.
+4. Enter the charger's exact OCPP identity (its name on the back-office connection) and the actual RFID identifier of one owner card. Your installer can find these. A serial number or the number printed on a card may be different. The setup form accepts identities made of letters, numbers, hyphens and underscores, up to 64 characters.
 5. Enter the two hostnames and the email address for certificate notices.
 6. Leave the image field blank to build this source version, or paste a verified image digest supplied by your operator.
-7. Confirm the destination and click **Deploy chargeOS**. Keep the terminal open while Docker builds and starts the containers.
+7. Tick the box confirming that you control this server and these addresses, then click **Deploy chargeOS**. Keep the terminal open while Docker builds and starts the containers.
+8. When you have finished, press Ctrl+C in the terminal to stop the setup tool. This does not stop chargeOS.
 
 You can instead click **Prepare files only**. This creates the private deployment folder without starting a container or contacting a cloud account.
 
 ## Find your console and credentials
 
-The result shows the console address, charger address and private setup folder. Open `START-HERE.txt` in that folder for restart instructions. Open `credentials.json` privately to find your owner-console token and the charger's separate password. Put them in your password manager. Keep this folder away from shared drives and support messages.
+The result shows the **Console** address, the **Charger endpoint** and the **Private setup folder**. The folder is `.chargeos-deploy/<installation name>` inside your chargeOS folder. Open `START-HERE.txt` there for restart instructions. Open `credentials.json` privately: `ownerToken` is your owner-console token and `stationSecret` is the charger's separate password. Put both in your password manager. Keep this folder away from shared drives and support messages.
 
-Open your console address after DNS is ready and HTTPS has a valid certificate. Enter the owner-console token. Save the charger address and password for the separate [charger connection procedure](connect-a-charger.md).
+Open your console address after DNS is ready and HTTPS has a valid certificate, then sign in with the owner-console token; see [Use the owner console](owner-console.md). Save the charger endpoint, OCPP identity and password for the separate [charger connection procedure](connect-a-charger.md).
+
+The setup wizard creates one charger per installation. Several chargers on one installation need an administrator-managed stations file; see [Use the owner console](owner-console.md).
 
 ## Managed hosting
 
-Choose **Managed server through Coolify Cloud** if your administrator has connected a server to that account. Enter its project, server and environment IDs, a trusted repository and the reviewed commit containing the deployment template. For a private repository, enter its connected Coolify GitHub App ID too. Your operator supplies the published image digest and reviewed template commit. These are a one-time infrastructure setup, not values to guess.
+Choose **Managed server through Coolify Cloud** if your administrator has connected a server to that account. Enter a Coolify API token that can create and deploy services, the project, server and environment IDs (and a destination ID if the server has several), a trusted repository and the reviewed commit containing the deployment template. The token stays in memory and is not saved. For a private repository, enter its connected Coolify GitHub App ID too. Your operator supplies the published image digest and reviewed template commit. These are a one-time infrastructure setup, not values to guess.
 
 Click **Deploy chargeOS** after reviewing the destination. The wizard creates a Raw Compose application, checks that the platform kept that mode, configures private credentials and submits deployment. Raw Compose preserves the private gateway network; Coolify's ordinary service parser can rewrite it. If a step fails, inspect the saved receipt and the existing cloud application instead of creating another one.
 
@@ -30,6 +33,6 @@ Use the standard Coolify Traefik proxy setup described in [Deployment setup](../
 
 ## What the status means
 
-**Files ready** means nothing has started. **Containers started** means Docker reported the software running; you still need to check DNS and HTTPS. **Submitted** means a cloud platform accepted a request, not that the software or a physical charger works.
+**Your setup files are ready** means nothing has started. **Your containers have started** means Docker reported the software running; you still need to check DNS and HTTPS. **Submitted to Coolify** means the cloud platform accepted a request, not that the software or a physical charger works.
 
 If deployment fails, keep the private folder and read `START-HERE.txt`. Do not repeatedly create new installations for the same charger. An interrupted cloud request might already have created a service; inspect your cloud project before trying again. Stopping the software keeps its data volume. Removing a volume deletes stored state and is not an ordinary restart.

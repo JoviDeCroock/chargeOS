@@ -13,7 +13,7 @@ For an internet-facing installation, choose two addresses such as `charge.compan
 1. Download or clone the chargeOS repository onto the computer that will run setup. Keep the folder in a private location.
 2. Open a terminal in that folder. Your administrator can do this once for you.
 3. Run `node scripts/deploy.mjs`.
-4. Your browser opens a private setup page. If it does not, open the full local address printed in the terminal. Keep that address private and keep the terminal open.
+4. Your browser opens a private setup page. If it does not, open the full local address printed in the terminal. Keep that address private and keep the terminal open. The page only answers on the computer running setup (`127.0.0.1`), so use a browser on that same computer. Do not expose it to a network.
 5. Follow [Deploy chargeOS](deploy.md). Use **Prepare files only** if you want your administrator to review the setup before starting anything.
 
 The setup tool uses Node's built-in features, so it does not need a separate package installation. Docker builds the application when you choose a local source build.
@@ -26,7 +26,7 @@ For a local trial without Cloudflare or Wrangler, ask your administrator to inst
 
 Verification and invitation links are collected locally; no email is sent yet. Your administrator can retrieve one with `pnpm service:native:outbox --recipient person@example.test --kind verify-email`, changing the email to the intended test account. The link is secret: open it privately and do not include it in screenshots or support messages. `invitation` and `reset-password` are the other supported link kinds.
 
-Use synthetic test accounts. The running database stores local account and financial data without encryption. An [encrypted native backup](recovery.md#back-up-employer-accounts-and-reimbursements) can restore a quarantined copy of the records; reopening a restored employer service is not supported yet. Keep the private database and authentication configuration off shared drives. Do not copy a live database as a recovery procedure.
+Use synthetic test accounts. The running database stores local account and financial data without encryption. An encrypted native backup can restore a quarantined copy of the records; see **Back up employer accounts and reimbursements** in [Back up and recover](recovery.md). Reopening a restored copy is a separate reviewed step that is currently a local trial only. Keep the private database and authentication configuration off shared drives. Do not copy a live database as a recovery procedure.
 
 The existing Wrangler/D1 development runtime remains available as an alternative; it stores a different database. Do not run both on port 9091 or expect accounts to transfer automatically. See [Local commercial service](../commercial-service.md) for both options.
 

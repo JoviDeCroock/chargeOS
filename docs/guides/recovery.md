@@ -4,17 +4,19 @@ Keep a recovery copy away from the charging server. A backup on the same disk wi
 
 ## Know the two exports
 
-The console's **redacted support export** helps another person inspect an issue without receiving charger secrets. It is not enough to restore your charger service.
+The console's **Export redacted continuity evidence** button downloads a redacted support file. Its name ends in `-continuity.json`, but it is not a recovery bundle. It helps another person inspect an issue without receiving charger secrets or card identifiers. It is not enough to restore your charger service.
 
 An **encrypted owner continuity bundle** contains the configuration and evidence needed for supported recovery. It needs a separate passphrase, which chargeOS does not store inside the bundle. Keep both privately and in separate locations. Never send this bundle or its passphrase as a support attachment.
 
 ## Make a useful backup
 
-1. Ask your administrator to create the encrypted bundle using the [owner-edge backup procedure](../owner-edge-operations.md).
+1. Ask your administrator to create the encrypted bundle using the [owner-edge backup procedure](../owner-edge-operations.md). The owner console cannot create it; it is a command-line step.
 2. Make a fresh bundle after initial provisioning and every owner-card authorization change.
 3. Keep it off the server and record which charger and date it covers.
 4. Have a competent operator inspect and restore a copy to a separate empty location. A file that has never been restored is an untested backup.
 5. Retain any older full bundles referenced by a compacted recovery bundle. The newer file cannot recreate omitted history by itself.
+
+For a Docker installation made by the setup wizard, your administrator runs the documented in-container export from the private setup folder, using `-f compose.json` in place of the production file options. This wizard variant has not been separately drilled, so inspect the bundle and test a restore. A documented backup procedure for the managed Coolify path does not exist yet; do not rely on that deployment for owner recovery until one is written and tested.
 
 Your AI provider key is not in the bundle and is not needed to restore charging software. Your cloud login is not a substitute for owner-held recovery material.
 
@@ -38,7 +40,7 @@ Ask your administrator to use the [native commercial backup commands](../commerc
 
 A restored copy is **quarantined**: chargeOS refuses to start it as a working employer service. Old passwords, login sessions, email links, invitations and authenticator credentials cannot be used. This prevents an old backup from silently restoring access that somebody later revoked. People will need fresh identity checks and credentials before access can resume.
 
-The process to reconcile current access and financial records and reopen the restored service is still being built. Do not remove the quarantine marker or assume the backup date proves today's balance. Use this procedure to preserve and test recovery of local records; it is not yet a complete employer-service disaster-recovery procedure. It sends no payment and changes no charger card list.
+Reopening needs the separate review, fresh sign-in setup and administrator reopening steps below, which are currently a local development trial. Do not remove the quarantine marker or assume the backup date proves today's balance. This is not yet a proven production disaster-recovery procedure. It sends no payment and changes no charger card list.
 
 ## Check current access and money records
 
