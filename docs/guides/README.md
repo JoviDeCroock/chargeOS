@@ -4,6 +4,7 @@ chargeOS lets you run charging software on infrastructure you control. Start wit
 
 - [Install the software](install.md): prepare a computer or server and open setup.
 - [Deploy chargeOS](deploy.md): choose your server, create private credentials and start the software.
+- [Use the owner console](owner-console.md): sign in, choose a charger, give temporary read access and export evidence.
 - [Connect a charging station](connect-a-charger.md): understand what changes on the charger and prepare a reversible handover.
 - [Use your own AI key](ai-help.md): ask about configuration issues and optionally search manufacturer documentation.
 - [Use several chargers or brands](brands.md): check an exact device and understand the current fleet limits.
