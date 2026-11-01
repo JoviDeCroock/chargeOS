@@ -9,8 +9,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 async function fill() {
-  const details = screen.getByText("Troubleshoot with your own AI key").closest("details")!;
-  details.open = true;
+  expect(screen.getByRole("heading", { name: "Troubleshoot with your own AI key" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Review diagnostics" }));
   await screen.findByText("Diagnostics to send");
   fireEvent.input(screen.getByLabelText("Model ID"), { target: { value: "synthetic-model" } });

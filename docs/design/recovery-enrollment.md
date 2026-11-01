@@ -6,7 +6,7 @@ Mode: Operate. This is a local extension of the existing `/service` account form
 
 THESIS: Let one reviewed person replace credentials and verify a new authenticator without suggesting that business access has reopened.
 
-OWN-WORLD: Retain the account workspace's light field, dark green text, native form controls, 44-pixel targets and visible focus. Use the existing restrained form width; avoid decorative badges, icons or new typography.
+OWN-WORLD: Retain the account workspace's shared chargeOS glass tokens (see `DESIGN.md`), native form controls, 44-pixel targets and visible focus. Use the existing restrained form width; avoid decorative badges, icons or new typography.
 
 STORY: The person opens a private link, chooses a new password, adds an authenticator, saves recovery codes and verifies a code. Completion means credentials are ready; an administrator still controls reopening.
 

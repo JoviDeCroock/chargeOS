@@ -1,3 +1,4 @@
+import { BrandMark } from "../brand.js";
 import { useComputed, useSignal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef } from "preact/hooks";
@@ -145,11 +146,8 @@ export function ProductPreview() {
       <div class="pv-layout">
         <aside class="pv-sidebar">
           <a href="#driver/overview" class="pv-brand" aria-label="chargeOS driver overview">
-            <span class="pv-brand-symbol" aria-hidden="true">
-              ϟ
-            </span>
-            charge<span>OS</span>
-            <sup>PREVIEW</sup>
+            <BrandMark />
+            <sup>Preview</sup>
           </a>
           <label class="pv-workspace-label">
             Preview workspace
@@ -167,10 +165,10 @@ export function ProductPreview() {
           </label>
           <p class="pv-nav-label">
             {workspace === "driver"
-              ? "YOUR CHARGING"
+              ? "Your charging"
               : workspace === "employer"
-                ? "NORTHSTAR STUDIO · SAMPLE"
-                : "SERVICE OPERATIONS"}
+                ? "Northstar Studio · sample"
+                : "Service operations"}
           </p>
           <nav class="pv-nav" aria-label={`${workspaceLabels[workspace]} navigation`}>
             {navigation[workspace].map((item) => (
@@ -250,7 +248,7 @@ export function ProductPreview() {
             <div class="pv-page-heading">
               <div>
                 <p class="pv-eyebrow">
-                  {isOverview ? "WEDNESDAY, 28 OCTOBER" : workspaceLabels[workspace].toUpperCase()}
+                  {isOverview ? "Wednesday, 28 October" : workspaceLabels[workspace]}
                 </p>
                 <h1>
                   {isOverview
@@ -338,7 +336,7 @@ export function ProductPreview() {
                     <div class="pv-driver-grid">
                       <section class="pv-charger-card">
                         <div class="pv-card-top">
-                          <span class="pv-overline">YOUR HOME CHARGER</span>
+                          <span class="pv-overline">Your home charger</span>
                           <Badge
                             label={
                               scenario.value === "offline"
@@ -403,7 +401,7 @@ export function ProductPreview() {
                       </section>
                       <section class="pv-money-card">
                         <div class="pv-card-top">
-                          <span class="pv-overline">HOME REIMBURSEMENT</span>
+                          <span class="pv-overline">Home reimbursement</span>
                           <span class="pv-month-pill">October</span>
                         </div>
                         <p class="pv-money-subtitle">Your home charging, accounted for.</p>
@@ -469,7 +467,7 @@ export function ProductPreview() {
                     <div class="pv-lower-grid">
                       <section class="pv-panel">
                         <SectionTitle
-                          eyebrow="YOUR CHARGING PATTERN"
+                          eyebrow="Your charging pattern"
                           title="A little energy. A lot of possibility."
                           aside="Sample week"
                         />
@@ -490,7 +488,7 @@ export function ProductPreview() {
                         </div>
                       </section>
                       <section class="pv-panel pv-next-card">
-                        <span class="pv-overline">A SMALL THING TO CHECK</span>
+                        <span class="pv-overline">A small thing to check</span>
                         <span class="pv-task-symbol" aria-hidden="true">
                           ↗
                         </span>
@@ -553,7 +551,7 @@ export function ProductPreview() {
                     <div class="pv-lower-grid">
                       <section class="pv-panel">
                         <SectionTitle
-                          eyebrow="PRIORITY INBOX"
+                          eyebrow="Priority inbox"
                           title={
                             workspace === "employer"
                               ? "A clear path to month-end."
@@ -593,7 +591,7 @@ export function ProductPreview() {
                       </section>
                       <section class="pv-panel">
                         <SectionTitle
-                          eyebrow="ENERGY AT A GLANCE"
+                          eyebrow="Energy at a glance"
                           title="Across your sample locations"
                           aside="This week"
                         />
@@ -711,7 +709,7 @@ export function ProductPreview() {
                     </div>
                     <section class="pv-panel">
                       <SectionTitle
-                        eyebrow="OCTOBER · SAMPLE STATEMENT"
+                        eyebrow="October · sample statement"
                         title="See exactly where things stand."
                         aside={<Badge label={approved.value ? "Approved" : "Needs review"} />}
                       />
@@ -824,7 +822,7 @@ export function ProductPreview() {
                     </div>
                     <section class="pv-panel">
                       <SectionTitle
-                        eyebrow="CHARGER PREFERENCES"
+                        eyebrow="Charger preferences"
                         title="Your daily routine, on your terms."
                       />
                       <div class="pv-settings-row">
@@ -895,7 +893,7 @@ export function ProductPreview() {
                       <span>DEMO · 0028</span>
                     </section>
                     <section class="pv-panel">
-                      <SectionTitle eyebrow="ACCESS & CARDS" title="One card, a clear owner." />
+                      <SectionTitle eyebrow="Access & cards" title="One card, a clear owner." />
                       <dl class="pv-details">
                         <div>
                           <dt>Home access</dt>
@@ -955,7 +953,7 @@ export function ProductPreview() {
                         <span class="pv-map-road three" />
                         <span class="pv-map-park" />
                         <span class="pv-map-water" />
-                        <b class="pv-map-label">LEUVEN · ILLUSTRATION</b>
+                        <b class="pv-map-label">Leuven · illustration</b>
                         {[1, 2, 3].map((n) => (
                           <button
                             key={n}
@@ -980,7 +978,7 @@ export function ProductPreview() {
                       </div>
                       <section class="pv-panel">
                         <SectionTitle
-                          eyebrow="ILLUSTRATIVE LOCATIONS"
+                          eyebrow="Illustrative locations"
                           title="A good stop along the way."
                         />
                         {[
@@ -1022,7 +1020,7 @@ export function ProductPreview() {
                 {(page === "help" || page === "incidents") && (
                   <div class="pv-support-grid">
                     <section class="pv-panel">
-                      <SectionTitle eyebrow="ACCOUNTABLE SUPPORT" title="A person. A next step." />
+                      <SectionTitle eyebrow="Accountable support" title="A person. A next step." />
                       {cases.value.map((item) => (
                         <button
                           class="pv-case-row"
@@ -1072,7 +1070,7 @@ export function ProductPreview() {
                       ))}
                     </section>
                     <section class="pv-panel">
-                      <SectionTitle eyebrow="LOCAL PREVIEW ONLY" title="Try opening a case." />
+                      <SectionTitle eyebrow="Local preview only" title="Try opening a case." />
                       <form
                         onSubmit={(event) => {
                           event.preventDefault();
@@ -1177,7 +1175,7 @@ export function ProductPreview() {
                 {page === "policies" && (
                   <section class="pv-panel">
                     <SectionTitle
-                      eyebrow="POLICY VERSIONS"
+                      eyebrow="Policy versions"
                       title="The rule behind every reimbursement."
                     />
                     <div class="pv-policy-card">
@@ -1216,7 +1214,7 @@ export function ProductPreview() {
                 {page === "billing" && (
                   <section class="pv-panel">
                     <SectionTitle
-                      eyebrow="DOCUMENTS & SETTLEMENT"
+                      eyebrow="Documents & settlement"
                       title="Every total has a trail."
                     />
                     <div class="pv-document-row">
@@ -1262,7 +1260,7 @@ export function ProductPreview() {
                 {page === "reports" && (
                   <section class="pv-panel">
                     <SectionTitle
-                      eyebrow="COSTS & ENERGY"
+                      eyebrow="Costs & energy"
                       title="A consistent view, across the fleet."
                     />
                     <DriverTable
@@ -1292,7 +1290,7 @@ export function ProductPreview() {
                 )}
                 {page === "migrations" && (
                   <section class="pv-panel">
-                    <SectionTitle eyebrow="OBSERVE FIRST" title="A switch with a way back." />
+                    <SectionTitle eyebrow="Observe first" title="A switch with a way back." />
                     <div class="pv-migration-path">
                       {[
                         "Inventory & authority",
@@ -1536,7 +1534,7 @@ function SessionSection({
   return (
     <section class="pv-panel">
       <SectionTitle
-        eyebrow="EVERY SESSION, ACCOUNTED FOR"
+        eyebrow="Every session, accounted for"
         title="Recent activity"
         aside={
           onAll && (
@@ -1665,7 +1663,7 @@ function DriverTable({
 }) {
   const content = (
     <>
-      <SectionTitle eyebrow="PEOPLE & POLICIES" title="Your sample drivers" />
+      <SectionTitle eyebrow="People & policies" title="Your sample drivers" />
       <div class="pv-table-wrap">
         <table class="pv-table">
           <thead>
@@ -1718,7 +1716,7 @@ function DriverTable({
 function StationTable({ onSelect }: { readonly onSelect: (name: string) => void }) {
   return (
     <section class="pv-panel">
-      <SectionTitle eyebrow="STATION OPERATIONS" title="Your sample charging sites" />
+      <SectionTitle eyebrow="Station operations" title="Your sample charging sites" />
       <div class="pv-table-wrap">
         <table class="pv-table">
           <thead>
@@ -1827,7 +1825,7 @@ function PreviewDialog({
         ref={panel}
       >
         <div class="pv-dialog-heading">
-          <span class="pv-overline">FICTIONAL PREVIEW RECORD</span>
+          <span class="pv-overline">Fictional preview record</span>
           <button type="button" class="pv-icon-button" aria-label="Close details" onClick={onClose}>
             ×
           </button>

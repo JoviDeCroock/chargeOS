@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../src/app.js";
@@ -19,8 +19,14 @@ import { OWNER_TAG_REVOCATION_CONFIRMATION } from "../shared/owner-tags.js";
 
 const TOKEN = "owner-token-at-least-thirty-two-characters";
 
+function openSection(name: string) {
+  const nav = screen.getByRole("navigation", { name: "Console sections" });
+  fireEvent.click(within(nav).getByRole("link", { name: new RegExp(`^${name}`) }));
+}
+
 describe("owner console", () => {
   beforeEach(() => {
+    window.history.replaceState(null, "", "/");
     sessionStorage.clear();
     ownerToken.value = "";
     fleet.value = null;
@@ -354,13 +360,22 @@ describe("owner console", () => {
     await waitFor(() => expect(screen.getByText("Your charger remains yours.")).toBeTruthy());
     expect(screen.getByText("Software prerequisites pass")).toBeTruthy();
     expect(screen.getByText("Physical offline and restart tests are still required.")).toBeTruthy();
-    expect(screen.getByText("Field test not started")).toBeTruthy();
     expect(screen.getByText("Next safe action")).toBeTruthy();
     expect(screen.getByText("record-device-inventory")).toBeTruthy();
+    // The overview summarizes every section without presenting a software result as field proof.
+    expect(screen.getByText("Field test not started")).toBeTruthy();
+    expect(screen.getByText("Changes waiting for the charger")).toBeTruthy();
+
+    openSection("Freedom Test");
+    expect(screen.getByRole("heading", { name: "Field test not started" })).toBeTruthy();
     expect(screen.getByText(/Evidence completeness is not certification/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Export field review pack" })).toBeTruthy();
+
+    openSection("Liberate my charger");
     expect(screen.getByText("Collecting reversible-migration evidence")).toBeTruthy();
     expect(screen.getByText(/Locked until every pre-switch checkpoint passes/)).toBeTruthy();
+
+    openSection("Charging");
     expect(screen.getByText("3 exact retries")).toBeTruthy();
     expect(screen.getByText("evidence conflict")).toBeTruthy();
     expect(screen.getByText("Remote commands")).toBeTruthy();
@@ -369,6 +384,8 @@ describe("owner console", () => {
     expect((screen.getByRole("button", { name: "Restart" }) as HTMLButtonElement).disabled).toBe(
       true,
     );
+
+    openSection("Owner cards");
     expect(screen.getByText("Owner access changes are pending")).toBeTruthy();
     expect(screen.getByText(/1 removed owner tag may still authorize locally/)).toBeTruthy();
     expect(screen.getByText(/1 configured owner tag is not yet acknowledged/)).toBeTruthy();
@@ -449,6 +466,7 @@ describe("owner console", () => {
       ).toBeNull(),
     );
 
+    openSection("Liberate my charger");
     fireEvent.input(
       screen.getByLabelText(
         "Evidence SHA-256 for Owner authority over the exact charger is evidenced",
@@ -471,6 +489,7 @@ describe("owner console", () => {
       ).toBe(true),
     );
 
+    openSection("Delegated access");
     fireEvent.change(screen.getByLabelText("Delegate role"), {
       target: { value: "employer" },
     });
@@ -483,6 +502,7 @@ describe("owner console", () => {
     fireEvent.click(screen.getByRole("button", { name: "Issue one-time secret" }));
     await waitFor(() => expect(screen.getByText(/chgdel\.12345678.*one-time-secret/)).toBeTruthy());
     expect(screen.getByText(/Only its verifier is stored/)).toBeTruthy();
+    openSection("Freedom Test");
     fireEvent.input(screen.getByLabelText("Article number"), {
       target: { value: "904460023" },
     });
@@ -543,8 +563,9 @@ describe("owner console", () => {
       },
     };
 
+    // Witness controls appear only once a bound field run is active.
     fireEvent.input(
-      screen.getByLabelText(
+      await screen.findByLabelText(
         "Evidence SHA-256 for Unknown tag rejected while backend and WAN were unavailable",
       ),
       { target: { value: "a".repeat(64) } },
@@ -562,6 +583,8 @@ describe("owner console", () => {
       ).toBe(true),
     );
     await waitFor(() => expect(action.value).toBeNull());
+    // Earlier actions refresh in the background; let them land before overriding the snapshot.
+    await waitFor(() => expect(loading.value).toBe(false));
 
     snapshot.value = {
       ...snapshot.value!,
@@ -571,6 +594,7 @@ describe("owner console", () => {
         status: "ready-for-owner-confirmation",
       },
     };
+    openSection("Liberate my charger");
     const manifestContents = '{"format":"chargeos-migration-target"}\n';
     const manifestFile = new File([manifestContents], "alfen-target.json", {
       type: "application/json",
