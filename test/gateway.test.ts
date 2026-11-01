@@ -95,6 +95,7 @@ describe("OCPP 1.6J Genesis gateway", () => {
         AllowOfflineTxForUnknownId: "false",
         LocalAuthListEnabled: "true",
         LocalAuthorizeOffline: "true",
+        LocalAuthListMaxLength: "100",
         SendLocalListMaxLength: "100",
       };
       return {
@@ -174,7 +175,7 @@ describe("OCPP 1.6J Genesis gateway", () => {
     });
     await expect(
       client.call("DataTransfer", { data: OWNER_TAG, vendorId: "untrusted-vendor" }),
-    ).rejects.toThrow();
+    ).resolves.toEqual({ status: "UnknownVendorId" });
 
     const persisted = JSON.stringify(evidence.events);
     expect(persisted).not.toContain(OWNER_TAG);
@@ -292,7 +293,7 @@ describe("OCPP 1.6J Genesis gateway", () => {
         value:
           key === "AllowOfflineTxForUnknownId"
             ? "false"
-            : key === "SendLocalListMaxLength"
+            : key === "SendLocalListMaxLength" || key === "LocalAuthListMaxLength"
               ? "100"
               : "true",
       })),
@@ -324,6 +325,7 @@ describe("OCPP 1.6J Genesis gateway", () => {
       AllowOfflineTxForUnknownId: "true",
       LocalAuthListEnabled: "false",
       LocalAuthorizeOffline: "false",
+      LocalAuthListMaxLength: "100",
       SendLocalListMaxLength: "100",
     };
     const changes: { key: string; value: string }[] = [];
@@ -387,6 +389,7 @@ describe("OCPP 1.6J Genesis gateway", () => {
       AllowOfflineTxForUnknownId: "true",
       LocalAuthListEnabled: "false",
       LocalAuthorizeOffline: "true",
+      LocalAuthListMaxLength: "100",
       SendLocalListMaxLength: "100",
     };
     client.handle("GetConfiguration", async ({ params }) => {

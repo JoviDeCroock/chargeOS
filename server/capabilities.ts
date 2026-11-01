@@ -9,33 +9,49 @@ export function assessOwnerContinuity(
   ownerTagCount: number,
 ): CapabilityAssessment {
   const configuration = configurationMap(configurationResponse);
+  const unsupported = unknownKeys(configurationResponse);
   const localListVersion = readNumber(localListResponse, "listVersion");
-  const maxLength = numberValue(configuration.get("SendLocalListMaxLength"));
   const checks: CapabilityCheck[] = [
     booleanCheck(
       "local-list-enabled",
       "Local authorization list enabled",
-      configuration.get("LocalAuthListEnabled"),
+      "LocalAuthListEnabled",
+      configuration,
+      unsupported,
       true,
     ),
     booleanCheck(
       "known-tags-offline",
       "Known owner tags authorize offline",
-      configuration.get("LocalAuthorizeOffline"),
+      "LocalAuthorizeOffline",
+      configuration,
+      unsupported,
       true,
     ),
     booleanCheck(
       "unknown-tags-rejected",
       "Unknown tags remain rejected offline",
-      configuration.get("AllowOfflineTxForUnknownId"),
+      "AllowOfflineTxForUnknownId",
+      configuration,
+      unsupported,
       false,
     ),
-    {
-      id: "local-list-capacity",
-      label: "Local list can hold every owner tag",
-      observed: maxLength === null ? "not reported" : `${maxLength} entries`,
-      state: maxLength === null ? "unknown" : maxLength >= ownerTagCount ? "pass" : "fail",
-    },
+    capacityCheck(
+      "local-list-capacity",
+      "One full list update can carry every owner tag",
+      "SendLocalListMaxLength",
+      configuration,
+      unsupported,
+      ownerTagCount,
+    ),
+    capacityCheck(
+      "local-list-storage",
+      "Local list storage can hold every owner tag",
+      "LocalAuthListMaxLength",
+      configuration,
+      unsupported,
+      ownerTagCount,
+    ),
     {
       id: "local-list-version",
       label: "Local list version can be read",
@@ -79,7 +95,7 @@ export function planOwnerContinuityPreparation(
   return CONTINUITY_SETTINGS.map(({ desiredValue, key }) => {
     const entry = entries.get(key);
     if (!entry) return { currentValue: null, desiredValue, key, state: "blocked" };
-    if (entry.value.toLowerCase() === desiredValue) {
+    if (entry.value.trim().toLowerCase() === desiredValue) {
       return { currentValue: entry.value, desiredValue, key, state: "already-safe" };
     }
     return {
@@ -129,13 +145,21 @@ function configurationEntries(
   return values;
 }
 
+const UNSUPPORTED_OBSERVATION = "not supported by this charger";
+
 function booleanCheck(
   id: string,
   label: string,
-  observed: string | undefined,
+  key: string,
+  configuration: ReadonlyMap<string, string>,
+  unsupported: ReadonlySet<string>,
   expected: boolean,
 ): CapabilityCheck {
-  const value = observed?.toLowerCase();
+  const observed = configuration.get(key);
+  if (observed === undefined && unsupported.has(key)) {
+    return { id, label, observed: UNSUPPORTED_OBSERVATION, state: "fail" };
+  }
+  const value = observed?.trim().toLowerCase();
   const parsed = value === "true" ? true : value === "false" ? false : null;
   return {
     id,
@@ -145,10 +169,38 @@ function booleanCheck(
   };
 }
 
+function capacityCheck(
+  id: string,
+  label: string,
+  key: string,
+  configuration: ReadonlyMap<string, string>,
+  unsupported: ReadonlySet<string>,
+  ownerTagCount: number,
+): CapabilityCheck {
+  const maxLength = numberValue(configuration.get(key));
+  if (maxLength === null && unsupported.has(key)) {
+    return { id, label, observed: UNSUPPORTED_OBSERVATION, state: "fail" };
+  }
+  return {
+    id,
+    label,
+    observed: maxLength === null ? "not reported" : `${maxLength} entries`,
+    state: maxLength === null ? "unknown" : maxLength >= ownerTagCount ? "pass" : "fail",
+  };
+}
+
 function numberValue(value: string | undefined): number | null {
-  if (value === undefined) return null;
+  if (value === undefined || !/^\s*\d+\s*$/.test(value)) return null;
   const parsed = Number(value);
-  return Number.isInteger(parsed) ? parsed : null;
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+function unknownKeys(response: unknown): ReadonlySet<string> {
+  if (!response || typeof response !== "object") return new Set();
+  const unknownKey = (response as { unknownKey?: unknown }).unknownKey;
+  return new Set(
+    Array.isArray(unknownKey) ? unknownKey.filter((key) => typeof key === "string") : [],
+  );
 }
 
 function readNumber(value: unknown, field: string): number | null {

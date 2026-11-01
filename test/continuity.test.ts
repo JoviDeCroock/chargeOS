@@ -130,6 +130,18 @@ describe("owner continuity bundle", () => {
       for (let index = 0; index < 20; index += 1) {
         await source.append(evidenceEvent("STATION_1", "station-to-csms", "Heartbeat", {}));
       }
+      for (let index = 0; index < 25; index += 1) {
+        await source.append(
+          evidenceEvent("STATION_1", "system", "ProtocolMessageRejected", {
+            errorCode: "FormatViolation",
+            keyword: "format",
+            method: "MeterValues",
+            origin: "station",
+            path: `/meterValue/${index}/timestamp`,
+            phase: "request",
+          }),
+        );
+      }
       await source.archiveCurrentSegment();
       await source.append(evidenceEvent("STATION_1", "system", "EvidenceSegmentArchived", {}));
 
@@ -158,6 +170,11 @@ describe("owner continuity bundle", () => {
       expect(compactedPayload.evidenceArchives).toEqual([]);
       expect(compactedPayload.evidence.length).toBeLessThan(sourceSnapshot.events.length);
       expect(compactedPayload.evidence.at(-1)?.message).toBe("EvidenceHistoryCompacted");
+      const carriedRejections = compactedPayload.evidence.filter(
+        (event) => event.message === "ProtocolMessageRejected",
+      );
+      expect(carriedRejections).toHaveLength(20);
+      expect(carriedRejections[0]?.payload).toMatchObject({ path: "/meterValue/5/timestamp" });
       expect(
         compactedPayload.evidence
           .slice(0, -1)

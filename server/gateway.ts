@@ -14,7 +14,7 @@ import {
 } from "./capabilities.js";
 import { configForStation, configuredStations, type GatewayConfig } from "./config.js";
 import { evidenceEvent, type EvidenceEvent, type EvidenceStore } from "./events.js";
-import { pseudonymizeTag } from "./tag.js";
+import { foldIdTag, pseudonymizeTag } from "./tag.js";
 
 interface OcppPeer {
   readonly identity?: string;
@@ -25,6 +25,7 @@ interface OcppPeer {
     method: string | ((request: IHandlersOption) => Promise<Record<string, unknown>>),
     handler?: (request: IHandlersOption) => Promise<Record<string, unknown>>,
   ): void;
+  on(event: string, listener: (payload: unknown) => void): this;
   once(event: string, listener: () => void): this;
 }
 
@@ -138,6 +139,29 @@ export function createChargeGateway(config: GatewayConfig, evidence: EvidenceSto
       await peer.close({ code: 1008, force: true, reason: "Message rate exceeded" });
       throw createRPCError("InternalError");
     };
+    let rejectionsRecorded = 0;
+    peer.on("strictValidationFailure", (failure: unknown) => {
+      const rejection = describeProtocolRejection(failure);
+      void (async () => {
+        if (rejection.origin === "station" && rejection.phase === "request") {
+          try {
+            await enforceRateLimit();
+          } catch {
+            return;
+          }
+        }
+        if (rejectionsRecorded >= MAX_RECORDED_REJECTIONS_PER_CONNECTION) return;
+        rejectionsRecorded += 1;
+        await record(
+          evidence,
+          stationConfig,
+          stationId,
+          "system",
+          "ProtocolMessageRejected",
+          rejection,
+        );
+      })().catch(() => undefined);
+    });
     const handle = (
       method: string,
       handler: (request: IHandlersOption) => Promise<Record<string, unknown>>,
@@ -238,6 +262,53 @@ export function createChargeGateway(config: GatewayConfig, evidence: EvidenceSto
       return {};
     });
 
+    handle("DataTransfer", async ({ params }) => {
+      const request = recordValue(params);
+      await record(evidence, stationConfig, stationId, "station-to-csms", "DataTransfer", {
+        dataDiscarded: request.data !== undefined,
+        messageId: boundedText(request.messageId, 50),
+        vendorId: boundedText(request.vendorId, 255),
+      });
+      return { status: "UnknownVendorId" };
+    });
+
+    for (const method of ["DiagnosticsStatusNotification", "FirmwareStatusNotification"]) {
+      handle(method, async ({ params }) => {
+        await record(evidence, stationConfig, stationId, "station-to-csms", method, {
+          status: boundedText(recordValue(params).status, 32),
+        });
+        return {};
+      });
+    }
+
+    for (const method of ["LogStatusNotification", "SignedFirmwareStatusNotification"]) {
+      handle(method, async ({ params }) => {
+        const request = recordValue(params);
+        await record(evidence, stationConfig, stationId, "station-to-csms", method, {
+          requestId: Number.isSafeInteger(request.requestId) ? request.requestId : null,
+          status: boundedText(request.status, 32),
+        });
+        return {};
+      });
+    }
+
+    handle("SecurityEventNotification", async ({ params }) => {
+      const request = recordValue(params);
+      await record(
+        evidence,
+        stationConfig,
+        stationId,
+        "station-to-csms",
+        "SecurityEventNotification",
+        {
+          techInfoDiscarded: request.techInfo !== undefined,
+          timestamp: boundedText(request.timestamp, 64),
+          type: boundedText(request.type, 50),
+        },
+      );
+      return {};
+    });
+
     peer.handle(async ({ method }) => {
       await enforceRateLimit();
       await record(evidence, stationConfig, stationId, "station-to-csms", method ?? "Unknown", {
@@ -259,6 +330,7 @@ export function createChargeGateway(config: GatewayConfig, evidence: EvidenceSto
       "AllowOfflineTxForUnknownId",
       "AuthorizationCacheEnabled",
       "SendLocalListMaxLength",
+      "LocalAuthListMaxLength",
       "TransactionMessageAttempts",
       "TransactionMessageRetryInterval",
     ];
@@ -544,7 +616,68 @@ function requirePeer(peers: ReadonlyMap<string, OcppPeer>, stationId: string): O
 }
 
 function authorizationStatus(config: GatewayConfig, tag: string): "Accepted" | "Invalid" {
-  return config.ownerTags.has(tag) ? "Accepted" : "Invalid";
+  if (config.ownerTags.has(tag)) return "Accepted";
+  const folded = foldIdTag(tag);
+  for (const ownerTag of config.ownerTags) {
+    if (foldIdTag(ownerTag) === folded) return "Accepted";
+  }
+  return "Invalid";
+}
+
+const MAX_RECORDED_REJECTIONS_PER_CONNECTION = 16;
+
+interface ProtocolRejection {
+  readonly errorCode: string;
+  readonly keyword: string | null;
+  readonly method: string;
+  readonly origin: "csms" | "station";
+  readonly path: string | null;
+  readonly phase: "request" | "response";
+}
+
+/**
+ * Summarize a strict OCPP schema rejection without copying any payload value: the rejected
+ * message may contain a raw RFID identifier or other device data.
+ */
+function describeProtocolRejection(failure: unknown): ProtocolRejection {
+  const value = recordValue(failure);
+  const error = recordValue(value.error);
+  const details = recordValue(error.details);
+  const first = Array.isArray(details.errors) ? recordValue(details.errors[0]) : {};
+  const method =
+    typeof value.method === "string" && /^[A-Za-z][A-Za-z0-9]{0,63}$/.test(value.method)
+      ? value.method
+      : "Unrecognized";
+  const keyword =
+    typeof first.keyword === "string" && /^[A-Za-z]{1,32}$/.test(first.keyword)
+      ? first.keyword
+      : null;
+  const path =
+    typeof first.instancePath === "string" && /^[A-Za-z0-9/_-]{0,128}$/.test(first.instancePath)
+      ? first.instancePath || "/"
+      : null;
+  const errorCode =
+    typeof error.rpcErrorCode === "string" && /^[A-Za-z]{1,40}$/.test(error.rpcErrorCode)
+      ? error.rpcErrorCode
+      : "FormationViolation";
+  return {
+    errorCode,
+    keyword,
+    method,
+    origin: value.outbound === true ? "csms" : "station",
+    path,
+    phase: value.isCall === true ? "request" : "response",
+  };
+}
+
+function recordValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function boundedText(value: unknown, maximumLength: number): string | null {
+  return typeof value === "string" && value.length <= maximumLength ? value : null;
 }
 
 function securelyEqual(actual: Buffer | undefined, expected: string): boolean {

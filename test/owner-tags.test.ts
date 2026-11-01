@@ -192,6 +192,20 @@ describe("owner-custodied RFID desired state", () => {
     expect(registry.tags).toEqual(new Set(["first-owner-tag"]));
   });
 
+  it("refuses a tag that differs from a desired tag only in letter case", async () => {
+    const directory = await temporaryDirectory(directories);
+    const bootstrap = config(join(directory, "events.ndjson"));
+    const registry = await OwnerTagRegistry.open(bootstrap);
+    const evidence = new MemoryEvidenceStore();
+    const liveConfig = withOwnerTagRegistry(bootstrap, registry);
+
+    await expect(registry.add(liveConfig, evidence, "FIRST-OWNER-TAG")).rejects.toThrow(
+      /differs only in letter case/i,
+    );
+    expect(registry.tags).toEqual(new Set(["first-owner-tag"]));
+    expect(evidence.events).toEqual([]);
+  });
+
   it("reconciles a durable state whose audit was interrupted before startup", async () => {
     const directory = await temporaryDirectory(directories);
     const bootstrap = config(join(directory, "events.ndjson"));

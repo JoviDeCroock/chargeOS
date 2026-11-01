@@ -15,7 +15,7 @@ import {
   type StationConfig,
 } from "./config.js";
 import { evidenceEvent, type EvidenceEvent, type EvidenceStore } from "./events.js";
-import { pseudonymizeTag } from "./tag.js";
+import { foldIdTag, pseudonymizeTag } from "./tag.js";
 
 const OWNER_TAG_STATE_SCHEMA_VERSION = 1 as const;
 const MAXIMUM_OWNER_TAGS = 10_000;
@@ -173,6 +173,14 @@ export class OwnerTagRegistry {
     return this.#serialize(async () => {
       if (action === "added" && this.#tags.has(tag)) {
         throw new OwnerTagConflictError("Owner tag is already in desired state");
+      }
+      if (
+        action === "added" &&
+        [...this.#tags].some((existing) => foldIdTag(existing) === foldIdTag(tag))
+      ) {
+        throw new OwnerTagConflictError(
+          "Owner tag differs only in letter case from a desired tag; OCPP compares tags case-insensitively",
+        );
       }
       if (action === "removed" && !this.#tags.has(tag)) {
         throw new OwnerTagConflictError("Owner tag is not in desired state");

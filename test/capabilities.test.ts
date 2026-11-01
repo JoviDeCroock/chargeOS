@@ -8,6 +8,7 @@ describe("assessOwnerContinuity", () => {
       configuration({
         AllowOfflineTxForUnknownId: "false",
         LocalAuthListEnabled: "true",
+        LocalAuthListMaxLength: "10",
         LocalAuthorizeOffline: "true",
         SendLocalListMaxLength: "10",
       }),
@@ -17,7 +18,85 @@ describe("assessOwnerContinuity", () => {
 
     expect(result.state).toBe("ready");
     expect(result.localListVersion).toBe(4);
-    expect(result.checks).toHaveLength(5);
+    expect(result.checks).toHaveLength(6);
+  });
+
+  it("accepts boolean and integer spellings that vary between charger firmwares", () => {
+    const result = assessOwnerContinuity(
+      configuration({
+        AllowOfflineTxForUnknownId: "FALSE",
+        LocalAuthListEnabled: "True",
+        LocalAuthListMaxLength: " 32 ",
+        LocalAuthorizeOffline: "true ",
+        SendLocalListMaxLength: "32",
+      }),
+      { listVersion: 0 },
+      1,
+    );
+    expect(result.state).toBe("ready");
+  });
+
+  it("blocks when local list storage cannot hold every owner tag", () => {
+    const result = assessOwnerContinuity(
+      configuration({
+        AllowOfflineTxForUnknownId: "false",
+        LocalAuthListEnabled: "true",
+        LocalAuthListMaxLength: "1",
+        LocalAuthorizeOffline: "true",
+        SendLocalListMaxLength: "10",
+      }),
+      { listVersion: 1 },
+      2,
+    );
+    expect(result.state).toBe("blocked");
+    expect(result.checks).toContainEqual(
+      expect.objectContaining({ id: "local-list-storage", observed: "1 entries", state: "fail" }),
+    );
+  });
+
+  it("fails a required key the charger explicitly reports as unknown instead of guessing", () => {
+    const result = assessOwnerContinuity(
+      {
+        ...configuration({
+          AllowOfflineTxForUnknownId: "false",
+          LocalAuthorizeOffline: "true",
+          SendLocalListMaxLength: "10",
+        }),
+        unknownKey: ["LocalAuthListEnabled", "LocalAuthListMaxLength"],
+      },
+      { listVersion: 1 },
+      1,
+    );
+    expect(result.state).toBe("blocked");
+    expect(result.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "local-list-enabled",
+          observed: "not supported by this charger",
+          state: "fail",
+        }),
+        expect.objectContaining({
+          id: "local-list-storage",
+          observed: "not supported by this charger",
+          state: "fail",
+        }),
+      ]),
+    );
+  });
+
+  it("does not read malformed capacities as numbers", () => {
+    const result = assessOwnerContinuity(
+      configuration({
+        AllowOfflineTxForUnknownId: "false",
+        LocalAuthListEnabled: "true",
+        LocalAuthListMaxLength: "",
+        LocalAuthorizeOffline: "true",
+        SendLocalListMaxLength: "1e3",
+      }),
+      { listVersion: 1 },
+      1,
+    );
+    expect(result.state).toBe("unknown");
   });
 
   it("blocks synchronization when offline policy would accept unknown tags", () => {
@@ -25,6 +104,7 @@ describe("assessOwnerContinuity", () => {
       configuration({
         AllowOfflineTxForUnknownId: "true",
         LocalAuthListEnabled: "true",
+        LocalAuthListMaxLength: "10",
         LocalAuthorizeOffline: "true",
         SendLocalListMaxLength: "10",
       }),
