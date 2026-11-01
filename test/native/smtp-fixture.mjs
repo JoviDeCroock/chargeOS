@@ -129,7 +129,7 @@ export async function syntheticSmtp(certificates, options = {}) {
   server.on("tlsClientError", () => {});
   await new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
+    server.listen(options.port ?? 0, "127.0.0.1", resolve);
   });
   const port = server.address().port;
   return {

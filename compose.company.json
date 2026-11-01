@@ -1,0 +1,106 @@
+{
+  "name": "chargeos-company",
+  "services": {
+    "proxy": {
+      "build": {
+        "context": ".",
+        "dockerfile": "Dockerfile.company",
+        "target": "proxy"
+      },
+      "image": "chargeos-company-proxy:local",
+      "user": "1000:1000",
+      "cap_drop": ["ALL"],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "environment": {
+        "COMPANY_DOMAIN": "${COMPANY_DOMAIN:?Set the company accounts DNS name}",
+        "COMPANY_ACME_EMAIL": "${COMPANY_ACME_EMAIL:?Set the certificate contact address}"
+      },
+      "ports": ["80:8080/tcp", "443:8443/tcp"],
+      "tmpfs": ["/tmp:size=16m,mode=1777"],
+      "volumes": [
+        "./deploy/Caddyfile.company:/etc/caddy/Caddyfile:ro",
+        "company-caddy-data:/data",
+        "company-caddy-config:/config"
+      ]
+    },
+    "accounts": {
+      "build": {
+        "context": ".",
+        "dockerfile": "Dockerfile.company",
+        "target": "runtime"
+      },
+      "image": "chargeos-company:local",
+      "network_mode": "service:proxy",
+      "depends_on": {
+        "proxy": {
+          "condition": "service_started"
+        }
+      },
+      "user": "1000:1000",
+      "cap_drop": ["ALL"],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "environment": {
+        "SERVICE_ORIGIN": "https://${COMPANY_DOMAIN:?Set the company accounts DNS name}",
+        "SERVICE_SIGNUP_DOMAINS": "${COMPANY_SIGNUP_DOMAINS:?Set approved work email domains}"
+      },
+      "secrets": ["company_auth"],
+      "tmpfs": ["/tmp:size=512m,mode=1777"],
+      "volumes": ["company-data:/data"],
+      "stop_grace_period": "90s"
+    },
+    "mailer": {
+      "image": "chargeos-company:local",
+      "network_mode": "service:proxy",
+      "depends_on": {
+        "accounts": {
+          "condition": "service_healthy"
+        }
+      },
+      "user": "1000:1000",
+      "cap_drop": ["ALL"],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "command": [
+        "node",
+        "dist/native-service/service/node/mail-cli.js",
+        "run",
+        "--smtp-config",
+        "/run/secrets/company_smtp"
+      ],
+      "healthcheck": {
+        "test": ["CMD", "node", "dist/native-service/service/node/mail-health.js"],
+        "interval": "10s",
+        "timeout": "3s",
+        "start_period": "15s",
+        "retries": 6
+      },
+      "environment": {
+        "SERVICE_MAIL_HEALTH_FILE": "/tmp/chargeos-mail-ready",
+        "SERVICE_ORIGIN": "https://${COMPANY_DOMAIN:?Set the company accounts DNS name}",
+        "SERVICE_SIGNUP_DOMAINS": "${COMPANY_SIGNUP_DOMAINS:?Set approved work email domains}"
+      },
+      "secrets": ["company_auth", "company_smtp"],
+      "tmpfs": ["/tmp:size=32m,mode=1777"],
+      "volumes": ["company-data:/data"],
+      "stop_grace_period": "90s"
+    }
+  },
+  "secrets": {
+    "company_auth": {
+      "file": "${COMPANY_AUTH_FILE:?Set the private auth-secret path}"
+    },
+    "company_smtp": {
+      "file": "${COMPANY_SMTP_FILE:?Set the private SMTP JSON path}"
+    }
+  },
+  "volumes": {
+    "company-data": {},
+    "company-caddy-data": {},
+    "company-caddy-config": {}
+  }
+}

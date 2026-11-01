@@ -2,12 +2,12 @@
 
 Deployment starts the server software. It does not change your charging station's settings, move an existing provider connection, or start a payment.
 
-This guide deploys the **owner edge** through the wizard, with separate console and charger hostnames. For the separate employee/company account workspace, choose the local trial in [Install the software](install.md) or the IT-managed synthetic [HTTPS company pilot](company-hosting.md), which uses one company account hostname. Company one-click and managed-cloud account deployment remain pending.
+This guide deploys the **owner edge** through the wizard, with separate console and charger hostnames. For the separate employee/company account workspace, choose the local trial in [Install the software](install.md) or the IT-managed synthetic [HTTPS company pilot](company-hosting.md), which uses one company account hostname. The same setup tool has a separate local Docker company form; managed-cloud company deployment remains pending.
 
 ## Docker on your own server
 
 1. Open setup as described in [Install the software](install.md).
-2. Choose **Docker on this computer or server**. Docker starts on the computer running setup, using its active Docker context. Confirm that this is the intended server.
+2. Choose **Docker on this computer or server**. Docker must run locally on the computer running setup. Remote SSH/TCP Docker contexts are refused. Confirm that this is the intended computer; setup checks shared file visibility before starting.
 3. Name the installation. Use a new name only for a separate installation; an existing setup is never overwritten.
 4. Enter the charger's exact OCPP identity (its name on the back-office connection) and the actual RFID identifier of one owner card. Your installer can find these. A serial number or the number printed on a card may be different. The setup form accepts identities made of letters, numbers, hyphens and underscores, up to 64 characters.
 5. Enter the two hostnames and the email address for certificate notices.

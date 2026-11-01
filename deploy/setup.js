@@ -1,5 +1,6 @@
 const token = location.hash.slice(1);
 history.replaceState(null, "", "/");
+document.getElementById("company-setup").href = `/company#${token}`;
 const form = document.querySelector("#setup");
 const target = document.querySelector("#target");
 const cloud = document.querySelector("#cloud");
@@ -23,7 +24,7 @@ target.addEventListener("change", () => {
   document.getElementById("image-optional").hidden = managed;
   document.getElementById("destination-help").textContent = managed
     ? "Use an existing Coolify Cloud account with a connected server. Its proxy will provide HTTPS and WSS on two separate domains."
-    : "Docker and Compose must be installed and running here. Your server needs two DNS names pointing to it and ports 80 and 443 available.";
+    : "Docker and Compose must run locally on this computer. Remote Docker contexts are not supported. Your server needs two DNS names pointing to it and ports 80 and 443 available.";
 });
 if (!/^[a-f0-9]{64}$/.test(token)) {
   error.hidden = false;

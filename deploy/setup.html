@@ -17,8 +17,12 @@
       </p>
       <p class="note">
         Setup starts server software. Connecting a live charger is a separate step, after you have
-        backed up its settings and arranged a safe migration window. Employer accounts and
-        reimbursements remain in the separate local service.
+        backed up its settings and arranged a safe migration window.
+      </p>
+      <p>
+        For employees, finance and reimbursement records,
+        <a id="company-setup" href="/company">set up company accounts instead</a>. The two
+        workspaces have separate credentials and data.
       </p>
       <form id="setup">
         <fieldset>
@@ -29,8 +33,9 @@
             <option value="coolify">Managed server through Coolify Cloud</option>
           </select>
           <p id="destination-help">
-            Docker and Compose must be installed and running here. Your server needs two DNS names
-            pointing to it and ports 80 and 443 available.
+            Docker and Compose must run locally on this computer. Remote Docker contexts are not
+            supported. Your server needs two DNS names pointing to it and ports 80 and 443
+            available.
           </p>
           <label for="name">Name this installation</label
           ><input

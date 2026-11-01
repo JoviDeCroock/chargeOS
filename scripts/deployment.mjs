@@ -254,7 +254,7 @@ export async function prepareDeployment(input, parent = join(repositoryRoot, ".c
     await mkdir(join(directory, "secrets"), { mode: 0o700 });
     for (const [name, value] of Object.entries(credentials))
       await save(`secrets/${name}`, value, 0o444);
-    await save("Caddyfile", caddyfile);
+    await save("Caddyfile", caddyfile, 0o444);
   } else {
     const rawTemplate = await readFile(new URL("../compose.coolify.json", import.meta.url), "utf8");
     const values = cloudEnvironment(input, { ownerToken, stationSecret, installId });
@@ -279,12 +279,13 @@ export async function prepareDeployment(input, parent = join(repositoryRoot, ".c
     stationSecret,
     image: input.image || "local source build",
     status: "prepared",
+    ...(input.dockerContext ? { dockerContext: input.dockerContext } : {}),
   };
   await save("compose.json", JSON.stringify(model, null, 2));
   await save("credentials.json", JSON.stringify(receipt, null, 2));
   await save(
     "START-HERE.txt",
-    `chargeOS setup: ${input.name}\n\nConsole: ${receipt.consoleUrl}\nCharger endpoint: ${receipt.ocppUrl}\nPrivate credentials: credentials.json\n\nThis folder is private; keep it off shared drives and out of support messages.\nPoint both DNS names at your server. Docker: ports 80/443 must be reachable.\nManaged: Coolify supplies TLS and routes console to Caddy port 8080, OCPP to 8081.\nDeployment starts software; it never changes an existing charger's endpoint.\nFollow docs/guides/connect-a-charger.md before a charger migration.\nCreate and drill a separate encrypted continuity bundle after provisioning.\nDo not delete this deployment's data volume or create a second edge for the same live charger.\n\nDocker resume (from this folder): docker compose -f compose.json up --detach --wait\nDocker stop (keeps data): docker compose -f compose.json stop\nCloud: inspect the service in Coolify before retrying any uncertain submission.\n`,
+    `chargeOS setup: ${input.name}\n\nConsole: ${receipt.consoleUrl}\nCharger endpoint: ${receipt.ocppUrl}\nPrivate credentials: credentials.json\n\nThis folder is private; keep it off shared drives and out of support messages.\nPoint both DNS names at your server. Docker: ports 80/443 must be reachable.\nManaged: Coolify supplies TLS and routes console to Caddy port 8080, OCPP to 8081.\nDeployment starts software; it never changes an existing charger's endpoint.\nFollow docs/guides/connect-a-charger.md before a charger migration.\nCreate and drill a separate encrypted continuity bundle after provisioning.\nDo not delete this deployment's data volume or create a second edge for the same live charger.\n\n${input.target === "docker" ? `Docker resume (from this folder): ${dockerComposeCommand(model.name, input.dockerContext)} up --detach --wait\nDocker stop (keeps data): ${dockerComposeCommand(model.name, input.dockerContext)} stop\n` : "Cloud: inspect the existing service in Coolify and its saved receipts before retrying any uncertain submission. Never run this cloud setup as a second local edge.\n"}`,
   );
   return { directory, model, receipt };
 }
@@ -403,4 +404,13 @@ export async function deployToCoolify(input, prepared, fetcher = fetch) {
   receipt.status = "submitted";
   await save("cloud-receipt");
   return receipt;
+}
+
+export function dockerComposeCommand(project, context) {
+  if (
+    !/^[a-z0-9][a-z0-9-]{0,100}$/.test(project) ||
+    (context !== undefined && !/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(context))
+  )
+    throw new DeploymentError("Invalid saved Docker destination.");
+  return `docker${context ? ` --context ${context}` : ""} compose --project-name ${project} --file compose.json`;
 }

@@ -10,7 +10,7 @@ For an internet-facing owner edge, choose two addresses such as `charge.company.
 
 ## Choose the workspace
 
-Use the setup wizard below for the **owner edge**, which connects to a charger and uses separate console and charger hostnames. Use **Try the employer workspace locally** below to evaluate company accounts on one computer. For a shared company account address, follow [Share the company workspace](company-hosting.md): that separate synthetic HTTPS pilot needs IT setup, one company hostname and a mail provider. The owner wizard does not install it.
+Use the setup wizard below for the **owner edge**, which connects to a charger and uses separate console and charger hostnames. Use **Try the employer workspace locally** below to evaluate company accounts on one computer. For a shared company account address, follow [Share the company workspace](company-hosting.md): the separate synthetic HTTPS pilot now has its own company setup form, one hostname and a mail provider.
 
 ## Open setup
 

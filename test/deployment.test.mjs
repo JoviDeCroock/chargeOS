@@ -74,6 +74,7 @@ it("creates private non-overwriting Docker files with unique credentials, file-s
   const { model, receipt, directory } = prepared;
   expect((await lstat(directory)).mode & 0o777).toBe(0o700);
   expect((await lstat(join(directory, "credentials.json"))).mode & 0o777).toBe(0o600);
+  expect((await lstat(join(directory, "Caddyfile"))).mode & 0o777).toBe(0o444);
   expect((await lstat(join(directory, "secrets/owner_tags"))).mode & 0o777).toBe(0o444);
   expect(await readFile(join(directory, "secrets/owner_tags"), "utf8")).toBe("AABBCCDD");
   expect(receipt.ownerToken.length).toBeGreaterThanOrEqual(32);
@@ -91,6 +92,59 @@ it("creates private non-overwriting Docker files with unique credentials, file-s
   expect(await readFile(join(directory, "secrets/station_secret"), "utf8")).toBe(
     receipt.stationSecret,
   );
+});
+it("pins owner prepare-only instructions to a validated local context without starting a probe or deployment", async () => {
+  const parent = await temp(),
+    docker = vi.fn(),
+    dockerProbe = vi.fn();
+  const destination = { context: "verified-local", endpoint: "unix:///synthetic/docker.sock" };
+  server = createSetupServer({
+    prepare: (input) => prepareDeployment(input, parent),
+    docker,
+    dockerProbe,
+    dockerDestination: async () => destination,
+  });
+  const { origin, url } = await server.listen();
+  const response = await fetch(`${origin}/deploy`, {
+    method: "POST",
+    headers: {
+      Origin: origin,
+      "Content-Type": "application/json",
+      "X-Setup-Token": new URL(url).hash.slice(1),
+    },
+    body: JSON.stringify(raw()),
+  });
+  expect(response.status).toBe(200);
+  expect(docker).not.toHaveBeenCalled();
+  expect(dockerProbe).not.toHaveBeenCalled();
+  const result = await response.json(),
+    model = JSON.parse(await readFile(join(result.directory, "compose.json"), "utf8"));
+  const guide = await readFile(join(result.directory, "START-HERE.txt"), "utf8");
+  expect(guide).toContain(
+    `docker --context verified-local compose --project-name ${model.name} --file compose.json`,
+  );
+});
+it("rejects remote owner prepare-only destinations before package creation", async () => {
+  const prepare = vi.fn();
+  const { DeploymentError } = await import("../scripts/deployment.mjs");
+  server = createSetupServer({
+    prepare,
+    dockerDestination: async () => {
+      throw new DeploymentError("Choose local Docker");
+    },
+  });
+  const { origin, url } = await server.listen();
+  const response = await fetch(`${origin}/deploy`, {
+    method: "POST",
+    headers: {
+      Origin: origin,
+      "Content-Type": "application/json",
+      "X-Setup-Token": new URL(url).hash.slice(1),
+    },
+    body: JSON.stringify(raw()),
+  });
+  expect(response.status).toBe(400);
+  expect(prepare).not.toHaveBeenCalled();
 });
 it("refuses symlinked or shared setup roots before creating credentials", async () => {
   const directory = await temp();
@@ -236,7 +290,15 @@ it("protects deployment from foreign origins, forged hosts and missing nonces; p
   }));
   const docker = vi.fn();
   const cloud = vi.fn();
-  server = createSetupServer({ prepare, docker, cloud });
+  server = createSetupServer({
+    prepare,
+    docker,
+    cloud,
+    dockerDestination: async () => ({
+      context: "synthetic-local",
+      endpoint: "unix:///synthetic/docker.sock",
+    }),
+  });
   const { origin, url } = await server.listen();
   const nonce = new URL(url).hash.slice(1);
   const headers = { "Content-Type": "application/json", Origin: origin, "X-Setup-Token": nonce };

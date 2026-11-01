@@ -11,11 +11,20 @@ import {
   DeploymentError,
   repositoryRoot,
 } from "./deployment.mjs";
+import { companyDeploymentInput, prepareCompanyDeployment } from "./company-deployment.mjs";
+import {
+  inspectLocalDocker,
+  proveLocalDocker,
+  deploymentDockerEnvironment,
+} from "./docker-destination.mjs";
 
 export function createSetupServer({
   prepare = prepareDeployment,
   cloud = deployToCoolify,
   docker = runDocker,
+  companyPrepare = prepareCompanyDeployment,
+  dockerDestination = inspectLocalDocker,
+  dockerProbe = proveLocalDocker,
 } = {}) {
   const nonce = randomBytes(32).toString("hex");
   let active = false;
@@ -44,7 +53,8 @@ export function createSetupServer({
       return reply(response, 403, {
         error: "Open the exact local setup address printed in the terminal.",
       });
-    if (request.url === "/deploy" && request.method === "POST") {
+    const company = request.url === "/deploy/company";
+    if ((request.url === "/deploy" || company) && request.method === "POST") {
       const supplied = request.headers["x-setup-token"];
       if (
         request.headers.origin !== origin ||
@@ -69,7 +79,8 @@ export function createSetupServer({
         request.setTimeout(10_000, () => request.destroy());
         for await (const chunk of request) {
           size += chunk.length;
-          if (size > 8192) return reply(response, 413, { error: "Setup data is too large." });
+          if (size > (company ? 32768 : 8192))
+            return reply(response, 413, { error: "Setup data is too large." });
           chunks.push(chunk);
         }
         request.setTimeout(0);
@@ -79,13 +90,22 @@ export function createSetupServer({
         } catch {
           return reply(response, 400, { error: "Setup data must be valid JSON." });
         }
-        const input = deploymentInput(raw);
-        const prepared = await prepare(input);
+        const input = company ? companyDeploymentInput(raw) : deploymentInput(raw);
+        const destination =
+          company || input.target === "docker" ? await dockerDestination() : undefined;
+        if (destination) {
+          if (input.deploy) await dockerProbe(destination);
+          input.dockerContext = destination.context;
+        }
+        const prepared = company ? await companyPrepare(input) : await prepare(input);
         let receipt = prepared.receipt;
         if (input.deploy) {
-          if (input.target === "coolify") receipt = await cloud(input, prepared);
+          if (!company && input.target === "coolify") receipt = await cloud(input, prepared);
           else {
-            await docker(prepared.directory);
+            await docker(prepared.directory, {
+              project: prepared.model.name,
+              context: destination?.context,
+            });
             receipt = { ...receipt, status: "containers-started" };
           }
         }
@@ -111,6 +131,8 @@ export function createSetupServer({
       "/": ["deploy/setup.html", "text/html"],
       "/setup.js": ["deploy/setup.js", "text/javascript"],
       "/setup.css": ["deploy/setup.css", "text/css"],
+      "/company": ["deploy/company-setup.html", "text/html"],
+      "/company-setup.js": ["deploy/company-setup.js", "text/javascript"],
     };
     const asset = assets[request.url];
     if (request.method !== "GET" || !asset) return reply(response, 404, { error: "Not found" });
@@ -132,14 +154,23 @@ export function createSetupServer({
       ),
   };
 }
-function runDocker(directory) {
+export function runDocker(directory, { project, context }, start = spawn) {
+  if (
+    !/^[a-z0-9][a-z0-9-]{0,100}$/.test(project) ||
+    !/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(context)
+  )
+    throw new DeploymentError("The verified Docker destination is missing. Reopen setup.");
   return new Promise((resolve, reject) => {
     // No shell, no secrets in arguments or inherited setup input. Compose reads
     // private files; child output stays on the operator's terminal.
-    const child = spawn(
+    const child = start(
       "docker",
       [
+        "--context",
+        context,
         "compose",
+        "--project-name",
+        project,
         "--file",
         "compose.json",
         "up",
@@ -149,7 +180,13 @@ function runDocker(directory) {
         "--wait-timeout",
         "180",
       ],
-      { cwd: directory, stdio: ["ignore", "inherit", "inherit"], shell: false, timeout: 600_000 },
+      {
+        cwd: directory,
+        env: deploymentDockerEnvironment(),
+        stdio: ["ignore", "inherit", "inherit"],
+        shell: false,
+        timeout: 600_000,
+      },
     );
     child.once("error", () =>
       reject(

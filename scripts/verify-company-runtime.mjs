@@ -1,7 +1,12 @@
 import { execFileSync } from "node:child_process";
+import { companyDeploymentInput, prepareCompanyDeployment } from "./company-deployment.mjs";
+import { runDocker } from "./deploy.mjs";
+import { inspectLocalDocker, proveLocalDocker } from "./docker-destination.mjs";
+import { smtpCertificates, messageText } from "../test/native/smtp-fixture.mjs";
 import { randomBytes } from "node:crypto";
 import {
   chmodSync,
+  lstatSync,
   mkdirSync,
   linkSync,
   symlinkSync,
@@ -18,29 +23,13 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const directory = mkdtempSync(join(tmpdir(), "chargeos-company-runtime-"));
-const project = `chargeos-company-drill-${process.pid}-${Date.now()}`;
+let project = `chargeos-company-drill-${process.pid}-${Date.now()}`;
 const domain = "accounts.example.test",
   origin = `https://${domain}`;
-const authSecret = randomBytes(48).toString("base64url");
-const environment = {
-  ...process.env,
-  COMPANY_DOMAIN: domain,
-  COMPANY_ACME_EMAIL: "operator@example.test",
-  COMPANY_SIGNUP_DOMAINS: "example.test",
-  COMPANY_AUTH_FILE: join(directory, "auth"),
-  COMPANY_SMTP_FILE: join(directory, "smtp"),
-};
-const args = [
-  "compose",
-  "--project-name",
-  project,
-  "--project-directory",
-  root,
-  "-f",
-  join(root, "compose.company.yaml"),
-  "-f",
-  join(directory, "override.yaml"),
-];
+let authSecret, runtimeImage, proxyImage;
+let sentinelProject, sentinelFile, certificates;
+const environment = { ...process.env };
+const args = [];
 function docker(argv, input) {
   return execFileSync("docker", argv, {
     cwd: root,
@@ -116,33 +105,64 @@ function sql(query) {
   ]);
 }
 try {
-  save("auth", authSecret);
-  save(
-    "smtp",
-    JSON.stringify({
-      format: "chargeos-smtp",
-      schemaVersion: 1,
-      host: "smtp.example.test",
-      port: 465,
-      security: "implicit-tls",
-      username: "synthetic",
-      password: "synthetic SMTP password",
-      sender: "accounts@example.test",
-      caFile: null,
+  const destination = await inspectLocalDocker();
+  await proveLocalDocker(destination);
+  const prepared = await prepareCompanyDeployment(
+    companyDeploymentInput({
+      name: "synthetic-guided-company",
+      companyDomain: domain,
+      signupDomains: "example.test",
+      email: "operator@example.test",
+      smtpHost: "mail.example.test",
+      smtpPort: "2525",
+      smtpSecurity: "starttls",
+      smtpUsername: "synthetic",
+      smtpPassword: "synthetic SMTP password",
+      smtpSender: "accounts@example.test",
+      deploy: false,
     }),
+    directory,
   );
-  const caddy = readFileSync(join(root, "deploy/Caddyfile.company"), "utf8").replace(
+  project = prepared.model.name;
+  authSecret = readFileSync(join(prepared.directory, "secrets/company_auth"), "utf8");
+  runtimeImage = prepared.model.services.accounts.image;
+  proxyImage = prepared.model.services.proxy.image;
+  args.push(
+    "compose",
+    "--project-name",
+    project,
+    "--project-directory",
+    prepared.directory,
+    "-f",
+    join(prepared.directory, "compose.json"),
+    "-f",
+    join(directory, "override.yaml"),
+  );
+  save("auth", authSecret);
+  const caddy = readFileSync(join(prepared.directory, "Caddyfile"), "utf8").replace(
     "https://{$COMPANY_DOMAIN}:8443 {",
     "https://{$COMPANY_DOMAIN}:8443 {\n  tls internal",
   );
-  save("Caddyfile", caddy);
+  save("Caddyfile", caddy, lstatSync(join(prepared.directory, "Caddyfile")).mode & 0o777);
   // Compose's YAML reset removes the production port list before ephemeral binds.
   save(
     "override.yaml",
     `services:\n  proxy:\n    ports: !override\n      - "127.0.0.1::8080/tcp"\n      - "127.0.0.1::8443/tcp"\n    volumes:\n      - ${JSON.stringify(join(directory, "Caddyfile") + ":/etc/caddy/Caddyfile:ro")}\n`,
   );
   compose(["build", "proxy", "accounts"]);
-  function secretProbe(mounts, path, accepted, image = "chargeos-company:local") {
+  certificates = await smtpCertificates("mail.example.test");
+  save(
+    "smtp-fixture-certificates.json",
+    JSON.stringify({ key: certificates.key, cert: certificates.cert }),
+  );
+  save("smtp-fixture-ca.pem", certificates.cert);
+  const smtpPath = join(prepared.directory, "secrets/company_smtp");
+  const smtpSettings = JSON.parse(readFileSync(smtpPath, "utf8"));
+  smtpSettings.caFile = "/run/secrets/company_smtp_ca";
+  chmodSync(smtpPath, 0o600);
+  writeFileSync(smtpPath, JSON.stringify(smtpSettings));
+  chmodSync(smtpPath, 0o444);
+  function secretProbe(mounts, path, accepted, image = runtimeImage) {
     const code = `import {readRuntimeFile} from './dist/native-service/service/node/runtime-files.js';let accepted=false;try{readRuntimeFile(${JSON.stringify(path)},4096,true);accepted=true}catch{}process.exit(accepted===${accepted}?0:1)`;
     docker([
       "run",
@@ -165,7 +185,7 @@ try {
   }
   save(
     "Dockerfile.secret-fixture",
-    "FROM chargeos-company:local\nCOPY --chmod=0444 auth /run/secrets/baked\n",
+    `FROM ${runtimeImage}\nCOPY --chmod=0444 auth /run/secrets/baked\n`,
   );
   docker([
     "build",
@@ -209,11 +229,107 @@ try {
       "Company service network/user boundary changed",
     );
   }
+  // Test-only MTA in the same private loopback namespace. Its real verified
+  // STARTTLS exchange exercises the generated SMTP configuration without an
+  // external provider, and captures private links only in a disposable volume.
+  model.services["smtp-fixture"] = {
+    image: runtimeImage,
+    network_mode: "service:proxy",
+    depends_on: { proxy: { condition: "service_started" } },
+    user: "1000:1000",
+    cap_drop: ["ALL"],
+    read_only: true,
+    security_opt: ["no-new-privileges:true"],
+    healthcheck: {
+      test: [
+        "CMD",
+        "node",
+        "-e",
+        "const s=require('net').connect(2525,'127.0.0.1');s.on('connect',()=>{s.destroy();process.exit(0)});s.on('error',()=>process.exit(1))",
+      ],
+      interval: "1s",
+      timeout: "2s",
+      retries: 20,
+      start_period: "1s",
+    },
+    volumes: [
+      "company-smtp-fixture:/data",
+      `${join(root, "test/native/smtp-fixture.mjs")}:/fixture.mjs:ro`,
+      `${join(directory, "smtp-fixture-certificates.json")}:/certificates.json:ro`,
+    ],
+    command: [
+      "node",
+      "--input-type=module",
+      "-e",
+      "import{readFileSync,writeFileSync}from'node:fs';import{syntheticSmtp}from'/fixture.mjs';const s=await syntheticSmtp(JSON.parse(readFileSync('/certificates.json','utf8')),{starttls:true,port:2525});setInterval(()=>writeFileSync('/data/messages.json',JSON.stringify(s.messages),{mode:0o600}),50);",
+    ],
+  };
+  model.volumes["company-smtp-fixture"] = {};
+  model.secrets.company_smtp_ca = { file: join(directory, "smtp-fixture-ca.pem") };
+  model.services.mailer.secrets.push({ source: "company_smtp_ca", target: "company_smtp_ca" });
+  model.services.proxy.extra_hosts = ["mail.example.test=127.0.0.1"];
+  model.services.mailer.depends_on["smtp-fixture"] = {
+    condition: "service_started",
+    required: true,
+  };
+  writeFileSync(join(prepared.directory, "compose.json"), JSON.stringify(model, null, 2));
+  // From here the production runner sees exactly the same one-file package
+  // shape as the wizard. Only loopback ports, test certificates and MTA differ.
+  args.splice(args.length - 2, 2);
+  sentinelProject = `${project}-sentinel`;
+  sentinelFile = join(directory, "sentinel.json");
+  writeFileSync(
+    sentinelFile,
+    JSON.stringify({
+      services: {
+        accounts: {
+          image: runtimeImage,
+          network_mode: "none",
+          healthcheck: { disable: true },
+          read_only: true,
+          user: "1000:1000",
+          cap_drop: ["ALL"],
+          volumes: ["company-data:/data"],
+          command: [
+            "node",
+            "-e",
+            "require('fs').writeFileSync('/data/sentinel','synthetic-sentinel',{mode:0o600});setInterval(()=>{},1000)",
+          ],
+        },
+      },
+      volumes: { "company-data": {} },
+    }),
+  );
+  const sentinelArgs = ["compose", "--project-name", sentinelProject, "-f", sentinelFile];
+  docker([...sentinelArgs, "up", "--detach"]);
+  const sentinelId = docker([...sentinelArgs, "ps", "-q", "accounts"]).trim();
+  const priorProject = process.env.COMPOSE_PROJECT_NAME;
+  process.env.COMPOSE_PROJECT_NAME = sentinelProject;
   try {
-    compose(["up", "--detach", "--wait", "--wait-timeout", "90", "accounts"]);
+    await runDocker(prepared.directory, { project, context: destination.context });
   } catch {
     throw new Error("Synthetic company startup failed: " + compose(["logs", "--no-color"]));
+  } finally {
+    if (priorProject === undefined) delete process.env.COMPOSE_PROJECT_NAME;
+    else process.env.COMPOSE_PROJECT_NAME = priorProject;
   }
+  assert(
+    docker([...sentinelArgs, "ps", "-q", "accounts"]).trim() === sentinelId,
+    "Inherited Compose project replaced the sentinel container",
+  );
+  const sentinelState = docker([
+    ...sentinelArgs,
+    "exec",
+    "-T",
+    "accounts",
+    "node",
+    "-e",
+    "console.log(JSON.stringify(require('fs').readdirSync('/data')))",
+  ]).trim();
+  assert(
+    sentinelState === '["sentinel"]',
+    "Company deployment touched an existing sentinel volume",
+  );
   port = Number(compose(["port", "proxy", "8443"]).trim().split(":").at(-1));
   httpPort = Number(compose(["port", "proxy", "8080"]).trim().split(":").at(-1));
   ca = compose(["exec", "-T", "proxy", "cat", "/data/caddy/pki/authorities/local/root.crt"]);
@@ -265,12 +381,26 @@ try {
     ).status === 200,
     "Hosted signup failed",
   );
-  const rows = JSON.parse(sql("SELECT url,channel FROM local_outbox WHERE kind='verify-email'"));
+  let messages = [];
+  for (let attempt = 0; attempt < 80; attempt++) {
+    try {
+      messages = JSON.parse(compose(["exec", "-T", "smtp-fixture", "cat", "/data/messages.json"]));
+    } catch {}
+    if (messages.length) break;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  const delivered =
+    messages[0] &&
+    messageText(messages[0])
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line.startsWith(`${origin}/service/api/auth/verify-email?`));
+  const rows = delivered ? [{ url: delivered, channel: "smtp" }] : [];
   assert(
     rows.length === 1 &&
       rows[0].channel === "smtp" &&
       rows[0].url.startsWith(`${origin}/service/api/auth/verify-email?`),
-    "Signup lost its private public-origin SMTP reservation",
+    "Generated SMTP configuration did not deliver a verified public-origin account link",
   );
   const link = new URL(rows[0].url);
   assert(
@@ -289,22 +419,10 @@ try {
     (await browser("/service/api/v1/me")).status === 200,
     "Hosted session did not authenticate",
   );
-  const discarded = JSON.parse(
-    compose([
-      "run",
-      "--rm",
-      "--no-deps",
-      "mailer",
-      "node",
-      "dist/native-service/service/node/mail-cli.js",
-      "once",
-      "--smtp-config",
-      "/run/secrets/company_smtp",
-    ]),
-  );
+  compose(["stop", "mailer"]);
   assert(
-    discarded.accepted === 0 && discarded.failed === 1,
-    "Hosted mailer did not safely discard an already verified link",
+    JSON.parse(sql("SELECT count(*) AS n FROM local_outbox"))[0].n === 0,
+    "Accepted account mail was not durably removed",
   );
   const backupPassphrase = "synthetic-public-recovery-" + randomBytes(24).toString("hex");
   const recoveryProof = docker(
@@ -359,7 +477,7 @@ try {
     "ALL",
     "--entrypoint",
     "node",
-    "chargeos-company:local",
+    runtimeImage,
     "-e",
     `const s=require('net').connect({host:${JSON.stringify(ip)},port:9091});s.on('connect',()=>process.exit(1));s.on('error',()=>process.exit(0));setTimeout(()=>process.exit(0),2000)`,
   ]);
@@ -376,18 +494,47 @@ try {
     "Expected stopped-upstream path failure",
   );
   const logs = compose(["logs", "--no-color"]);
-  for (const secret of [token, authSecret, email, rows[0].url, password, backupPassphrase])
+  docker(["image", "tag", runtimeImage, "chargeos-company:local"]);
+  docker(["image", "tag", proxyImage, "chargeos-company-proxy:local"]);
+  for (const secret of [
+    token,
+    authSecret,
+    email,
+    rows[0].url,
+    password,
+    backupPassphrase,
+    "synthetic SMTP password",
+  ])
     assert(!logs.includes(secret), "Private account material leaked into container logs");
   console.log(
-    "Company Docker drill passed: non-root/read-only images, sole loopback proxy, verified HTTPS signup and Secure session, isolated owner/enrollment routes, canonical redirect and secret-free error logs. Read-only secret mount negatives, hosted mailer loading and near-limit compiled backup/local quarantine passed. No external mail sent.",
+    "Guided company Docker drill passed: real local bind proof, pinned unique project despite inherited override, untouched sentinel volume, generated private SMTP settings and verified STARTTLS email, HTTPS signup and Secure session, isolated owner/enrollment routes, canonical redirect, secret-free logs and near-limit compiled backup/local quarantine. No external mail sent.",
   );
 } finally {
   try {
     compose(["down", "--volumes", "--remove-orphans"]);
   } finally {
+    if (sentinelProject && sentinelFile) {
+      try {
+        docker([
+          "compose",
+          "--project-name",
+          sentinelProject,
+          "-f",
+          sentinelFile,
+          "down",
+          "--volumes",
+        ]);
+      } catch {}
+    }
+    await certificates?.close();
     try {
       docker(["image", "rm", `${project}:secret-fixture`]);
     } catch {}
+    for (const image of [runtimeImage, proxyImage].filter(Boolean)) {
+      try {
+        docker(["image", "rm", image]);
+      } catch {}
+    }
     chmodSync(directory, 0o700);
     rmSync(directory, { recursive: true, force: true });
   }

@@ -15,7 +15,7 @@ Read [VISION.md](VISION.md) and [docs/README.md](docs/README.md) before changing
 
 ## Repository map
 
-- `service/`: separate commercial accounts and organization boundary with Worker/D1 and native Node/SQLite adapters; Worker/local adapters plus a separate operator-managed native HTTPS Docker pilot; company one-click and complete public recovery/resumption remain gated. Never infer physical station ownership from an organization role.
+- `service/`: separate commercial accounts and organization boundary with Worker/D1 and native Node/SQLite adapters; Worker/local adapters plus a separate operator-managed native HTTPS Docker pilot; managed-cloud company setup and complete public recovery/resumption remain gated. Never infer physical station ownership from an organization role.
 - `server/`: OCPP gateway, integrity-checked evidence store, owner API, projections, and continuity recovery CLI.
 - `shared/`: typed API contracts plus canonical migration, Freedom Test, and delegate role/scope catalogs shared by server and owner UI.
 - `src/`: Preact owner dashboard and API client.
@@ -103,3 +103,5 @@ pnpm interop:everest
 Do not declare a charger liberated from unit tests alone. The release gate is a witnessed charger test with WAN loss, backend loss, charge-point restart, successful owner RFID charging, and recovery replay.
 
 - Company HTTPS hosting requires the dedicated non-root Docker shared-proxy network namespace, exact canonical HTTPS origin, Secure cookies, approved signup domains and explicit SMTP. Keep 9091 loopback-only/unpublished, overwrite dedicated proxy metadata and reject extra proxy/CDN trust. Never log account URLs through proxy access or error logs. Reserve initial signup delivery before password work; bound public mail, peer admission and stale rate-counter retention. Public-origin backup metadata grants no public authority; restores remain local/quarantined and no public resumption shortcut is authorized. Run `pnpm verify:company-runtime` for this boundary.
+
+- Docker wizard starts must validate a local Unix-socket context and actual local bind-file visibility before creating credentials. Pin the selected context and generated project explicitly, strip inherited COMPOSE_* controls and retain project/context in saved commands. Remote Docker file transfer is unsupported; never bind locally generated credentials through an unverified remote context. Company setup derives from compose.company.json and never imports/reopens recovered state.
