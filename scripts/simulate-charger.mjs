@@ -100,6 +100,8 @@ export function createSimulatedCharger(options) {
   let localListVersion = 0;
   let localListSize = 0;
   let meterWh = 1_000_000;
+  /** @type {Map<number, { connectorId: number, idTag: string, meterStart: number }>} */
+  const activeSessions = new Map();
 
   const client = new RPCClient({
     callTimeoutMs: 10_000,
@@ -154,7 +156,48 @@ export function createSimulatedCharger(options) {
   });
 
   client.handle("Reset", async ({ params }) => {
-    log(`<- Reset ${params.type} -> Accepted (simulated; no restart is performed)`);
+    log(`<- Reset ${params.type} -> Accepted (simulated restart: BootNotification follows)`);
+    setTimeout(() => {
+      void boot().catch(() => undefined);
+    }, 50);
+    return { status: "Accepted" };
+  });
+
+  client.handle("RemoteStartTransaction", async ({ params }) => {
+    const connectorId = params.connectorId ?? 1;
+    const busy = [...activeSessions.values()].some(
+      (session) => session.connectorId === connectorId,
+    );
+    log(`<- RemoteStartTransaction connector ${connectorId} -> ${busy ? "Rejected" : "Accepted"}`);
+    if (busy) return { status: "Rejected" };
+    setTimeout(() => {
+      void startSession({ connectorId, tag: params.idTag, remote: true }).catch(() => undefined);
+    }, 50);
+    return { status: "Accepted" };
+  });
+
+  client.handle("RemoteStopTransaction", async ({ params }) => {
+    const known = activeSessions.has(params.transactionId);
+    log(`<- RemoteStopTransaction #${params.transactionId} -> ${known ? "Accepted" : "Rejected"}`);
+    if (!known) return { status: "Rejected" };
+    setTimeout(() => {
+      void stopSession(params.transactionId, 2_500, "Remote").catch(() => undefined);
+    }, 50);
+    return { status: "Accepted" };
+  });
+
+  client.handle("UnlockConnector", async ({ params }) => {
+    log(`<- UnlockConnector ${params.connectorId} -> Unlocked`);
+    return { status: "Unlocked" };
+  });
+
+  client.handle("ChangeAvailability", async ({ params }) => {
+    log(`<- ChangeAvailability ${params.connectorId} ${params.type} -> Accepted`);
+    if (params.type === "Operative") {
+      setTimeout(() => {
+        void status("Available", params.connectorId || 1).catch(() => undefined);
+      }, 50);
+    }
     return { status: "Accepted" };
   });
 
@@ -196,37 +239,56 @@ export function createSimulatedCharger(options) {
   }
 
   /**
-   * Run one charge session. The tag is presented as the profile dictates and never logged.
+   * Start a charge session and leave it running. The tag is presented as the profile dictates
+   * (remote starts use the identifier chargeOS sent) and is never logged.
    *
-   * @param {{ tag: string, energyWh?: number, samples?: number }} session
+   * @param {{ tag: string, connectorId?: number, remote?: boolean }} session
    */
-  async function runSession(session) {
-    const presented = profile.presentTag ? profile.presentTag(session.tag) : session.tag;
-    const energyWh = session.energyWh ?? 7_400;
-    const samples = Math.max(1, session.samples ?? 3);
-    const authorize = await client.call("Authorize", { idTag: presented });
-    log(`-> Authorize (owner card) -> ${authorize.idTagInfo.status}`);
-    if (authorize.idTagInfo.status !== "Accepted") {
-      return { authorization: authorize.idTagInfo.status, transactionId: null };
+  async function startSession(session) {
+    const connectorId = session.connectorId ?? 1;
+    const presented =
+      !session.remote && profile.presentTag ? profile.presentTag(session.tag) : session.tag;
+    if (!session.remote) {
+      const authorize = await client.call("Authorize", { idTag: presented });
+      log(`-> Authorize (owner card) -> ${authorize.idTagInfo.status}`);
+      if (authorize.idTagInfo.status !== "Accepted") {
+        return { authorization: authorize.idTagInfo.status, transactionId: null };
+      }
     }
-    await status("Preparing");
+    await status("Preparing", connectorId);
     const meterStart = meterWh;
     const start = await client.call("StartTransaction", {
-      connectorId: 1,
+      connectorId,
       idTag: presented,
       meterStart,
       timestamp: new Date().toISOString(),
     });
     log(`-> StartTransaction -> #${start.transactionId} ${start.idTagInfo.status}`);
     if (start.idTagInfo.status !== "Accepted") {
-      await status("Available");
+      await status("Available", connectorId);
       return { authorization: start.idTagInfo.status, transactionId: start.transactionId };
     }
-    await status("Charging");
+    activeSessions.set(start.transactionId, { connectorId, idTag: presented, meterStart });
+    await status("Charging", connectorId);
+    return { authorization: "Accepted", transactionId: start.transactionId };
+  }
+
+  /**
+   * Deliver energy for an active session and stop it.
+   *
+   * @param {number} transactionId
+   * @param {number} energyWh
+   * @param {string} reason
+   * @param {number} samples
+   */
+  async function stopSession(transactionId, energyWh, reason = "Local", samples = 3) {
+    const session = activeSessions.get(transactionId);
+    if (!session) throw new Error(`Session #${transactionId} is not active`);
+    activeSessions.delete(transactionId);
     for (let sample = 1; sample <= samples; sample += 1) {
-      meterWh = meterStart + Math.round((energyWh * sample) / samples);
+      meterWh = session.meterStart + Math.round((energyWh * sample) / samples);
       await client.call("MeterValues", {
-        connectorId: 1,
+        connectorId: session.connectorId,
         meterValue: [
           {
             sampledValue: [
@@ -235,24 +297,43 @@ export function createSimulatedCharger(options) {
             timestamp: new Date().toISOString(),
           },
         ],
-        transactionId: start.transactionId,
+        transactionId,
       });
       log(`-> MeterValues ${meterWh} Wh`);
     }
     await client.call("StopTransaction", {
-      idTag: presented,
+      idTag: session.idTag,
       meterStop: meterWh,
-      reason: "Local",
+      reason,
       timestamp: new Date().toISOString(),
-      transactionId: start.transactionId,
+      transactionId,
     });
-    log(`-> StopTransaction #${start.transactionId} (${energyWh} Wh)`);
-    await status("Finishing");
-    await status("Available");
-    return { authorization: "Accepted", transactionId: start.transactionId };
+    log(`-> StopTransaction #${transactionId} (${energyWh} Wh)`);
+    await status("Finishing", session.connectorId);
+    await status("Available", session.connectorId);
+  }
+
+  /**
+   * Run one complete local charge session.
+   *
+   * @param {{ tag: string, energyWh?: number, samples?: number }} session
+   */
+  async function runSession(session) {
+    const started = await startSession({ tag: session.tag });
+    if (started.authorization !== "Accepted" || started.transactionId === null) return started;
+    await stopSession(
+      started.transactionId,
+      session.energyWh ?? 7_400,
+      "Local",
+      Math.max(1, session.samples ?? 3),
+    );
+    return started;
   }
 
   return {
+    get activeTransactionIds() {
+      return [...activeSessions.keys()];
+    },
     boot,
     client,
     configuration,
@@ -270,14 +351,17 @@ export function createSimulatedCharger(options) {
       return localListVersion;
     },
     runSession,
+    startSession,
     status,
+    stopSession,
   };
 }
 
 const HELP = `Usage: pnpm simulate [options]
 
 Connect a synthetic OCPP 1.6J charge point to a local chargeOS edge (for example one started with
-"pnpm dev"). It answers configuration, local-list and reset commands, and can run a charge session.
+"pnpm dev"). It answers configuration, local-list, remote start/stop, reset, unlock and availability
+commands, and can run a charge session.
 It is a development tool: it proves nothing about any real charger.
 
 Options:

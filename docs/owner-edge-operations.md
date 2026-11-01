@@ -168,6 +168,7 @@ The deployment applies the same accepted-connection ceiling at Caddy and Node, c
 - `POST /api/v1/stations/:stationId/inspect`
 - `POST /api/v1/stations/:stationId/prepare-owner-continuity`
 - `POST /api/v1/stations/:stationId/sync-authorizations`
+- `POST /api/v1/stations/:stationId/commands` (station-scoped only; no unscoped alias)
 
 Every legacy owner and delegate path above is also available below `/api/v1/stations/:stationId/` (for example, `GET /api/v1/stations/:stationId/snapshot`, `POST /api/v1/stations/:stationId/owner-tags`, and `GET /api/v1/stations/:stationId/delegate/sessions`). The unscoped aliases address only the first configured station. The fleet web app uses scoped paths exclusively; unknown station IDs return a not-found response after owner authentication.
 
@@ -182,6 +183,25 @@ Delegate endpoints require a separately issued bearer token and the named read s
 The preparation route fails closed before mutation unless every required change is explicitly reported writable. Its request must contain the exact phrase `I authorize only the documented owner-continuity settings`; it can only enable the two known-owner local authorization settings and disable unknown-tag offline authorization. It does not synchronize tags or reboot the charger. The synchronization route separately fails closed if the station is offline or any required capability is failed/unknown.
 
 `POST /api/v1/owner-tags` accepts `{ "tag": "..." }` over loopback or the production TLS boundary, persists it, and returns only its pseudonym and state metadata. The revoke route addresses that pseudonym and requires `{ "confirmation": "I understand this tag may remain usable until the charger accepts the replacement owner list" }`. It refuses the last desired credential. Neither response, ledger record, snapshot, nor ordinary log contains the raw tag. After either mutation, explicitly inspect and synchronize the complete list, verify `Accepted`, and export a fresh encrypted continuity bundle.
+
+### Remote charger commands
+
+`POST /api/v1/stations/:stationId/commands` sends one owner-only command to a connected charger. Delegates have no route to it. The body is a closed object; unknown fields are refused:
+
+- `{ "type": "RemoteStartTransaction", "connectorId": 1, "tagPseudonym": "tag_…" }` starts a session with a current desired owner card chosen by pseudonym. chargeOS resolves the raw identifier internally. The request, response and ledger never contain it. It is refused when a session is already active on that connector.
+- `{ "type": "RemoteStopTransaction", "transactionId": 7 }` stops a session that is active on this charger. Completed, unknown or other-station sessions are refused.
+- `{ "type": "Reset", "resetType": "Soft" | "Hard", "confirmation": "I understand this restarts the charger and may end a session" }`.
+- `{ "type": "UnlockConnector", "connectorId": 1, "confirmation": "I am at the charger and the cable is safe to release" }`.
+- `{ "type": "ChangeAvailability", "connectorId": 0-99, "availability": "Operative" }`. `Inoperative` is refused. OCPP persists it across restarts, so a charger disabled through chargeOS would stay disabled if chargeOS disappeared.
+
+Commands for one charger run one at a time. chargeOS records `StationCommandRequested` before sending, so if that append fails nothing is sent. It then records the OCPP request (with any card pseudonymized), followed by `StationCommandResult` with the charger's literal status, or `StationCommandFailed`. Snapshot `commands` (latest 20) shows each command's state and a separate observed outcome derived only from later charger messages:
+
+- **`accepted` / `rejected`** is the charger's explicit answer.
+- **`failed`** means it was not carried out: the charger answered with an OCPP error such as `NotImplemented`.
+- **`uncertain`** covers a 30-second timeout, a lost connection, an unreadable reply, or no recorded answer after 60 seconds (for example after an edge crash). The charger may or may not have acted. Check the observed state before trying again.
+- **Observed outcome** is a matching `StartTransaction`, `StopTransaction`, `BootNotification` or `StatusNotification`.
+
+An accepted command is not proof of the outcome, and none of these commands changes the local owner list or offline settings.
 
 ## Read the machine-readable Genesis plan
 
@@ -535,7 +555,7 @@ The export endpoint is safe for support/evidence sharing but is not sufficient f
 - one configured station and one owner root;
 - OCPP 1.6J only;
 - NDJSON is single-process and hard-capped per active segment; verified rollover preserves a complete segmented chain, while schema-4 replacement compaction reduces edge-resident history only when full bundles remain separately custodied. The retained operational index still grows, custody retention is manual, and neither chain is an independent signature;
-- no remote-start, tariffs, billing, firmware, write-capable delegation, or cloud dependency; employer session reads are observations only;
+- owner remote start/stop, restart, unlock and make-available exist, but there are no schedules, tariffs, billing, firmware updates, load limits, write-capable delegation, or cloud dependency; employer session reads are observations only;
 - the production edge has automatic HTTPS/WSS, file-backed secrets, and explicit single-station protocol resource limits, but no volumetric DDoS service or multi-node failover;
 - continuity restores application credentials, verified evidence, and safety limits, not DNS control, certificate material, Caddy state, or an inherited trusted-proxy topology;
 - continuity passphrases can be rewrapped without plaintext restore, and owner Ed25519 checkpoints authenticate a selected chain head; external timestamp anchors remain future work;

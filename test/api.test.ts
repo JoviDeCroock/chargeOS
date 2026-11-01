@@ -71,6 +71,9 @@ describe("owner API", () => {
       listen() {
         throw new Error("not used");
       },
+      async sendStationCommand() {
+        throw new Error("not used");
+      },
       async prepareOwnerContinuity() {
         return {
           assessment: {
@@ -509,6 +512,9 @@ describe("owner API", () => {
         throw new Error("not used");
       },
       listen() {
+        throw new Error("not used");
+      },
+      async sendStationCommand() {
         throw new Error("not used");
       },
       async prepareOwnerContinuity() {

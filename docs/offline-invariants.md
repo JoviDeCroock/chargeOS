@@ -75,6 +75,15 @@ Multi-vendor protocol tolerance is also limited to the online path. Case-insensi
 - **Permanent company loss:** no change. The rejection audits are carried in continuity bundles and bounded during compaction.
 - **One week disconnected:** no change. A schema-invalid transaction message that the charger keeps retrying stays rejected and visible after reconnection instead of being silently accepted or normalized. That data loss belongs to the exact-device buffer test.
 
+Owner remote commands (remote start/stop, restart, unlock and make-available) are online conveniences. They require a connected charger and owner authentication, never write the local owner list or the three offline settings, and never set a connector `Inoperative`, because that state persists without chargeOS. Here is the effect on each failure row:
+
+- **Hosted, WAN/DNS or local-edge loss:** commands are unavailable, and charging continues from the acknowledged local list. An answer lost during an outage is projected as `uncertain`, never as success.
+- **Isolated restart:** a remote `Reset` is a restart while connected, not an isolated-restart test, and it cannot satisfy that witnessed row.
+- **Permanent company loss:** command history is ordinary evidence carried in continuity bundles. No command state is needed to charge.
+- **One week disconnected:** no change.
+
+A remote start uses a desired owner card, so it adds no credential the charger would not already accept locally.
+
 The readiness check now also requires `LocalAuthListMaxLength` to cover every desired owner tag. A key the charger explicitly reports as unknown fails its check rather than staying unknown. Both changes can only block synchronization; neither can loosen it.
 
 Evidence-capacity exhaustion is another backend-loss mode. chargeOS refuses the whole append before altering the hash chain and reports degraded health; it never deletes owner evidence or rewrites authorization state to stay online. OCPP responses that require durable evidence may therefore fail, while already-synchronized owner charging must continue locally. Recovery requires verified continuity evidence and deliberately provisioned capacity, never manual truncation.

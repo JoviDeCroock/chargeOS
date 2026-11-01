@@ -1,3 +1,4 @@
+import type { StationCommandRecord } from "./commands.js";
 import type { FreedomTestProjection } from "./freedom-test.js";
 import type { GenesisPlan } from "./genesis.js";
 import type { DelegateGrantSummary } from "./delegation.js";
@@ -70,6 +71,7 @@ export interface OwnerSnapshot {
     readonly tagCount: number;
     readonly tagPseudonyms: readonly string[];
   };
+  readonly commands: readonly StationCommandRecord[];
   readonly evidence: readonly EvidenceSummary[];
   readonly evidenceHistory: {
     readonly custodyBundleCount: number;
@@ -172,6 +174,14 @@ export type {
   FreedomTestStepState,
 } from "./freedom-test.js";
 export type { GenesisAction, GenesisActionId, GenesisPhase, GenesisPlan } from "./genesis.js";
+export type {
+  StationCommandInput,
+  StationCommandRecord,
+  StationCommandResult,
+  StationCommandState,
+  StationCommandType,
+} from "./commands.js";
+export { STATION_RESET_PHRASE, STATION_UNLOCK_PHRASE } from "./commands.js";
 export type {
   DelegateDiagnostics,
   DelegateGrantCreated,

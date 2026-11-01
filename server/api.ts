@@ -10,6 +10,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { isIP } from "node:net";
 import { extname, relative, resolve } from "node:path";
 
+import type { StationCommandResult } from "../shared/commands.js";
 import type { ApiErrorResponse } from "../shared/contracts.js";
 import type { ContinuityPreparationInput } from "../shared/continuity.js";
 import type { DelegateGrantInput, DelegateScope } from "../shared/delegation.js";
@@ -22,6 +23,11 @@ import type {
   MigrationAuthorizationInput,
   MigrationObservationInput,
 } from "../shared/migration.js";
+import {
+  parseStationCommandInput,
+  StationCommandConflictError,
+  StationCommandInputError,
+} from "./commands.js";
 import { configForStation, type GatewayConfig, UnknownStationError } from "./config.js";
 import {
   authenticateDelegate,
@@ -277,6 +283,7 @@ function resolveStationRequest(
   }
   const suffix = match[2] ?? "";
   const directStationActions = new Set([
+    "/commands",
     "/inspect",
     "/prepare-owner-continuity",
     "/sync-authorizations",
@@ -486,6 +493,25 @@ async function handleOwnerApi(
       sendJson(response, 200, await gateway.prepareOwnerContinuity(config.stationId, input));
     } catch (error) {
       sendGatewayError(response, error);
+    }
+    return;
+  }
+
+  const commandPath = `/api/v1/stations/${encodeURIComponent(config.stationId)}/commands`;
+  if (url.pathname === commandPath && request.method === "POST") {
+    try {
+      const input = parseStationCommandInput(await readJsonBody(request));
+      const command = await gateway.sendStationCommand(config.stationId, input);
+      const result: StationCommandResult = { command };
+      sendJson(response, 200, result);
+    } catch (error) {
+      if (error instanceof StationCommandInputError) {
+        sendError(response, 400, "invalid_station_command", error.message);
+      } else if (error instanceof StationCommandConflictError) {
+        sendError(response, 409, "station_command_conflict", error.message);
+      } else {
+        sendGatewayError(response, error);
+      }
     }
     return;
   }

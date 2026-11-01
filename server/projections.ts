@@ -13,6 +13,7 @@ import type {
   DelegateSessionExport,
   DelegateStationStatus,
 } from "../shared/delegation.js";
+import { buildStationCommands } from "./commands.js";
 import { configForStation, configuredStations, type GatewayConfig } from "./config.js";
 import { projectDelegateGrants } from "./delegation.js";
 import type { EvidenceEvent } from "./events.js";
@@ -34,6 +35,7 @@ export function buildOwnerSnapshot(
   const migration = buildMigrationProjection(stationEvents);
   return {
     authorization: authorizationProjection(stationEvents, config),
+    commands: buildStationCommands(stationEvents),
     delegations: projectDelegateGrants(stationEvents),
     evidence: evidenceProjection(stationEvents, 50),
     evidenceHistory: evidenceHistoryProjection(stationEvents),
