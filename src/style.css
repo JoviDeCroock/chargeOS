@@ -186,12 +186,24 @@ body {
   line-height: 1.5;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Every chargeOS surface (owner console, help, accounts, preview, observation)
+   shares this backdrop so the product reads as one identity. */
+.console-backdrop,
+.help-root,
+.cs-root,
+.product-shell {
   position: relative;
   min-height: 100vh;
   isolation: isolate;
+  -webkit-font-smoothing: antialiased;
 }
 
-.console-backdrop::before {
+.console-backdrop::before,
+.help-root::before,
+.cs-root::before,
+.product-shell::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -203,22 +215,32 @@ body {
     radial-gradient(46rem 32rem at 70% 108%, var(--field-c), transparent 70%), var(--ground);
 }
 
-.glass {
+/*
+ * Glass surfaces are translucent panes over the fixed backdrop field. Only sticky
+ * chrome that content scrolls beneath (.glass-chrome) blurs: the field is already
+ * soft, and stacked backdrop filters under a sticky bar render a dark halo.
+ */
+.glass,
+.glass-chrome {
   background: var(--glass);
   border: 1px solid var(--glass-edge);
   box-shadow: var(--glass-shadow);
+}
+
+.glass-chrome {
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass {
+  .glass-chrome {
     background: var(--glass-strong);
   }
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .glass {
+  .glass,
+  .glass-chrome {
     background: var(--ground);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;

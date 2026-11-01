@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
+import { BrandMark } from "./brand.js";
 import { TroubleshootingPanel } from "./troubleshooting.js";
 
 import type {
@@ -185,7 +186,7 @@ export function App() {
       <a class="skip-link" href="#console-main">
         Skip to content
       </a>
-      <aside class="rail glass">
+      <aside class="rail glass-chrome">
         <a
           class="rail-brand"
           href={hasMultipleStations ? "#/fleet" : "#/overview"}
@@ -423,18 +424,6 @@ function sectionTones(
           ? { tone: "ok" }
           : { hint: "offline readiness not inspected", tone: "warn" },
   };
-}
-
-function BrandMark() {
-  return (
-    <span class="brand-mark">
-      <svg class="brand-glyph" viewBox="0 0 32 32" aria-hidden="true">
-        <circle cx="16" cy="16" r="12" />
-        <path d="M17.5 8.5 11.5 17h4.5l-1.5 6.5 6-8.5H16l1.5-6.5Z" />
-      </svg>
-      <span>chargeOS</span>
-    </span>
-  );
 }
 
 /* ------------------------------------------------------------------ */
