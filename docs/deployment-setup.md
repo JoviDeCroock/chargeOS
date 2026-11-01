@@ -12,7 +12,7 @@ The wizard uses a verified immutable image when supplied, otherwise builds the c
 
 ## Company Docker accounts
 
-Select **set up company accounts instead** on the setup page. The separate form generates a new native company HTTPS package from the canonical JSON model, with private SMTP settings and an independent random service key. It has prepare-only and one explicit Deploy action. It never imports a database or releases restored data. See [company hosting](company-hosting.md) for exact state, network, delivery and remaining public-recovery gates. Select local Docker or managed Coolify in the company form. The managed company adapter has its own isolated-destination contract below; the owner Coolify profile still uses its existing topology.
+Select **set up company accounts instead** on the setup page. The separate form generates a new native company HTTPS package from the canonical JSON model, with private SMTP settings and an independent random service key. It has prepare-only and one explicit Deploy action. It never imports a database or releases restored data. See [company hosting](company-hosting.md) for exact state, network, delivery and the separate reviewed public-recovery path and live acceptance gates. Select local Docker or managed Coolify in the company form. The managed company adapter has its own isolated-destination contract below; the owner Coolify profile still uses its existing topology.
 
 ## Managed company accounts
 

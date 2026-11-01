@@ -2,7 +2,7 @@
 
 Your company can host chargeOS accounts at its own secure web address. Employees use a browser to join the company and review reimbursement records. Your IT administrator runs the account server, its secure web entrance and its email sender.
 
-This is a **guided pilot** for synthetic evaluation. The setup tool has separate owner and company-account forms. Company accounts can be prepared with one Deploy action on local Docker or through Coolify. A real managed-platform acceptance check and a complete public recovery/resumption drill remain pending. Use synthetic accounts while evaluating this profile. The account workspace does not connect or take ownership of a charging station.
+This is a **guided pilot** for synthetic evaluation. The setup tool has separate owner and company-account forms. Company accounts can be prepared with one Deploy action on local Docker or through Coolify. A separate [reviewed public recovery](recovery.md#bring-the-reviewed-recovery-back-to-https) has synthetic owned-Docker proof. Real managed-platform acceptance and managed recovery remain pending. Use synthetic accounts while evaluating this profile. The account workspace does not connect or take ownership of a charging station.
 
 ## Before IT starts
 

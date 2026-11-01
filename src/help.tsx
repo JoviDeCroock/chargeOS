@@ -1,4 +1,5 @@
 import type { ComponentChildren } from "preact";
+import { useLayoutEffect } from "preact/hooks";
 import "./help.css";
 import { BrandMark } from "./brand.js";
 
@@ -29,7 +30,9 @@ const guides = order.map((id) => {
 
 function guideLink(href: string): string {
   if (href.startsWith("https://")) return href;
-  if (/^[a-z-]+\.md$/.test(href) || href === "README.md") return `/help?guide=${href.slice(0, -3)}`;
+  const local = href.match(/^([a-z-]+|README)\.md(#[a-z0-9-]+)?$/);
+  if (local && guides.some((guide) => guide.id === local[1]))
+    return `/help?guide=${local[1]}${local[2] ?? ""}`;
   if (/^\.\.\/[a-z-]+\.md(?:#[a-z0-9-]+)?$/.test(href))
     return `https://github.com/JoviDeCroock/chargeOS/blob/main/docs/${href.slice(3)}`;
   return "/help";
@@ -55,13 +58,38 @@ function inline(text: string): ComponentChildren[] {
 // paragraphs, links, emphasis, code and flat lists. HTML is always escaped.
 function Markdown({ text }: { text: string }) {
   const blocks = text.trim().split(/\n\s*\n/);
+  const headings = new Map<string, number>();
   return (
     <>
       {blocks.map((block, index) => {
         const heading = block.match(/^(#{1,3}) (.+)$/);
-        if (heading?.[1] === "#") return <h1 key={index}>{heading[2]}</h1>;
-        if (heading?.[1] === "##") return <h2 key={index}>{heading[2]}</h2>;
-        if (heading?.[1] === "###") return <h3 key={index}>{heading[2]}</h3>;
+        if (heading) {
+          const slug = heading[2]!
+              .toLowerCase()
+              .replace(/[^a-z0-9\s-]/g, "")
+              .trim()
+              .replace(/\s+/g, "-"),
+            count = headings.get(slug) ?? 0,
+            id = count ? `${slug}-${count}` : slug;
+          headings.set(slug, count + 1);
+          if (heading[1] === "#")
+            return (
+              <h1 key={index} id={id}>
+                {heading[2]}
+              </h1>
+            );
+          if (heading[1] === "##")
+            return (
+              <h2 key={index} id={id}>
+                {heading[2]}
+              </h2>
+            );
+          return (
+            <h3 key={index} id={id}>
+              {heading[2]}
+            </h3>
+          );
+        }
         if (block.startsWith("- "))
           return (
             <ul key={index}>
@@ -86,6 +114,13 @@ function Markdown({ text }: { text: string }) {
 export function HelpWorkspace({ hostedPage = false }: { hostedPage?: boolean } = {}) {
   const requested = new URLSearchParams(location.search).get("guide") ?? "README";
   const guide = guides.find((item) => item.id === requested) ?? guides[0]!;
+  // The browser looks for its initial fragment before this client-rendered
+  // guide exists. Resolve it again after the heading elements are committed.
+  useLayoutEffect(() => {
+    const fragment = location.hash.slice(1);
+    if (/^[a-z0-9-]+$/.test(fragment))
+      document.querySelector(`#guide [id="${fragment}"]`)?.scrollIntoView();
+  }, [guide.id]);
   return (
     <div class="help-root">
       <a class="help-skip" href="#guide">
