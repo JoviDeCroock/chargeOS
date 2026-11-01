@@ -85,10 +85,11 @@ describe("owner station commands (P08/P09)", () => {
       type: "RemoteStartTransaction",
     });
     expect(command).toMatchObject({ state: "accepted", status: "Accepted" });
-    await vi.waitFor(() =>
-      expect(commands(evidence)[0]?.observed).toBe("Session #1 started on connector 1"),
-    );
-    expect(charger.activeTransactionIds).toEqual([1]);
+    // Evidence is recorded before the simulator receives the StartTransaction reply.
+    await vi.waitFor(() => {
+      expect(commands(evidence)[0]?.observed).toBe("Session #1 started on connector 1");
+      expect(charger.activeTransactionIds).toEqual([1]);
+    });
 
     const sent = evidence.events.find((event) => event.message === "RemoteStartTransaction");
     expect(sent?.direction).toBe("csms-to-station");
