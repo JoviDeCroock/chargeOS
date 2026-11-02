@@ -21,7 +21,17 @@ For a single-owner multi-charger process, do not repeat or mix those legacy stat
 
 ### Console profile and drivers
 
-`CHARGEOS_PROFILE` is `personal` (default) or `company`; any other value stops startup. It arranges the owner console only: `personal` opens on monthly usage and hides the switching, delegated-access, evidence and AI modules by default, and `company` adds an all-charger usage report grouped by driver and shows delegated access and evidence by default. Owners can override the modules per browser under **Console settings**. Hiding a module removes no API route, owner card, readiness check or evidence, and a hidden module is shown again while a delegate grant is active or a switching/Freedom Test step is open, stopped or stale. The overview always shows a stopped Genesis plan. `driver` in the stations file, or `CHARGEOS_STATION_DRIVER` for a single legacy station, is a 1-120 character printable name the usage report groups by. It is owner-only console data: it is not added to the evidence ledger, redacted exports, field packs, AI troubleshooting payloads or delegate projections. Like `label` and `site`, it is deployment configuration and is not carried in a continuity bundle; set it again on a replacement edge.
+`CHARGEOS_PROFILE` is `personal` (default) or `company`; any other value stops startup. It arranges the owner console only: `personal` hides the switching, shared-access, records and AI tabs of **Station settings** by default, and `company` adds the all-charger **Usage** page grouped by person, labels people **Employees**, and shows shared access and records by default. Owners can override the optional tabs per browser under **Preferences**. Hiding a tab removes no API route, owner card, readiness check or evidence, and a hidden tab is shown again while a delegate grant is active or a switching/Freedom Test step is open, stopped or stale. The overview always shows a stopped Genesis plan. The console is translated into English, Dutch and French; the switching, Freedom Test and AI sections and all typed confirmation phrases stay in reviewed English.
+
+`driver` in the stations file, or `CHARGEOS_STATION_DRIVER` for a single legacy station, is a 1-120 character printable name. Together with `label` and `site` it only seeds the owner directory below.
+
+### Owner directory
+
+The owner names chargers, people and cards in the console. The names live in `directory.json` beside the evidence ledger (`/data/directory.json` in the containers): a closed-schema, mode-`0600`, at most 1 MiB file holding each station's label, site and person, the people, and each card's name and holder keyed by its station-scoped pseudonym. It never holds raw RFID values or secrets. On first start, chargeOS creates an entry for every configured station from its `label`, `site` and `driver`; later configuration edits do not overwrite an existing entry. Names are 1–80 characters after Unicode NFC normalization and whitespace folding; control, format, private-use and surrogate characters are refused. At most 500 people can be named.
+
+The directory is presentation data for the owner only. It feeds the owner snapshot, fleet overview and usage report, but is never added to the evidence ledger, redacted exports, field packs, AI troubleshooting payloads or delegate projections. A card can be named only while it is in that station's desired owner set. Revoking a card deletes its name (and those of any letter-case variants removed with it), a re-added card starts unnamed, and names of chargers no longer configured are dropped. An edit that would grow the file past 1 MiB is refused with `400`, and a failed save returns `503` while keeping the last saved names. Writes use a unique owner-only temporary file, `fsync`, atomic rename and directory `fsync`; startup removes temporary copies abandoned by a crash. If the file is a symlink, readable by group or others, oversized or malformed, chargeOS starts with the configured names, refuses edits with `503 directory_unavailable` and leaves the file untouched. Charging, owner cards and every other route keep working. Startup and edit warnings are closed messages without names or paths.
+
+The directory is not part of an encrypted continuity bundle. Back up `directory.json` with the rest of the data volume, or rename chargers, people and cards again on a replacement edge.
 
 `GET /api/v1/usage?month=YYYY-MM&timeZone=Area/City` is an owner-only, read-only projection of already recorded sessions across every provisioned station. A session belongs to the month in which it started in the requested IANA time zone (the console sends the browser's). The start time is the charger's reported `StartTransaction` timestamp, so a charger with a wrong clock is reported on its own clock. Open sessions count with no energy, and evidence conflicts keep the first stop value and are flagged. The console's CSV export lists card pseudonyms, never raw RFID values, quotes every cell (so neither a comma nor a semicolon-locale separator can split one), neutralizes formula-like cells, and uses a `charger:transaction` `session_id` that the reimbursement import accepts. It is a usage report, not an approved statement or payment.
 
@@ -146,8 +156,8 @@ The deployment applies the same accepted-connection ceiling at Caddy and Node, c
 3. Read every observed check. Missing or unsafe evidence leaves readiness unknown or blocked.
 4. If the three required settings are unsafe but all are explicitly reported writable, type the displayed confirmation phrase and run **Prepare owner continuity**. The edge performs a complete preflight, changes only those unsafe settings in the safe direction, and re-inspects. Missing, read-only, malformed, or ambiguous keys require the supported device/configuration path instead; do not bypass the block.
 5. If the charger returns `RebootRequired`, use the documented exact-model safe restart procedure, wait for a new authenticated `BootNotification`, and inspect or prepare again. chargeOS never restarts the station automatically.
-6. Review the desired tag pseudonyms. Add a credential through **Add desired tag** if needed. Removing a credential requires the displayed exact stale-access warning and is disabled for the final credential. These actions persist desired state only.
-7. Only after all checks pass, confirm **Synchronize owner tags**. This replaces the local list with exactly the current desired tags and a new monotonic revision.
+6. Review the desired cards on **RFID cards**. Add a credential through **Add card** if needed. Removing a credential requires acknowledging that it may keep authorizing locally until the next accepted list (the console then sends the server's exact stale-access confirmation) and is disabled for the final credential. These actions persist desired state only.
+7. Only after all checks pass, confirm **Send to charger**. This replaces the local list with exactly the current desired tags and a new monotonic revision.
 8. On a one-station edge, export a new encrypted continuity bundle and inspect it; redacted evidence alone cannot recover current tags. Fleet mode stops here until each charger is moved to a recovery-capable edge or the fleet continuity format exists.
 9. Perform the witnessed physical Freedom Test. Software readiness is not certification.
 
@@ -156,6 +166,10 @@ The deployment applies the same accepted-connection ceiling at Caddy and Node, c
 `GET /api/v1/health` is public and contains no owner state. It returns `503 degraded` when evidence capacity lacks one maximum-message headroom. Owner endpoints require `Authorization: Bearer <owner-token>`:
 
 - `GET /api/v1/fleet`
+- `GET /api/v1/directory` (owner directory names for every station; not station-scoped)
+- `POST /api/v1/people`, `POST /api/v1/people/:personId`, `POST /api/v1/people/:personId/remove` (not station-scoped)
+- `POST /api/v1/profile` (`{ "label", "site", "driverPersonId" }` for the station)
+- `POST /api/v1/cards/:tagPseudonym` (`{ "name", "holderPersonId" }`; the pseudonym must be in that station's desired set)
 - `GET /api/v1/snapshot`
 - `GET /api/v1/genesis-plan`
 - `GET /api/v1/continuity-export`
@@ -217,13 +231,13 @@ The plan is read-only guidance derived from the ledger. It never proves that an 
 
 ## Delegate without surrendering ownership
 
-Use **Delegated access** in the owner console to select an installer, employer reimbursement, or energy-provider role and a lifetime of at most 90 days. Copy the returned bearer secret immediately over an appropriate secure channel; chargeOS cannot show it again. The ledger retains only a verifier and short hint.
+Use **Station settings › Shared access** in the owner console to select an installer, employer reimbursement, or energy-provider role and a lifetime of at most 90 days. Copy the returned bearer secret immediately over an appropriate secure channel; chargeOS cannot show it again. The ledger retains only a verifier and short hint.
 
 Give delegates only the corresponding `/api/v1/delegate/*` route. An installer token can read the redacted migration dossier but cannot record checkpoints, authorize a window, synchronize RFID, or call owner APIs. Employer exports omit the RFID pseudonym and household-wide data; they are session observations, not an automatic reimbursement or fiscal-grade assertion. Revoking a grant invalidates it on the next request and does not touch charger-local authorization. Review `DelegateCapabilityUsed` events in the owner ledger to see successful access.
 
 ## Build the reversible migration dossier
 
-Use **Liberate my charger** before changing any endpoint. Each owner-recorded checkpoint requires the SHA-256 digest of evidence kept encrypted outside chargeOS. Record **blocked** whenever authority, contract, credentials, network/SIM custody, installer safety, configuration backup, transaction export, standalone rollback, standalone owner charging, station pre-provisioning, continuity recovery, or transport evidence is missing. Do not manufacture readiness with a brochure, OCPP logo, or simulator.
+Use **Station settings › Switching provider** before changing any endpoint. Each owner-recorded checkpoint requires the SHA-256 digest of evidence kept encrypted outside chargeOS. Record **blocked** whenever authority, contract, credentials, network/SIM custody, installer safety, configuration backup, transaction export, standalone rollback, standalone owner charging, station pre-provisioning, continuity recovery, or transport evidence is missing. Do not manufacture readiness with a brochure, OCPP logo, or simulator.
 
 Exact pre-switch device readiness comes from the Freedom Test inventory: label/hardware fields plus the expected OCPP vendor, model, and firmware strings obtained through supported ACE/current-backend evidence, with a SHA-256 reference to that separately held artifact. It intentionally does not require a prior chargeOS Boot. Once every pre-switch step passes:
 

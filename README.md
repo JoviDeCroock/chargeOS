@@ -140,7 +140,7 @@ The dashboard’s Freedom Test panel records exact hardware identity and SHA-256
 
 The owner console can issue narrow delegate capabilities without sharing the owner token. Installer grants can read station diagnostics, the migration dossier, and unreviewed field evidence; employer grants can read a tag-free session export; energy-provider grants can read station status. Role ceilings are fixed, every grant expires within 90 days, revocation is append-only, and successful reads are audited. No delegate route can change RFID, charger configuration, firmware, endpoint, or ownership.
 
-The **Liberate my charger** workflow stores only outcomes and SHA-256 references to separately held migration evidence. When all pre-switch checks pass, the owner can authorize a hashed target manifest for 15 minutes to 24 hours. Changing any prerequisite invalidates that authorization. Protocol events count as migrated-path evidence only when a new `BootNotification` arrives after authorization and within the window; the resulting state remains `online-path-observed-unreviewed` until the physical Freedom Test and review succeed.
+The **Switching provider** workflow (owner console **Station settings**) stores only outcomes and SHA-256 references to separately held migration evidence. When all pre-switch checks pass, the owner can authorize a hashed target manifest for 15 minutes to 24 hours. Changing any prerequisite invalidates that authorization. Protocol events count as migrated-path evidence only when a new `BootNotification` arrives after authorization and within the window; the resulting state remains `online-path-observed-unreviewed` until the physical Freedom Test and review succeed.
 
 ## Status
 

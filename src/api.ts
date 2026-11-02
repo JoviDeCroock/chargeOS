@@ -26,6 +26,12 @@ import type {
   TroubleshootingResult,
   UsageReport,
 } from "../shared/contracts.js";
+import type {
+  CardProfileInput,
+  DirectoryPerson,
+  OwnerDirectory,
+  StationProfileInput,
+} from "../shared/directory.js";
 
 export class OwnerApiError extends Error {
   readonly code: string;
@@ -65,6 +71,75 @@ export async function fetchUsageReport(
 ): Promise<UsageReport> {
   const query = new URLSearchParams({ month, timeZone });
   return requestJson<UsageReport>(`/api/v1/usage?${query.toString()}`, token);
+}
+
+export async function fetchDirectory(token: string): Promise<OwnerDirectory> {
+  const value = await requestJson<unknown>("/api/v1/directory", token);
+  // Names are presentation only: an unexpected shape (older server, proxy page) means "no names".
+  if (!isOwnerDirectory(value)) throw new Error("Unexpected directory response.");
+  return value;
+}
+
+function isOwnerDirectory(value: unknown): value is OwnerDirectory {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Partial<Record<keyof OwnerDirectory, unknown>>;
+  return (
+    Array.isArray(candidate.cards) &&
+    Array.isArray(candidate.people) &&
+    Array.isArray(candidate.stations) &&
+    typeof candidate.writable === "boolean"
+  );
+}
+
+export function addPerson(
+  name: string,
+  token: string,
+): Promise<{ directory: OwnerDirectory; person: DirectoryPerson }> {
+  return postJson("/api/v1/people", token, { name });
+}
+
+export function renamePerson(
+  personId: string,
+  name: string,
+  token: string,
+): Promise<{ directory: OwnerDirectory }> {
+  return postJson(`/api/v1/people/${encodeURIComponent(personId)}`, token, { name });
+}
+
+export function removePerson(
+  personId: string,
+  token: string,
+): Promise<{ directory: OwnerDirectory }> {
+  return postJson(`/api/v1/people/${encodeURIComponent(personId)}/remove`, token, {});
+}
+
+export function saveStationProfile(
+  stationId: string,
+  input: StationProfileInput,
+  token: string,
+): Promise<OwnerDirectory> {
+  return postJson(stationPath(stationId, "/profile"), token, input);
+}
+
+export function saveCardProfile(
+  stationId: string,
+  tagPseudonym: string,
+  input: CardProfileInput,
+  token: string,
+): Promise<OwnerDirectory> {
+  return postJson(
+    stationPath(stationId, `/cards/${encodeURIComponent(tagPseudonym)}`),
+    token,
+    input,
+  );
+}
+
+function postJson<T>(path: string, token: string, body: unknown): Promise<T> {
+  return requestJson<T>(path, token, {
+    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
 }
 
 export async function fetchSnapshot(stationId: string, token: string): Promise<OwnerSnapshot> {

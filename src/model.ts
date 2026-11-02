@@ -17,9 +17,22 @@ import type {
   StationCommandRecord,
   UsageReport,
 } from "../shared/contracts.js";
+import type {
+  CardProfileInput,
+  DirectoryPerson,
+  OwnerDirectory,
+  StationProfileInput,
+} from "../shared/directory.js";
 import { usageReportCsv } from "../shared/usage.js";
+import { t, type MessageKey } from "./i18n/index.js";
 import {
   addOwnerTag,
+  addPerson,
+  fetchDirectory,
+  removePerson,
+  renamePerson,
+  saveCardProfile,
+  saveStationProfile,
   authorizeMigration,
   createDelegation,
   downloadContinuityExport,
@@ -66,12 +79,15 @@ export const action = signal<
   | "owner-tag-add"
   | "owner-tag-revoke"
   | "station-command"
+  | "directory"
   | null
 >(null);
 export const notice = signal<{ kind: "error" | "success"; message: string } | null>(null);
 export const issuedDelegate = signal<DelegateGrantCreated | null>(null);
 export const usageReport = signal<UsageReport | null>(null);
 export const usageLoading = signal(false);
+/** Owner-chosen names for chargers, people and cards. `null` until loaded or on an older server. */
+export const directory = signal<OwnerDirectory | null>(null);
 
 /** The browser's IANA time zone; usage months follow the person reading the report. */
 export function browserTimeZone(): string {
@@ -91,6 +107,7 @@ export function setOwnerToken(value: string): void {
   notice.value = null;
   issuedDelegate.value = null;
   usageReport.value = null;
+  directory.value = null;
   if (token) {
     sessionStorage.setItem("chargeos.ownerToken", token);
   } else {
@@ -115,7 +132,7 @@ export async function runDelegateIssue(input: DelegateGrantInput): Promise<void>
     issuedDelegate.value = await createDelegation(current.station.id, input, ownerToken.value);
     notice.value = {
       kind: "success",
-      message: "Expiring delegate capability issued. Copy the bearer secret now; it is not stored.",
+      message: t("notice.delegateIssued"),
     };
     await refreshSnapshot(false);
   } catch (error) {
@@ -135,7 +152,7 @@ export async function runDelegateRevoke(grantId: string): Promise<void> {
     if (issuedDelegate.value?.grant.grantId === grantId) issuedDelegate.value = null;
     notice.value = {
       kind: "success",
-      message: "Delegate capability revoked without changing owner authority or local charging.",
+      message: t("notice.delegateRevoked"),
     };
     await refreshSnapshot(false);
   } catch (error) {
@@ -211,8 +228,13 @@ export async function refreshSnapshot(clearNotice = true): Promise<void> {
   if (!ownerToken.value || !selectedStationId.value) return;
   loading.value = true;
   try {
-    snapshot.value = await fetchSnapshot(selectedStationId.value, ownerToken.value);
-    fleet.value = await fetchFleet(ownerToken.value);
+    const [nextSnapshot, nextFleet] = await Promise.all([
+      fetchSnapshot(selectedStationId.value, ownerToken.value),
+      fetchFleet(ownerToken.value),
+      loadDirectory(),
+    ]);
+    snapshot.value = nextSnapshot;
+    fleet.value = nextFleet;
     if (clearNotice) notice.value = null;
   } catch (error) {
     handleError(error);
@@ -234,7 +256,13 @@ export async function refreshFleet(clearNotice = true): Promise<void> {
     selectedStationId.value = selected;
     if (selected) {
       sessionStorage.setItem("chargeos.selectedStationId", selected);
-      snapshot.value = await fetchSnapshot(selected, ownerToken.value);
+      const [nextSnapshot] = await Promise.all([
+        fetchSnapshot(selected, ownerToken.value),
+        loadDirectory(),
+      ]);
+      snapshot.value = nextSnapshot;
+    } else {
+      await loadDirectory();
     }
     if (clearNotice) notice.value = null;
   } catch (error) {
@@ -242,6 +270,82 @@ export async function refreshFleet(clearNotice = true): Promise<void> {
   } finally {
     loading.value = false;
   }
+}
+
+/** Names are optional: an older server without the directory keeps the console working. */
+async function loadDirectory(): Promise<void> {
+  try {
+    directory.value = await fetchDirectory(ownerToken.value);
+  } catch (error) {
+    if (error instanceof OwnerApiError && error.status === 401) throw error;
+    directory.value = null;
+  }
+}
+
+async function runDirectoryChange(
+  change: (token: string) => Promise<OwnerDirectory>,
+  success: MessageKey,
+): Promise<boolean> {
+  if (!ownerToken.value) return false;
+  action.value = "directory";
+  try {
+    directory.value = await change(ownerToken.value);
+    notice.value = { kind: "success", message: t(success) };
+    // Station names and drivers also appear in the fleet, snapshot and usage projections.
+    fleet.value = await fetchFleet(ownerToken.value);
+    if (selectedStationId.value) {
+      snapshot.value = await fetchSnapshot(selectedStationId.value, ownerToken.value);
+    }
+    usageReport.value = null;
+    return true;
+  } catch (error) {
+    handleError(error);
+    return false;
+  } finally {
+    action.value = null;
+  }
+}
+
+export function runSaveStation(stationId: string, input: StationProfileInput): Promise<boolean> {
+  return runDirectoryChange(
+    (token) => saveStationProfile(stationId, input, token),
+    "notice.stationSaved",
+  );
+}
+
+export function runSaveCard(
+  stationId: string,
+  tagPseudonym: string,
+  input: CardProfileInput,
+): Promise<boolean> {
+  return runDirectoryChange(
+    (token) => saveCardProfile(stationId, tagPseudonym, input, token),
+    "notice.cardSaved",
+  );
+}
+
+export async function runAddPerson(name: string): Promise<DirectoryPerson | null> {
+  let created: DirectoryPerson | null = null;
+  await runDirectoryChange(async (token) => {
+    const result = await addPerson(name, token);
+    created = result.person;
+    return result.directory;
+  }, "notice.personAdded");
+  return created;
+}
+
+export function runRenamePerson(personId: string, name: string): Promise<boolean> {
+  return runDirectoryChange(
+    async (token) => (await renamePerson(personId, name, token)).directory,
+    "notice.personSaved",
+  );
+}
+
+export function runRemovePerson(personId: string): Promise<boolean> {
+  return runDirectoryChange(
+    async (token) => (await removePerson(personId, token)).directory,
+    "notice.personRemoved",
+  );
 }
 
 let latestUsageRequest = 0;
@@ -273,10 +377,7 @@ export async function runInspection(): Promise<void> {
     const result = await inspectStation(current.station.id, ownerToken.value);
     notice.value = {
       kind: result.state === "ready" ? "success" : "error",
-      message:
-        result.state === "ready"
-          ? "All software-verifiable offline prerequisites passed. A physical Freedom Test is still required."
-          : "The charger did not prove every required offline capability.",
+      message: t(result.state === "ready" ? "notice.inspectReady" : "notice.inspectBlocked"),
     };
     await refreshSnapshot(false);
   } catch (error) {
@@ -295,8 +396,8 @@ export async function runContinuityPreparation(input: ContinuityPreparationInput
     notice.value = {
       kind: "success",
       message: result.changes.length
-        ? `${result.changes.length} owner-continuity settings were accepted and re-inspected. Synchronize owner tags next.`
-        : "Owner-continuity settings were already safe. Synchronize owner tags next.",
+        ? t("notice.preparedChanged", { count: result.changes.length })
+        : t("notice.preparedUnchanged"),
     };
     await refreshSnapshot(false);
   } catch (error) {
@@ -333,28 +434,33 @@ export async function runStationCommand(input: StationCommandInput): Promise<boo
 }
 
 export function stationCommandMessage(command: StationCommandRecord): string {
-  const name = STATION_COMMAND_LABELS[command.type];
+  const name = stationCommandLabel(command.type);
+  const status = command.status ?? "—";
   switch (command.state) {
     case "accepted":
-      return `${name}: the charger accepted the command. Watch the observed result below; acceptance alone does not prove it happened.`;
+      return t("command.message.accepted", { name });
     case "rejected":
-      return `${name}: the charger refused (${command.status ?? "no reason"}). Nothing changed.`;
+      return t("command.message.rejected", { name, status });
     case "failed":
-      return `${name}: not carried out (${command.status ?? "unknown error"}). This charger may not support it.`;
+      return t("command.message.failed", { name, status });
     case "uncertain":
-      return `${name}: no clear answer (${command.status ?? "unknown"}). The charger may or may not have acted; check its state before trying again.`;
+      return t("command.message.uncertain", { name, status });
     case "pending":
-      return `${name}: sent, waiting for the charger.`;
+      return t("command.message.pending", { name });
   }
 }
 
-export const STATION_COMMAND_LABELS: Readonly<Record<StationCommandRecord["type"], string>> = {
-  ChangeAvailability: "Make available",
-  RemoteStartTransaction: "Remote start",
-  RemoteStopTransaction: "Remote stop",
-  Reset: "Restart",
-  UnlockConnector: "Unlock connector",
+const STATION_COMMAND_LABEL_KEYS: Readonly<Record<StationCommandRecord["type"], MessageKey>> = {
+  ChangeAvailability: "command.type.ChangeAvailability",
+  RemoteStartTransaction: "command.type.RemoteStartTransaction",
+  RemoteStopTransaction: "command.type.RemoteStopTransaction",
+  Reset: "command.type.Reset",
+  UnlockConnector: "command.type.UnlockConnector",
 };
+
+export function stationCommandLabel(type: StationCommandRecord["type"]): string {
+  return t(STATION_COMMAND_LABEL_KEYS[type]);
+}
 
 export async function runAuthorizationSync(): Promise<void> {
   const current = snapshot.value;
@@ -364,7 +470,7 @@ export async function runAuthorizationSync(): Promise<void> {
     const result = await syncAuthorizations(current.station.id, ownerToken.value);
     notice.value = {
       kind: "success",
-      message: `Owner authorization list revision ${result.listVersion} was accepted by the charger.`,
+      message: t("notice.synced", { revision: result.listVersion }),
     };
     await refreshSnapshot(false);
   } catch (error) {
@@ -375,20 +481,53 @@ export async function runAuthorizationSync(): Promise<void> {
   }
 }
 
-export async function runOwnerTagAdd(input: OwnerTagAddInput): Promise<void> {
+/**
+ * Adds an owner card to the selected charger's desired list, then names it. The raw card value is
+ * sent once and never kept in the browser; the name is attached to the returned pseudonym.
+ */
+/**
+ * Adds a card, then names it. A new holder is created only after the card itself was added, so a
+ * refused card never leaves an orphan person behind.
+ */
+export async function runOwnerTagAdd(
+  input: OwnerTagAddInput,
+  profile?: CardProfileInput & { readonly newHolderName?: string },
+): Promise<boolean> {
   const current = snapshot.value;
-  if (!ownerToken.value || !current) return;
+  if (!ownerToken.value || !current) return false;
   action.value = "owner-tag-add";
   try {
-    await addOwnerTag(current.station.id, input, ownerToken.value);
+    const result = await addOwnerTag(current.station.id, input, ownerToken.value);
+    let named = true;
+    if (profile) {
+      try {
+        let holderPersonId = profile.holderPersonId;
+        if (profile.newHolderName) {
+          const created = await addPerson(profile.newHolderName, ownerToken.value);
+          directory.value = created.directory;
+          holderPersonId = created.person.id;
+        }
+        if (profile.name !== null || holderPersonId !== null) {
+          directory.value = await saveCardProfile(
+            current.station.id,
+            result.tagPseudonym,
+            { holderPersonId, name: profile.name },
+            ownerToken.value,
+          );
+        }
+      } catch {
+        named = false;
+      }
+    }
     notice.value = {
-      kind: "success",
-      message:
-        "Owner tag added to durable desired state. It remains pending until the charger accepts a complete synchronization.",
+      kind: named ? "success" : "error",
+      message: t(named ? "notice.cardAdded" : "notice.cardAddedUnnamed"),
     };
     await refreshSnapshot(false);
+    return true;
   } catch (error) {
     handleError(error);
+    return false;
   } finally {
     action.value = null;
   }
@@ -405,8 +544,7 @@ export async function runOwnerTagRevoke(
     await revokeOwnerTag(current.station.id, tagPseudonym, input, ownerToken.value);
     notice.value = {
       kind: "success",
-      message:
-        "Owner tag removed from durable desired state. It may still authorize locally until the charger accepts the replacement list.",
+      message: t("notice.cardRemoved"),
     };
     await refreshSnapshot(false);
   } catch (error) {
@@ -424,8 +562,7 @@ export async function runContinuityExport(): Promise<void> {
     await downloadContinuityExport(ownerToken.value, current.station.id);
     notice.value = {
       kind: "success",
-      message:
-        "Redacted continuity evidence exported. Secrets and raw RFID values are intentionally excluded.",
+      message: t("notice.evidenceExported"),
     };
   } catch (error) {
     handleError(error);
@@ -533,6 +670,6 @@ function handleError(error: unknown): void {
   }
   notice.value = {
     kind: "error",
-    message: error instanceof Error ? error.message : "The operation failed",
+    message: error instanceof Error ? error.message : t("notice.failed"),
   };
 }

@@ -19,9 +19,13 @@ Drivers see their own reimbursement records. Finance members can review the orga
 
 In the local native SQLite trial, the operator retrieves an invitation using `pnpm service:native:outbox --recipient person@example.test --kind invitation`. The exact recipient and link kind must match. See [Install the software](install.md) for native setup and the separate Wrangler alternative. The native option can instead run the separately configured SMTP worker; the local operator command only retrieves local-outbox links.
 
+## Name the people who charge
+
+In the owner console, **People** (**Employees** with the company profile) lists the people who charge and links them to chargers and cards. Click **Add person**, then pick that person under **Edit names** on their charger or **Edit** on their card. Usage is reported per person. These names are labels in the owner console only: they create no account, give no access and never leave the owner console in exports or shared access. See [Name chargers, people and cards](owner-console.md#name-chargers-people-and-cards).
+
 ## Give a professional temporary charger access
 
-Use the owner console's **Delegated access** page for an installer, employer or energy provider. Choose the narrow role and expiry. Give the one-time secret only to the intended recipient, and revoke it when the work is finished. These are limited read capabilities; they do not create another owner or permit changing cards and charger settings. Step-by-step instructions are in [Use the owner console](owner-console.md).
+Use the owner console's **Station settings › Shared access** tab for an installer, employer or energy provider. Choose the narrow role and expiry. Give the one-time secret only to the intended recipient, and revoke it when the work is finished. These are limited read capabilities; they do not create another owner or permit changing cards and charger settings. Step-by-step instructions are in [Use the owner console](owner-console.md).
 
 Do not share the owner-console token as an ordinary invitation. Current software has one owner security domain, and that token is its root authority.
 

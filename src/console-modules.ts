@@ -9,28 +9,6 @@ import type { ConsoleProfile } from "../shared/usage.js";
 export const OPTIONAL_MODULES = ["liberation", "sharing", "evidence", "assist"] as const;
 export type OptionalModule = (typeof OPTIONAL_MODULES)[number];
 
-export const MODULE_INFO: Readonly<
-  Record<OptionalModule, { readonly description: string; readonly label: string }>
-> = {
-  assist: {
-    description: "Ask your own AI provider for read-only troubleshooting advice.",
-    label: "AI troubleshooting",
-  },
-  evidence: {
-    description: "Inspect the tamper-evident event history and download exports.",
-    label: "Evidence",
-  },
-  liberation: {
-    description:
-      "Move a charger away from its previous provider and run the witnessed Freedom Test.",
-    label: "Switching and Freedom Test",
-  },
-  sharing: {
-    description: "Give an installer, employer or energy provider expiring read-only access.",
-    label: "Delegated access",
-  },
-};
-
 export const PROFILE_DEFAULT_MODULES: Readonly<Record<ConsoleProfile, readonly OptionalModule[]>> =
   {
     company: ["sharing", "evidence"],

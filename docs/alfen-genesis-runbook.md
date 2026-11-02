@@ -17,7 +17,7 @@ Stop and escalate rather than improvise if:
 
 ## Phase 0: inventory and custody
 
-Open **Liberate my charger** in the owner console. Keep original documents outside chargeOS and record only their SHA-256 digests. A blocked checkpoint is a stop condition, not a task to bypass.
+Open **Station settings › Switching provider** in the owner console (turn on **Switching and Freedom Test** under **Preferences** if the tab is missing). Keep original documents outside chargeOS and record only their SHA-256 digests. A blocked checkpoint is a stop condition, not a task to bypass.
 
 Record without changing anything:
 

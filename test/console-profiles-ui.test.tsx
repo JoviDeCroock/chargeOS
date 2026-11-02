@@ -9,8 +9,10 @@ import { GENESIS_PLAN_SCHEMA_VERSION } from "../shared/genesis.js";
 import { MIGRATION_SCHEMA_VERSION } from "../shared/migration.js";
 import { App } from "../src/app.js";
 import { chosenModules } from "../src/console-modules.js";
+import { locale } from "../src/i18n/index.js";
 import {
   action,
+  directory,
   fleet,
   issuedDelegate,
   loading,
@@ -176,17 +178,33 @@ function ownerSnapshot(
   };
 }
 
-function navLinks(): string[] {
-  const nav = screen.getByRole("navigation", { name: "Console sections" });
+function navLinks(name = "Console sections"): string[] {
+  const nav = screen.getByRole("navigation", { name });
   return within(nav)
     .getAllByRole("link")
     .map((link) => link.textContent ?? "");
 }
 
+function visit(hash: string) {
+  window.location.hash = hash;
+  window.dispatchEvent(new HashChangeEvent("hashchange"));
+}
+
+/** The station-settings tabs currently offered, read from the tab strip. */
+async function settingsTabs(): Promise<string[]> {
+  visit("#/advanced/details");
+  const tabs = await screen.findByRole("navigation", { name: "Station settings sections" });
+  return within(tabs)
+    .getAllByRole("link")
+    .map((link) => link.textContent ?? "");
+}
+
+const EVERYDAY_TABS = ["Offline charging", "Remote control", "Sessions", "Details"];
+
 async function openConsole() {
   render(<App />);
-  fireEvent.input(screen.getByLabelText("Owner API token"), { target: { value: TOKEN } });
-  fireEvent.click(screen.getByRole("button", { name: "Open owner console" }));
+  fireEvent.input(screen.getByLabelText("Owner token"), { target: { value: TOKEN } });
+  fireEvent.click(screen.getByRole("button", { name: "Open console" }));
 }
 
 describe("console profiles", () => {
@@ -195,9 +213,11 @@ describe("console profiles", () => {
     window.history.replaceState(null, "", "/");
     sessionStorage.clear();
     localStorage.clear();
+    locale.value = "en";
     chosenModules.value = null;
     ownerToken.value = "";
     fleet.value = null;
+    directory.value = null;
     selectedStationId.value = "";
     snapshot.value = null;
     loading.value = false;
@@ -232,34 +252,70 @@ describe("console profiles", () => {
     expect(within(usage).getByText("14.4 kWh", { selector: ".usage-tile strong" })).toBeTruthy();
     expect(within(usage).getByText("9.0 kWh", { selector: ".usage-tile strong" })).toBeTruthy();
     expect(within(usage).getByText("This month by card")).toBeTruthy();
-    expect(within(usage).getByText("Other card")).toBeTruthy();
+    // Without saved names, cards fall back to a short anonymous reference.
+    expect(within(usage).getByText("Card guest")).toBeTruthy();
 
-    expect(navLinks()).toEqual(["Overview", "Charging", "RFID cards"]);
+    expect(navLinks()).toEqual([
+      "Overview",
+      "Chargers",
+      "People",
+      "RFID cards",
+      "Station settings",
+    ]);
     expect(screen.queryByText("Next safe action")).toBeNull();
 
     fireEvent.click(within(usage).getByRole("button", { name: "Show table" }));
     expect(within(usage).getByRole("cell", { name: "14.4 kWh" })).toBeTruthy();
 
-    // The sidebar link and the overview hint both lead to settings.
-    expect(screen.getAllByRole("link", { name: "Console settings" })).toHaveLength(2);
-    fireEvent.click(screen.getAllByRole("link", { name: "Console settings" })[0]!);
-    expect(screen.getByRole("heading", { name: "Console settings", level: 1 })).toBeTruthy();
-    fireEvent.click(screen.getByRole("checkbox", { name: /Switching and Freedom Test/ }));
+    expect(await settingsTabs()).toEqual(EVERYDAY_TABS);
 
-    expect(navLinks()).toEqual([
-      "Overview",
-      "Charging",
-      "RFID cards",
-      "Liberate my charger",
-      "Freedom Test",
-    ]);
+    fireEvent.click(screen.getByRole("link", { name: "Preferences" }));
+    expect(screen.getByRole("heading", { name: "Preferences", level: 1 })).toBeTruthy();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Switching and Freedom Test/ }));
     expect(JSON.parse(localStorage.getItem("chargeos.consoleModules") ?? "null")).toEqual([
       "liberation",
     ]);
+    expect(await settingsTabs()).toEqual([...EVERYDAY_TABS, "Switching provider", "Freedom Test"]);
 
+    fireEvent.click(screen.getByRole("link", { name: "Preferences" }));
     fireEvent.click(screen.getByRole("button", { name: "Use profile defaults" }));
-    expect(navLinks()).toEqual(["Overview", "Charging", "RFID cards"]);
     expect(localStorage.getItem("chargeos.consoleModules")).toBeNull();
+    expect(await settingsTabs()).toEqual(EVERYDAY_TABS);
+  });
+
+  it("switches the console language and remembers it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (path: string) =>
+        path === "/api/v1/fleet"
+          ? json(fleetSnapshot("company", [station("HOME_1", "Driveway", "Alice Peeters")]))
+          : json(ownerSnapshot()),
+      ),
+    );
+    await openConsole();
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Your charging" })).toBeTruthy(),
+    );
+
+    fireEvent.change(screen.getByLabelText("Language"), { target: { value: "nl" } });
+    expect(localStorage.getItem("chargeos.locale")).toBe("nl");
+    expect(document.documentElement.lang).toBe("nl");
+    expect(navLinks("Onderdelen van de console")).toEqual([
+      "Overzicht",
+      "Laadpalen",
+      "Werknemers",
+      "Laadpassen",
+      "Verbruik",
+      "Laadpaalinstellingen",
+    ]);
+    expect(screen.getByRole("heading", { name: "Jouw laadbeurten" })).toBeTruthy();
+    // Belgian number formatting.
+    expect(screen.getByText("14,4 kWh", { selector: ".usage-tile strong" })).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Taal"), { target: { value: "fr" } });
+    expect(localStorage.getItem("chargeos.locale")).toBe("fr");
+    expect(navLinks("Sections de la console")).toContain("Collaborateurs");
+    expect(screen.getByRole("heading", { name: "Vos recharges" })).toBeTruthy();
   });
 
   it("keeps a hidden module reachable while it needs the owner", async () => {
@@ -276,14 +332,15 @@ describe("console profiles", () => {
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "Your charging" })).toBeTruthy(),
     );
-    expect(navLinks()).toContain("Liberate my charger");
-    expect(screen.getByRole("link", { name: "Liberate my charger, stop condition" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Station settings, needs attention" })).toBeTruthy();
     // Both pages of the switching module return together.
-    expect(navLinks()).toContain("Freedom Test");
-    expect(navLinks()).not.toContain("Delegated access");
+    const tabs = await settingsTabs();
+    expect(tabs).toContain("Switching provider");
+    expect(tabs).toContain("Freedom Test");
+    expect(tabs).not.toContain("Shared access");
   });
 
-  it("never hides live delegated access or a stopped switching plan", async () => {
+  it("never hides live shared access or a stopped switching plan", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (path: string) =>
@@ -304,21 +361,21 @@ describe("console profiles", () => {
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "Your charging" })).toBeTruthy(),
     );
-    expect(navLinks()).toEqual([
-      "Overview",
-      "Charging",
-      "RFID cards",
-      "Liberate my charger",
+    expect(screen.getByText("Stop: a problem was recorded")).toBeTruthy();
+    expect(screen.getByText("1 person has read access")).toBeTruthy();
+    expect(await settingsTabs()).toEqual([
+      ...EVERYDAY_TABS,
+      "Shared access",
+      "Switching provider",
       "Freedom Test",
-      "Delegated access1",
     ]);
-    expect(screen.getByText("1 active delegate")).toBeTruthy();
+    visit("#/advanced/switching");
     expect(
-      screen.getByRole("heading", { name: "Stop condition — preserve evidence" }),
+      await screen.findByRole("heading", { name: "Stop condition — preserve evidence" }),
     ).toBeTruthy();
   });
 
-  it("reports company usage per driver and exports it", async () => {
+  it("reports company usage per employee and exports it", async () => {
     const report: UsageReport = {
       drivers: [
         { driver: "Alice Peeters", energyWh: 14_400, sessionCount: 2, stationIds: ["HOME_1"] },
@@ -400,31 +457,32 @@ describe("console profiles", () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
 
     await openConsole();
-    await waitFor(() => expect(screen.getByText("Every charger. One owner.")).toBeTruthy());
-    expect(screen.getByRole("columnheader", { name: "Driver" })).toBeTruthy();
-    expect(screen.getByText("Unassigned")).toBeTruthy();
-    // Company defaults: sharing and evidence on, switching off.
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Chargers" })).toBeTruthy());
+    expect(screen.getByText("Alice Peeters")).toBeTruthy();
+    expect(screen.getByText("Nobody")).toBeTruthy();
     expect(navLinks()).toEqual([
-      "All chargers2/2",
-      "Usage report",
       "Overview",
-      "Charging",
+      "Chargers2/2",
+      "Employees",
       "RFID cards",
-      "Delegated access",
-      "Evidence",
+      "Usage",
+      "Station settings",
     ]);
+    // Company defaults: sharing and records on, switching off.
+    expect(await settingsTabs()).toEqual([...EVERYDAY_TABS, "Shared access", "Records"]);
 
-    fireEvent.click(screen.getByRole("link", { name: "Usage report" }));
+    fireEvent.click(screen.getByRole("link", { name: "Usage" }));
+    expect(screen.getByRole("heading", { name: "Usage per employee", level: 1 })).toBeTruthy();
     await waitFor(() =>
-      expect(screen.getByRole("table", { name: "Usage by driver" })).toBeTruthy(),
+      expect(screen.getByRole("table", { name: "Usage by person" })).toBeTruthy(),
     );
     expect(requested.find((path) => path.startsWith("/api/v1/usage?"))).toMatch(
       /^\/api\/v1\/usage\?month=2026-10&timeZone=/u,
     );
-    const drivers = screen.getByRole("table", { name: "Usage by driver" });
+    const drivers = screen.getByRole("table", { name: "Usage by person" });
     expect(within(drivers).getByText("Alice Peeters")).toBeTruthy();
     expect(within(drivers).getByText("14.4 kWh")).toBeTruthy();
-    expect(screen.getByText(/1 session still charging/u)).toBeTruthy();
+    expect(screen.getByText(/1 session is still charging/u)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Download CSV" }));
     expect(click).toHaveBeenCalledOnce();

@@ -4,7 +4,7 @@ Keep a recovery copy away from the charging server. A backup on the same disk wi
 
 ## Know the two exports
 
-The console's **Export redacted continuity evidence** button downloads a redacted support file. Its name ends in `-continuity.json`, but it is not a recovery bundle. It helps another person inspect an issue without receiving charger secrets or card identifiers. It is not enough to restore your charger service.
+The console's **Download shareable record** button (**Station settings › Records**) downloads a redacted support file. Its name ends in `-continuity.json`, but it is not a recovery bundle. It helps another person inspect an issue without receiving charger secrets or card identifiers. It is not enough to restore your charger service.
 
 An **encrypted owner continuity bundle** contains the configuration and evidence needed for supported recovery. It needs a separate passphrase, which chargeOS does not store inside the bundle. Keep both privately and in separate locations. Never send this bundle or its passphrase as a support attachment.
 
@@ -15,6 +15,7 @@ An **encrypted owner continuity bundle** contains the configuration and evidence
 3. Keep it off the server and record which charger and date it covers.
 4. Have a competent operator inspect and restore a copy to a separate empty location. A file that has never been restored is an untested backup.
 5. Retain any older full bundles referenced by a compacted recovery bundle. The newer file cannot recreate omitted history by itself.
+6. The bundle does not include the names you gave chargers, people and cards in the console. Those are in `directory.json` in the data folder. Ask your administrator to back that file up too, or rename them after a recovery. Charging works without them.
 
 For a Docker installation made by the setup wizard, your administrator runs the documented in-container export from the private setup folder, using `-f compose.json` in place of the production file options. This wizard variant has not been separately drilled, so inspect the bundle and test a restore. A documented backup procedure for the managed Coolify path does not exist yet; do not rely on that deployment for owner recovery until one is written and tested.
 
