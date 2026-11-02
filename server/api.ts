@@ -230,8 +230,17 @@ export function createOwnerApi(
         return;
       }
       const scoped = resolveStationRequest(config, url);
+      const delegateGrantId = token ? delegateGrantIdFromToken(token) : null;
+      if (
+        delegateGrantId &&
+        isRateLimited(delegateRequests, delegateGrantId, DELEGATE_REQUESTS_PER_MINUTE)
+      ) {
+        // Refuse before reading the ledger; only authenticated calls consume a grant's budget.
+        sendError(response, 429, "rate_limited", "Too many delegate requests");
+        return;
+      }
       const principal =
-        token && delegateGrantIdFromToken(token)
+        token && delegateGrantId
           ? authenticateDelegate(
               await evidence.readEvents(),
               scoped?.config.stationId ?? config.stationId,
@@ -241,10 +250,6 @@ export function createOwnerApi(
       if (principal && scoped) {
         // A valid delegate token deliberately does not clear owner-token guess failures.
         recordFailedAuthorization(delegateRequests, principal.grantId);
-        if (isRateLimited(delegateRequests, principal.grantId, DELEGATE_REQUESTS_PER_MINUTE + 1)) {
-          sendError(response, 429, "rate_limited", "Too many delegate requests");
-          return;
-        }
         await handleDelegateApi(
           request,
           response,

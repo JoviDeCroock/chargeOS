@@ -1055,6 +1055,9 @@ function guardUpgradeHandler(
 ): void {
   httpServer.removeAllListeners("upgrade");
   httpServer.on("upgrade", (request: IncomingMessage, socket: Socket, head: Buffer) => {
+    // Node attaches no error listener to an upgraded socket; a peer reset during the refusal
+    // write would otherwise surface as an unhandled 'error' and terminate the edge.
+    socket.on("error", () => socket.destroy());
     if (!hasDecodableUpgradeTarget(request.url)) {
       socket.end("HTTP/1.1 400 Bad Request\r\nConnection: close\r\nContent-Length: 0\r\n\r\n", () =>
         socket.destroy(),

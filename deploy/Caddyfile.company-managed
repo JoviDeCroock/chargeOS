@@ -22,7 +22,7 @@
 http://{$COMPANY_DOMAIN}:8080 {
   # The service refuses larger bodies too; stop them at the edge before proxy buffering.
   request_body {
-    max_size 512KB
+    max_size 512KiB
   }
   reverse_proxy 127.0.0.1:9091 {
     header_up Host {$COMPANY_DOMAIN}

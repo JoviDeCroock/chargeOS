@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { api, signedIn, createOrganization, totp } from "./helpers.js";
+import { api, auth, signedIn, createOrganization, totp } from "./helpers.js";
 import {
   mapping,
   from,
@@ -145,6 +145,15 @@ describe("durable reimbursement review", () => {
           authenticatorCode,
         })
       ).status;
+    // The signed-in Better Auth endpoint must not serve as an unthrottled code oracle.
+    expect(
+      (
+        await f.finance.browser.request(`${auth}/two-factor/verify-totp`, {
+          code: await wrongCode(),
+          trustDevice: false,
+        })
+      ).status,
+    ).toBe(403);
     for (let index = 0; index < 10; index += 1) expect(await attempt(await wrongCode())).toBe(403);
     // Even the correct code is refused while the lock holds.
     expect(await attempt(await totp(f.financeTotpUri!))).toBe(429);

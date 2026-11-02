@@ -86,6 +86,23 @@ async function route(request: Request, env: ServiceEnv): Promise<Response> {
     env = { ...env, [signupDelivery]: { id: reservation, recipient } };
   }
   const auth = createServiceAuth(env);
+  if (url.pathname === "/service/api/auth/two-factor/verify-totp" && request.method === "POST") {
+    // With a session, Better Auth verifies TOTP without its sign-in lockout. Signed-in users need
+    // that only to finish enrollment; otherwise it would be an unthrottled code oracle for the
+    // approval step-up, which has its own attempt lock.
+    const session = await auth.api
+      .getSession({ headers: request.headers, query: { disableRefresh: true } })
+      .catch(() => null);
+    if (
+      session &&
+      (await env.SERVICE_DB.prepare(
+        "SELECT 1 AS enrolled FROM two_factor WHERE user_id=? AND verified=1",
+      )
+        .bind(session.user.id)
+        .first("enrolled"))
+    )
+      throw new HttpError(403, "Your authenticator is already verified");
+  }
   if (url.pathname.startsWith("/service/api/auth/")) {
     try {
       return await auth.handler(request);

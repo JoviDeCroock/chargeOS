@@ -484,6 +484,35 @@ describe("OCPP 1.6J Genesis gateway", () => {
     await expect(client.call("Heartbeat", {})).resolves.toHaveProperty("currentTime");
   });
 
+  it("survives peers that reset during an upgrade refusal", async () => {
+    const evidence = new MemoryEvidenceStore();
+    gateway = createChargeGateway(config, evidence);
+    const httpServer = await gateway.listen(0, "127.0.0.1");
+    const port = (httpServer.address() as AddressInfo).port;
+
+    await Promise.all(
+      Array.from(
+        { length: 25 },
+        () =>
+          new Promise<void>((resolveReset) => {
+            const socket = connect(port, "127.0.0.1", () => {
+              socket.write(
+                "GET /%FF HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n",
+              );
+              socket.resetAndDestroy();
+            });
+            socket.on("error", () => {});
+            socket.on("close", () => resolveReset());
+          }),
+      ),
+    );
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 50));
+
+    client = testClient(port);
+    await client.connect();
+    await expect(client.call("Heartbeat", {})).resolves.toHaveProperty("currentTime");
+  });
+
   it("releases the station reservation after an authenticated handshake fails", async () => {
     const evidence = new MemoryEvidenceStore();
     gateway = createChargeGateway(config, evidence);

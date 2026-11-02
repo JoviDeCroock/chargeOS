@@ -65,21 +65,17 @@ export class OwnerTagRegistry {
   readonly #tags: Set<string>;
   #tail: Promise<void> = Promise.resolve();
   #version: number;
-  /** True when this process created the state from the deployment seed (first boot/restore). */
-  #seeded: boolean;
 
   private constructor(
     tags: readonly string[],
     version: number,
     stationSecret: string,
     persist: PersistState,
-    seeded = false,
   ) {
     this.#tags = new Set(tags);
     this.#version = version;
     this.#stationSecret = stationSecret;
     this.#persist = persist;
-    this.#seeded = seeded;
   }
 
   static async open(
@@ -89,30 +85,12 @@ export class OwnerTagRegistry {
     const persist = (state: StoredOwnerTagState) => writeOwnerTagState(path, state);
     const existing = await readOwnerTagState(path, config.stationSecret);
     if (existing) {
-      // An unmodified version-1 seed (e.g. a crash between seeding and its first reconcile) is
-      // the same explicit deployment input as a fresh seed.
-      const seeded =
-        existing.version === 1 &&
-        existing.tags.length === config.ownerTags.size &&
-        existing.tags.every((tag) => config.ownerTags.has(tag));
-      return new OwnerTagRegistry(
-        existing.tags,
-        existing.version,
-        config.stationSecret,
-        persist,
-        seeded,
-      );
+      return new OwnerTagRegistry(existing.tags, existing.version, config.stationSecret, persist);
     }
     const initial = createState([...config.ownerTags], 1, config.stationSecret);
     try {
       await createOwnerTagState(path, initial);
-      return new OwnerTagRegistry(
-        initial.tags,
-        initial.version,
-        config.stationSecret,
-        persist,
-        true,
-      );
+      return new OwnerTagRegistry(initial.tags, initial.version, config.stationSecret, persist);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
       const raced = await readOwnerTagState(path, config.stationSecret);
@@ -182,28 +160,23 @@ export class OwnerTagRegistry {
       typeof payload.stateVersion === "number" && Number.isSafeInteger(payload.stateVersion)
         ? payload.stateVersion
         : null;
-    if (audited !== null && this.#seeded) {
-      // A fresh seed (first boot or continuity restore) is an explicit owner/deployment input.
-      // Continue the version sequence past the audited history so an older state file can never
-      // later appear "ahead" of the ledger.
-      if (current.version <= audited) {
-        current = createState([...this.#tags], audited + 1, this.#stationSecret);
-        await this.#persist(current);
-        this.#apply(current);
+    if (audited !== null && current.version <= audited) {
+      // Persist-then-audit means a crash can only leave the file ahead of the ledger. State at or
+      // below the audited version is accepted only when it is exactly the last audited desired
+      // set: a continuity restore or an interrupted first reconcile. Anything else (an earlier
+      // backup, the original first-boot file, or a stale deployment seed after deletion) could
+      // silently re-desire revoked tags, so refuse it.
+      const asAudited = createState([...this.#tags], audited, this.#stationSecret);
+      if (asAudited.integrityHmac !== payload.stateHmac) {
+        throw new OwnerTagStateError(
+          `Owner tag state for ${config.stationId} is older than or differs from its last audited version; restore the latest owner-tag state or recover from a continuity bundle`,
+        );
       }
-    } else if (
-      audited !== null &&
-      (current.version < audited ||
-        (current.version === audited && payload.stateHmac !== current.integrityHmac))
-    ) {
-      // Persist-then-audit means a crash can only leave an existing file ahead of the ledger. A
-      // file older than (or different at) the last audited version was rolled back or replaced,
-      // which could silently re-desire revoked tags; refuse instead of reconciling it.
-      throw new OwnerTagStateError(
-        `Owner tag state for ${config.stationId} is older than or differs from its last audited version; restore the latest owner-tag state or recover from a continuity bundle`,
-      );
+      // Continue the version sequence so no older state file can later look newer.
+      current = createState([...this.#tags], audited + 1, this.#stationSecret);
+      await this.#persist(current);
+      this.#apply(current);
     }
-    this.#seeded = false;
     await appendAudit(config, evidence, "OwnerTagDesiredStateReconciled", {
       action: "reconciled",
       desiredCount: current.tags.length,
