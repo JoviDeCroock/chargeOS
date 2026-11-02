@@ -169,6 +169,13 @@ function ownerSnapshot(
       boot: null,
       connected: true,
       connectedAt: NOW.toISOString(),
+      connection: {
+        endpointBase: null,
+        lastRefused: null,
+        lastUnmatchedAt: null,
+        refusedSinceStart: 0,
+        unmatchedSinceStart: 0,
+      },
       connectors: [],
       driver: null,
       id: "HOME_1",

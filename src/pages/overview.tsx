@@ -5,6 +5,7 @@ import { action, runInspection, runStationCommand } from "../model.js";
 import type { Route } from "../routes.js";
 import { freedomStatusLabel, migrationStatusLabel } from "../switching.js";
 import { UsagePanel } from "../usage.js";
+import { ConnectChargerPanel, needsConnectionHelp } from "./connect.js";
 import {
   cardLabel,
   connectorStatusLabel,
@@ -57,6 +58,8 @@ export function OverviewPage({
           </a>
         </div>
       )}
+
+      {needsConnectionHelp(current) && <ConnectChargerPanel snapshot={current} />}
 
       <ChargingNow snapshot={current} directory={directory} />
 

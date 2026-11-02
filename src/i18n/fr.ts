@@ -117,6 +117,58 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "common.save": "Enregistrer",
   "common.typePhrase": "Tapez exactement cette phrase pour confirmer",
 
+  "connect.address": "Adresse pour la borne",
+  "connect.addressUnknown":
+    "L’adresse de la borne indiquée lors de l’installation (START-HERE.txt), suivie du nom de la borne",
+  "connect.awaitingBootBody":
+    "La borne est connectée. En attente de son premier message de démarrage, qui indique à chargeOS le modèle et le micrologiciel. Cela prend généralement moins d’une minute.",
+  "connect.identity": "Nom de la borne (identité)",
+  "connect.identityHint":
+    "Recopiez le nom de la borne exactement, majuscules comprises. Certains outils de configuration demandent l’adresse et le nom séparément ; l’adresse se termine alors par une barre oblique.",
+  "connect.installerNote":
+    "Votre installateur saisit ces réglages dans l’outil de configuration de la borne elle-même. chargeOS ne modifie jamais lui-même les réglages de la borne.",
+  "connect.intro":
+    "Saisissez ces réglages dans l’outil de configuration de votre borne. Cette page se met à jour d’elle-même dès que la borne se connecte.",
+  "connect.password": "Mot de passe",
+  "connect.passwordWhere":
+    "Le mot de passe de la borne (stationSecret) dans le fichier credentials.json de votre installation. Il n’est jamais affiché ici.",
+  "connect.protocol": "Protocole",
+  "connect.protocolValue": "OCPP 1.6 JSON (parfois appelé OCPP-J)",
+  "connect.refused.anyDevice":
+    "Tout appareil qui utilise ce nom de borne peut provoquer ce message : il explique la dernière tentative, sans prouver d’où elle venait.",
+
+  "connect.refused.duplicate": "Une connexion avec ce nom de borne est déjà ouverte",
+  "connect.refused.duplicateFix":
+    "Attendez quelques minutes et laissez la borne réessayer. Si cela se reproduit, vérifiez qu’aucun autre appareil n’utilise le nom {expected}.",
+  "connect.refused.identity": "Votre borne a utilisé un autre nom",
+  "connect.refused.identityBody":
+    "Elle a envoyé le mot de passe de cette borne, mais s’est présentée comme {presented}. chargeOS attend {expected}.",
+  "connect.refused.identityFix":
+    "Changez le nom de la borne en {expected} dans l’outil de configuration.",
+  "connect.refused.identityUnprintable":
+    "Elle a envoyé le mot de passe de cette borne, mais avec un nom que chargeOS ne peut pas utiliser. chargeOS attend {expected}.",
+  "connect.refused.noPassword": "Votre borne s’est connectée sans mot de passe",
+  "connect.refused.noPasswordFix":
+    "Dans l’outil de configuration, choisissez le réglage de sécurité qui envoie un mot de passe (authentification Basic) et saisissez le mot de passe de la borne. Si un nom d’utilisateur est demandé, utilisez {expected}.",
+  "connect.refused.protocol": "Votre borne n’utilise pas OCPP 1.6 JSON",
+  "connect.refused.protocolBody": "Elle a proposé {offered}.",
+  "connect.refused.protocolFix":
+    "Choisissez OCPP 1.6 avec JSON dans l’outil de configuration. chargeOS ne prend pas encore en charge d’autres versions.",
+  "connect.refused.when": "Dernière tentative à {time}.",
+  "connect.refused.wrongPassword": "Votre borne a envoyé un mauvais mot de passe",
+  "connect.refused.wrongPasswordFix":
+    "Copiez à nouveau le mot de passe depuis credentials.json (stationSecret). Utilisez-le en entier, sans le raccourcir. Si l’outil ne peut pas l’enregistrer, arrêtez et demandez à votre installateur.",
+  "connect.security": "Sécurité",
+  "connect.securityValue": "Le réglage qui envoie un mot de passe (authentification Basic)",
+  "connect.state.awaitingBoot": "Connectée, en attente",
+  "connect.state.connected": "Connectée",
+  "connect.state.waiting": "En attente de la borne",
+  "connect.title": "Connectez votre borne",
+  "connect.unmatched.one":
+    "{count} tentative de connexion a utilisé un nom de borne et un mot de passe inconnus (dernière à {time}). Si c’était votre borne, vérifiez les deux.",
+  "connect.unmatched.other":
+    "{count} tentatives de connexion ont utilisé un nom de borne et un mot de passe inconnus (dernière à {time}). Si l’une d’elles venait de votre borne, vérifiez les deux.",
+
   "connector.Available": "Disponible",
   "connector.Charging": "En charge",
   "connector.Faulted": "Panne",

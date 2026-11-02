@@ -28,6 +28,7 @@ import {
   stationCommandLabel,
 } from "../model.js";
 import { ADVANCED_TABS, TAB_LABELS, type AdvancedTab, type Route } from "../routes.js";
+import { ConnectChargerPanel } from "./connect.js";
 import {
   CompactedHistoryNotice,
   FreedomTestPanel,
@@ -102,7 +103,7 @@ export function StationSettingsPage({
           />
         </section>
       ) : tab === "details" ? (
-        <DetailsTab snapshot={current} onEdit={onEdit} />
+        <DetailsWithConnection snapshot={current} onEdit={onEdit} />
       ) : tab === "sharing" ? (
         <SharingTab grants={current.delegations} />
       ) : tab === "evidence" ? (
@@ -601,6 +602,15 @@ function DetailsTab({
       </div>
       <p class="fine-print">{t("details.namesNote")}</p>
     </section>
+  );
+}
+
+function DetailsWithConnection(props: { snapshot: OwnerSnapshot; onEdit: (() => void) | null }) {
+  return (
+    <div class="section-stack">
+      <DetailsTab {...props} />
+      <ConnectChargerPanel snapshot={props.snapshot} />
+    </div>
   );
 }
 

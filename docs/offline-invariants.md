@@ -102,6 +102,13 @@ Compacted recovery is a planned replacement-edge outage and the bounded-storage 
 
 A tagged image update is also a planned local-edge outage. Provenance/SBOM verification changes only the operator's confidence in the container bytes; it never changes the charge point's acknowledged owner list or proves offline behavior. Before deployment the owner retains a current continuity bundle and the prior immutable image digest. While the edge is replaced, charger-local authorization must continue exactly as in the local-edge-loss row. A failed boot, health check, WSS reconnect, identity match, or capability inspection requires rollback to the prior digest without editing the ledger. chargeOS never auto-updates itself or the charger firmware.
 
+Connection diagnostics are an online-path explanation only. When the gateway refuses a WebSocket upgrade it keeps, in memory, a closed reason code for the charger the attempt can be attributed to: wrong or missing password for a known charger name, this charger's own password under a different name, a duplicate connection, or no OCPP 1.6 JSON subprotocol. Attempts with an unknown name and a password matching no charger only increment a text-free counter. The status codes are unchanged (401, 409 and 400), every refusal still happens before any charger message is processed, and nothing is written to evidence, exports, delegate projections, AI context or logs. The name a charger used is shown back only after it proved that charger's password. Here is the effect on each failure row:
+
+- **Hosted, WAN/DNS or local-edge loss:** no change. Diagnostics disappear with the edge; the charger falls back to its acknowledged local list.
+- **Isolated restart:** no change. No configuration or local-list command is involved.
+- **Permanent company loss:** no change. Diagnostics are deliberately not recovery state; a replacement edge starts with none.
+- **One week disconnected:** no change. Counters are bounded and cleared by restart.
+
 ## Effect of local observation and the product preview
 
 The `/observe` browser-only import/calculation workspace and fictional `/preview` product workspace have no charger-facing connection or command path. Browser/network/tool failure removes analysis or preview access only; it cannot change desired or acknowledged RFID state, a charger endpoint, power limits or essential local charging. Imported observations never enter the canonical charger ledger through this tool. Neither a successful draft calculation nor a preview interaction satisfies a physical Freedom Test.

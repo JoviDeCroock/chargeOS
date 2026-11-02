@@ -3664,3 +3664,11 @@ body {
   color: var(--ink-3);
   font-size: 0.78rem;
 }
+
+.connect-panel .inline-alert {
+  margin-bottom: 12px;
+}
+
+.connect-panel .connect-facts dd.mono {
+  overflow-wrap: anywhere;
+}

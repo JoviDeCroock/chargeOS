@@ -118,6 +118,58 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "common.save": "Opslaan",
   "common.typePhrase": "Typ deze exacte zin om te bevestigen",
 
+  "connect.address": "Adres voor de laadpaal",
+  "connect.addressUnknown":
+    "Het laadpaaladres uit je installatie (START-HERE.txt), gevolgd door de naam van de laadpaal",
+  "connect.awaitingBootBody":
+    "De laadpaal is verbonden. Wachten op het eerste opstartbericht, waarmee chargeOS het model en de firmware leert kennen. Dat duurt meestal minder dan een minuut.",
+  "connect.identity": "Naam van de laadpaal (identiteit)",
+  "connect.identityHint":
+    "Neem de naam van de laadpaal exact over, ook hoofdletters. Sommige configuratietools vragen het adres en de naam apart; dan eindigt het adres met een schuine streep.",
+  "connect.installerNote":
+    "Je installateur vult deze instellingen in via de configuratietool van de laadpaal zelf. chargeOS wijzigt zelf nooit instellingen van de laadpaal.",
+  "connect.intro":
+    "Vul deze instellingen in via de configuratietool van je laadpaal. Deze pagina werkt zichzelf bij zodra de laadpaal verbinding maakt.",
+  "connect.password": "Wachtwoord",
+  "connect.passwordWhere":
+    "Het laadpaalwachtwoord (stationSecret) in credentials.json van je installatie. Het wordt hier nooit getoond.",
+  "connect.protocol": "Protocol",
+  "connect.protocolValue": "OCPP 1.6 JSON (soms OCPP-J genoemd)",
+  "connect.refused.anyDevice":
+    "Elk toestel dat deze laadpaalnaam gebruikt, kan dit bericht veroorzaken. Het verklaart dus de laatste poging, maar bewijst niet waar die vandaan kwam.",
+
+  "connect.refused.duplicate": "Er is al een verbinding open met deze laadpaalnaam",
+  "connect.refused.duplicateFix":
+    "Wacht een paar minuten en laat de laadpaal opnieuw proberen. Blijft het gebeuren, controleer dan dat geen ander toestel de naam {expected} gebruikt.",
+  "connect.refused.identity": "Je laadpaal gebruikte een andere naam",
+  "connect.refused.identityBody":
+    "Ze stuurde het wachtwoord van deze laadpaal, maar noemde zich {presented}. chargeOS verwacht {expected}.",
+  "connect.refused.identityFix":
+    "Wijzig de naam van de laadpaal in de configuratietool naar {expected}.",
+  "connect.refused.identityUnprintable":
+    "Ze stuurde het wachtwoord van deze laadpaal, maar met een naam die chargeOS niet kan gebruiken. chargeOS verwacht {expected}.",
+  "connect.refused.noPassword": "Je laadpaal maakte verbinding zonder wachtwoord",
+  "connect.refused.noPasswordFix":
+    "Kies in de configuratietool de beveiligingsinstelling die een wachtwoord meestuurt (Basic-authenticatie) en vul het laadpaalwachtwoord in. Vraagt de tool een gebruikersnaam, gebruik dan {expected}.",
+  "connect.refused.protocol": "Je laadpaal gebruikt geen OCPP 1.6 JSON",
+  "connect.refused.protocolBody": "Ze bood {offered} aan.",
+  "connect.refused.protocolFix":
+    "Kies OCPP 1.6 met JSON in de configuratietool. chargeOS ondersteunt nog geen andere versies.",
+  "connect.refused.when": "Laatste poging om {time}.",
+  "connect.refused.wrongPassword": "Je laadpaal stuurde een verkeerd wachtwoord",
+  "connect.refused.wrongPasswordFix":
+    "Kopieer het wachtwoord opnieuw uit credentials.json (stationSecret). Gebruik het volledig en kort het niet in. Kan de tool het niet opslaan, stop dan en vraag het je installateur.",
+  "connect.security": "Beveiliging",
+  "connect.securityValue": "De instelling die een wachtwoord meestuurt (Basic-authenticatie)",
+  "connect.state.awaitingBoot": "Verbonden, even wachten",
+  "connect.state.connected": "Verbonden",
+  "connect.state.waiting": "Wachten op de laadpaal",
+  "connect.title": "Verbind je laadpaal",
+  "connect.unmatched.one":
+    "{count} verbindingspoging gebruikte een onbekende laadpaalnaam en een onbekend wachtwoord (laatste om {time}). Was dat je laadpaal, controleer dan beide.",
+  "connect.unmatched.other":
+    "{count} verbindingspogingen gebruikten een onbekende laadpaalnaam en een onbekend wachtwoord (laatste om {time}). Was een ervan je laadpaal, controleer dan beide.",
+
   "connector.Available": "Beschikbaar",
   "connector.Charging": "Aan het laden",
   "connector.Faulted": "Storing",

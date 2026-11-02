@@ -49,9 +49,11 @@ Finally, create an encrypted recovery bundle and keep a copy away from the serve
 
 ## Troubleshoot the connection
 
-Start in the owner console. The bar at the top of every page shows **Charger connected** or **Charger offline**. After the charger's first start-up message (a BootNotification), the **Charger** panel on the **Overview** page shows its model, and **Station settings › Details** shows its firmware.
+Start in the owner console. The bar at the top of every page shows **Charger connected** or **Charger offline**. Until the charger has connected and sent its first start-up message (a BootNotification), the **Overview** page shows **Connect your charger**. It lists the charger address, the charger name and where to find the password, and it updates on its own every few seconds, so you can watch it while your installer types the settings in. The same panel is always under **Station settings › Details**, which also shows the firmware once the charger has reported it.
 
-chargeOS does not record refused connection attempts in its evidence ledger, so a failed login only looks like **Charger offline**. Your administrator can read the proxy log to see the HTTP status code. From a setup-wizard folder, the command is `docker compose -f compose.json logs caddy`. For a manual production deployment, use the same `logs caddy` command with its production file options. Logs contain addresses and charger identities, so keep them private.
+When chargeOS refuses a connection, that panel says why in plain words: the password is wrong or missing, your charger sent the right password under a different name (and which name), another connection with that name is already open, or the charger is not using OCPP 1.6 JSON. chargeOS can only tell which charger an attempt belongs to when it uses that charger's name or password; attempts with an unknown name and an unknown password are only counted. This explanation is kept in memory only. It is not part of your records or exports, and it is cleared when chargeOS restarts or the charger connects.
+
+Your administrator can also read the proxy log to see the HTTP status code. From a setup-wizard folder, the command is `docker compose -f compose.json logs caddy`. For a manual production deployment, use the same `logs caddy` command with its production file options. Logs contain addresses and charger identities, so keep them private.
 
 ### Check the address
 

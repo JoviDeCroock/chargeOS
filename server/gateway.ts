@@ -4,6 +4,12 @@ import type { Socket } from "node:net";
 import { RPCServer, createRPCError, type IHandlersOption } from "ocpp-rpc";
 
 import type { StationCommandInput, StationCommandRecord } from "../shared/commands.js";
+import {
+  DISPLAYABLE_OCPP_PROTOCOL,
+  type RefusedConnectionAttempt,
+  type RefusedConnectionReason,
+  type StationConnectionDiagnostics,
+} from "../shared/connection.js";
 import type {
   ContinuityPreparationInput,
   ContinuityPreparationResult,
@@ -71,6 +77,8 @@ export interface ChargeGateway {
 export interface StationRuntime {
   readonly connected: boolean;
   readonly connectedAt: string | null;
+  /** In-memory refusal diagnostics; absent from test doubles and older gateways. */
+  readonly connection?: StationConnectionDiagnostics;
 }
 
 export interface AuthorizationSyncResult {
@@ -105,15 +113,78 @@ export function createChargeGateway(
     wssOptions: { maxPayload: config.ocppMaxPayloadBytes },
   });
 
+  // Refusal diagnostics live in memory only: they never reach evidence, exports or logs.
+  const lastRefused = new Map<string, RefusedConnectionAttempt>();
+  const refusedCount = new Map<string, number>();
+  const unmatched = { count: 0, lastAt: null as string | null };
+
+  const noteRefusal = (
+    stationId: string,
+    reason: RefusedConnectionReason,
+    detail: Partial<Pick<RefusedConnectionAttempt, "offeredProtocols" | "presentedIdentity">> = {},
+  ) => {
+    lastRefused.set(stationId, {
+      at: new Date().toISOString(),
+      offeredProtocols: detail.offeredProtocols ?? [],
+      presentedIdentity: detail.presentedIdentity ?? null,
+      reason,
+    });
+    refusedCount.set(
+      stationId,
+      Math.min(Number.MAX_SAFE_INTEGER, (refusedCount.get(stationId) ?? 0) + 1),
+    );
+  };
+
+  /** The configured charger whose own secret this password is; secrets are unique per charger. */
+  const stationForPassword = (password: Buffer | undefined): string | null => {
+    if (!password) return null;
+    let match: string | null = null;
+    // Compare against every charger so the time taken does not reveal which one matched.
+    for (const [stationId, stationConfig] of stationConfigs) {
+      if (securelyEqual(password, stationConfig.stationSecret)) match = stationId;
+    }
+    return match;
+  };
+
   server.auth((accept, reject, handshake) => {
     const stationConfig = stationConfigs.get(handshake.identity);
-    if (!stationConfig || !securelyEqual(handshake.password, stationConfig.stationSecret)) {
+    if (!stationConfig) {
+      // The password, not the name, decides whose charger this is. A name alone never proves
+      // ownership, so the connection is refused either way; only the diagnostic differs.
+      const passwordOwner = stationForPassword(handshake.password);
+      if (passwordOwner) {
+        noteRefusal(passwordOwner, "identity-mismatch", {
+          presentedIdentity: displayableIdentity(handshake.identity),
+        });
+      } else {
+        unmatched.count = Math.min(Number.MAX_SAFE_INTEGER, unmatched.count + 1);
+        unmatched.lastAt = new Date().toISOString();
+      }
+      reject(401, "Unknown charge point");
+      return;
+    }
+    if (!securelyEqual(handshake.password, stationConfig.stationSecret)) {
+      noteRefusal(
+        stationConfig.stationId,
+        handshake.password ? "password-wrong" : "password-missing",
+      );
       reject(401, "Unknown charge point");
       return;
     }
 
     if (peers.has(stationConfig.stationId) || pendingConnections.has(stationConfig.stationId)) {
+      noteRefusal(stationConfig.stationId, "already-connected");
       reject(409, "Charge point is already connected");
+      return;
+    }
+
+    if (!handshake.protocols.has("ocpp1.6")) {
+      noteRefusal(stationConfig.stationId, "protocol-not-offered", {
+        offeredProtocols: [...handshake.protocols]
+          .filter((protocol) => DISPLAYABLE_OCPP_PROTOCOL.test(protocol))
+          .slice(0, 4),
+      });
+      reject(400, "Client doesn't support expected subprotocol");
       return;
     }
 
@@ -146,6 +217,7 @@ export function createChargeGateway(
 
     peers.set(stationId, peer);
     connectedAt.set(stationId, new Date().toISOString());
+    lastRefused.delete(stationId);
     void record(evidence, stationConfig, stationId, "system", "Connected", {}).catch(
       () => undefined,
     );
@@ -525,6 +597,13 @@ export function createChargeGateway(
       return {
         connected: peers.has(stationId),
         connectedAt: connectedAt.get(stationId) ?? null,
+        connection: {
+          endpointBase: config.ocppPublicUrl ?? null,
+          lastRefused: lastRefused.get(stationId) ?? null,
+          lastUnmatchedAt: unmatched.lastAt,
+          refusedSinceStart: refusedCount.get(stationId) ?? 0,
+          unmatchedSinceStart: unmatched.count,
+        },
       };
     },
     inspectLocalAuthorization: inspect,
@@ -987,6 +1066,11 @@ function uniqueCaseInsensitive(tags: Iterable<string>): string[] {
 
 function boundedText(value: unknown, maximumLength: number): string | null {
   return typeof value === "string" && value.length <= maximumLength ? value : null;
+}
+
+/** A charger-chosen name is shown back to the owner only when it is short printable ASCII. */
+function displayableIdentity(identity: string): string | null {
+  return /^[\x21-\x2e\x30-\x7e]{1,128}$/u.test(identity) ? identity : null;
 }
 
 function securelyEqual(actual: Buffer | undefined, expected: string): boolean {

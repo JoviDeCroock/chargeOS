@@ -14,6 +14,11 @@ export interface GatewayConfig {
   readonly ocppMaxPayloadBytes: number;
   readonly ocppMessageBurst: number;
   readonly ocppMessagesPerMinute: number;
+  /**
+   * Charger address base (`ws://` or `wss://`, ending in `/`) shown to the owner so they can type it
+   * into the charger tool. Display only: it never changes what the gateway accepts.
+   */
+  readonly ocppPublicUrl?: string;
   readonly ownerApiToken: string;
   readonly ownerTags: ReadonlySet<string>;
   readonly port: number;
@@ -99,6 +104,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     ),
     ocppMessageBurst,
     ocppMessagesPerMinute,
+    ...(env.CHARGEOS_OCPP_PUBLIC_URL?.trim()
+      ? { ocppPublicUrl: parseOcppPublicUrl(env.CHARGEOS_OCPP_PUBLIC_URL.trim()) }
+      : {}),
     ownerApiToken,
     ownerTags,
     port,
@@ -127,6 +135,29 @@ export function stationSecretInteroperabilityAdvisories(config: GatewayConfig): 
       ({ id }) =>
         `Station ${id}: its password is not 32-40 hexadecimal digits (16-20 bytes) as the OCPP 1.6 security whitepaper requires for AuthorizationKey. Some chargers may refuse it; generate one with "openssl rand -hex 20".`,
     );
+}
+
+function parseOcppPublicUrl(value: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("CHARGEOS_OCPP_PUBLIC_URL must be a ws:// or wss:// address ending in /");
+  }
+  if (
+    (url.protocol !== "ws:" && url.protocol !== "wss:") ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash ||
+    !url.pathname.endsWith("/") ||
+    url.href !== value
+  ) {
+    throw new Error(
+      "CHARGEOS_OCPP_PUBLIC_URL must be a ws:// or wss:// address ending in /, without credentials, query or fragment",
+    );
+  }
+  return url.href;
 }
 
 function parseProfile(value: string | undefined): ConsoleProfile {

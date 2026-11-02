@@ -243,6 +243,22 @@ export async function refreshSnapshot(clearNotice = true): Promise<void> {
   }
 }
 
+/**
+ * Quietly refreshes the selected charger while a page waits for it (for example while the charger
+ * is being connected). It never shows a loading state; only a rejected token surfaces.
+ */
+export async function pollSnapshot(): Promise<void> {
+  const stationId = selectedStationId.value;
+  if (!ownerToken.value || !stationId || loading.value || action.value !== null) return;
+  try {
+    const next = await fetchSnapshot(stationId, ownerToken.value);
+    // Ignore an answer for a charger the owner has since navigated away from.
+    if (selectedStationId.value === stationId) snapshot.value = next;
+  } catch (error) {
+    if (error instanceof OwnerApiError && error.status === 401) handleError(error);
+  }
+}
+
 export async function refreshFleet(clearNotice = true): Promise<void> {
   if (!ownerToken.value) return;
   loading.value = true;

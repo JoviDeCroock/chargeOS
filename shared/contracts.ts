@@ -1,4 +1,5 @@
 import type { StationCommandRecord } from "./commands.js";
+import type { StationConnectionDiagnostics } from "./connection.js";
 import type { FreedomTestProjection } from "./freedom-test.js";
 import type { GenesisPlan } from "./genesis.js";
 import type { DelegateGrantSummary } from "./delegation.js";
@@ -94,6 +95,8 @@ export interface OwnerSnapshot {
     } | null;
     readonly connected: boolean;
     readonly connectedAt: string | null;
+    /** Owner-only, in-memory refusal diagnostics; never in delegate, export or AI projections. */
+    readonly connection: StationConnectionDiagnostics;
     readonly connectors: readonly ConnectorStatus[];
     /** Person whose usage this charger is reported under; `null` when unassigned. */
     readonly driver: string | null;
@@ -187,6 +190,11 @@ export type {
   UsageReportSession,
   UsageReportStation,
 } from "./usage.js";
+export type {
+  RefusedConnectionAttempt,
+  RefusedConnectionReason,
+  StationConnectionDiagnostics,
+} from "./connection.js";
 export type { GenesisAction, GenesisActionId, GenesisPhase, GenesisPlan } from "./genesis.js";
 export type {
   StationCommandInput,

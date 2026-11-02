@@ -118,6 +118,57 @@ export const en = {
   "common.save": "Save",
   "common.typePhrase": "Type this exact phrase to confirm",
 
+  "connect.address": "Charger address",
+  "connect.addressUnknown":
+    "The charger address from your setup (START-HERE.txt), followed by the charger name",
+  "connect.awaitingBootBody":
+    "The charger is connected. Waiting for its first start-up message, which tells chargeOS the model and firmware. This usually takes less than a minute.",
+  "connect.identity": "Charger name (identity)",
+  "connect.identityHint":
+    "Copy the charger name exactly, including capital letters. Some charger tools ask for the address and the name separately; then the address ends with a slash.",
+  "connect.installerNote":
+    "Your installer enters these settings in the charger's own configuration tool. chargeOS never changes the charger's settings itself.",
+  "connect.intro":
+    "Enter these settings in your charger's configuration tool. This page updates on its own when the charger connects.",
+  "connect.password": "Password",
+  "connect.passwordWhere":
+    "The charger password (stationSecret) in credentials.json from your setup. It is never shown here.",
+  "connect.protocol": "Protocol",
+  "connect.protocolValue": "OCPP 1.6 JSON (sometimes called OCPP-J)",
+  "connect.refused.anyDevice":
+    "Any device that uses this charger name can cause this message, so it explains the last attempt rather than proving where it came from.",
+
+  "connect.refused.duplicate": "Another connection with this charger name is already open",
+  "connect.refused.duplicateFix":
+    "Wait a few minutes and let the charger try again. If it keeps happening, make sure no other device uses the name {expected}.",
+  "connect.refused.identity": "Your charger used a different name",
+  "connect.refused.identityBody":
+    "It sent this charger's password but called itself {presented}. chargeOS expects {expected}.",
+  "connect.refused.identityFix": "Change the charger name in the charger tool to {expected}.",
+  "connect.refused.identityUnprintable":
+    "It sent this charger's password but with a name chargeOS cannot use. chargeOS expects {expected}.",
+  "connect.refused.noPassword": "Your charger connected without a password",
+  "connect.refused.noPasswordFix":
+    "In the charger tool, choose the security setting that sends a password (Basic authentication) and enter the charger password. If it asks for a user name, use {expected}.",
+  "connect.refused.protocol": "Your charger is not using OCPP 1.6 JSON",
+  "connect.refused.protocolBody": "It offered {offered}.",
+  "connect.refused.protocolFix":
+    "Choose OCPP 1.6 with JSON in the charger tool. chargeOS does not support other versions yet.",
+  "connect.refused.when": "Last attempt at {time}.",
+  "connect.refused.wrongPassword": "Your charger sent the wrong password",
+  "connect.refused.wrongPasswordFix":
+    "Copy the password again from credentials.json (stationSecret). Use all of it; do not shorten it. If the tool cannot store it, stop and ask your installer.",
+  "connect.security": "Security",
+  "connect.securityValue": "The setting that sends a password (Basic authentication)",
+  "connect.state.awaitingBoot": "Connected, waiting",
+  "connect.state.connected": "Connected",
+  "connect.state.waiting": "Waiting for the charger",
+  "connect.title": "Connect your charger",
+  "connect.unmatched.one":
+    "{count} connection attempt used an unknown charger name and password (last at {time}). If that was your charger, check both.",
+  "connect.unmatched.other":
+    "{count} connection attempts used an unknown charger name and password (last at {time}). If one was your charger, check both.",
+
   "connector.Available": "Available",
   "connector.Charging": "Charging",
   "connector.Faulted": "Fault",

@@ -57,6 +57,13 @@ export function buildOwnerSnapshot(
       boot: bootProjection(stationEvents),
       connected: runtime.connected,
       connectedAt: runtime.connectedAt,
+      connection: runtime.connection ?? {
+        endpointBase: config.ocppPublicUrl ?? null,
+        lastRefused: null,
+        lastUnmatchedAt: null,
+        refusedSinceStart: 0,
+        unmatchedSinceStart: 0,
+      },
       connectors: connectorProjection(stationEvents),
       driver: named ? named.driver : (stationMetadata?.driver ?? null),
       id: config.stationId,
