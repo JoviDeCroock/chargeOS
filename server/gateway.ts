@@ -35,7 +35,12 @@ import {
   STATION_COMMAND_TIMEOUT_MS,
   StationCommandConflictError,
 } from "./commands.js";
-import { configForStation, configuredStations, type GatewayConfig } from "./config.js";
+import {
+  configForStation,
+  configuredStations,
+  UnknownStationError,
+  type GatewayConfig,
+} from "./config.js";
 import { evidenceEvent, type EvidenceEvent, type EvidenceStore } from "./events.js";
 import { foldIdTag, pseudonymizeTag } from "./tag.js";
 
@@ -80,6 +85,8 @@ export interface ChargeGateway {
   armCardCapture(stationId: string): CardCaptureProjection;
   cancelCardCapture(stationId: string): CardCaptureProjection;
   close(): Promise<void>;
+  /** Closes a charger's connection at once (retirement or password change). */
+  disconnectStation?(stationId: string): Promise<void>;
   getRuntime(stationId: string): StationRuntime;
   inspectLocalAuthorization(stationId: string): Promise<CapabilityAssessment>;
   listen(port?: number, host?: string): ReturnType<RPCServer["listen"]>;
@@ -170,9 +177,25 @@ export function createChargeGateway(
   options: ChargeGatewayOptions = {},
 ): ChargeGateway {
   const commandTimeoutMs = options.commandTimeoutMs ?? STATION_COMMAND_TIMEOUT_MS;
-  const stationConfigs = new Map(
-    configuredStations(config).map((station) => [station.id, configForStation(config, station.id)]),
-  );
+  // Resolved on every use: chargers added or retired from the console take effect immediately.
+  const stationConfigs = {
+    get(stationId: string): GatewayConfig | undefined {
+      try {
+        return configForStation(config, stationId);
+      } catch (error) {
+        if (error instanceof UnknownStationError) return undefined;
+        throw error;
+      }
+    },
+    has(stationId: string): boolean {
+      return this.get(stationId) !== undefined;
+    },
+    *[Symbol.iterator](): IterableIterator<[string, GatewayConfig]> {
+      for (const station of configuredStations(config)) {
+        yield [station.id, configForStation(config, station.id)];
+      }
+    },
+  };
   const peers = new Map<string, OcppPeer>();
   const connectedAt = new Map<string, string>();
   const pendingConnections = new Map<string, Socket>();
@@ -890,6 +913,13 @@ export function createChargeGateway(
     async close() {
       for (const stationId of captures.keys()) clearCapture(stationId);
       await server.close({ awaitPending: true });
+    },
+    async disconnectStation(stationId) {
+      clearCapture(stationId);
+      pendingConnections.get(stationId)?.destroy();
+      pendingConnections.delete(stationId);
+      const peer = peers.get(stationId);
+      if (peer) await peer.close({ code: 1008, force: true, reason: "Charge point retired" });
     },
     getRuntime(stationId) {
       return {

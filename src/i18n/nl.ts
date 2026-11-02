@@ -1,4 +1,5 @@
 import type { MessageKey } from "./en.js";
+import { fleetNl } from "./fleet.nl.js";
 
 /** Dutch (Belgium) owner-console messages. Keys and placeholders mirror `en.ts`. */
 export const nl: Readonly<Record<MessageKey, string>> = {
@@ -27,6 +28,7 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "attention.evidence-conflict": "Tegenstrijdige sessiegegevens",
   "attention.migration-action": "Overstapstap open",
   "attention.offline": "Offline",
+  "attention.no-cards": "Nog geen laadpas",
 
   "board.freedomDetail": "Test met getuige aan de laadpaal",
   "board.sharingActive.one": "{count} persoon heeft leestoegang",
@@ -560,4 +562,5 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "usage.titleCompany": "Verbruik per werknemer",
   "usage.unassigned": "Niemand",
   "usage.withSessions": "{count} met sessies",
+  ...fleetNl,
 };

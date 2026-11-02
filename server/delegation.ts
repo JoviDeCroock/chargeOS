@@ -28,6 +28,8 @@ interface StoredDelegateGrant {
 
 export interface DelegatePrincipal {
   readonly expiresAt: string;
+  /** Ledger time the grant was issued; an employee page shows nothing from before it. */
+  readonly grantedAt: string;
   readonly grantId: string;
   readonly role: DelegateRole;
   readonly scopes: readonly DelegateScope[];
@@ -146,6 +148,7 @@ export function authenticateDelegate(
   if (revoked || Date.parse(stored.expiresAt) <= now.getTime()) return null;
   return {
     expiresAt: stored.expiresAt,
+    grantedAt: event!.at,
     grantId: stored.grantId,
     role: stored.role,
     scopes: stored.scopes,
@@ -215,7 +218,7 @@ export async function recordDelegateUse(
 
 function validateRole(value: unknown): DelegateRole {
   if (typeof value !== "string" || !DELEGATE_ROLES.includes(value as DelegateRole)) {
-    throw new DelegationInputError("role must be installer, employer, or energy-provider");
+    throw new DelegationInputError(`role must be one of ${DELEGATE_ROLES.join(", ")}`);
   }
   return value as DelegateRole;
 }

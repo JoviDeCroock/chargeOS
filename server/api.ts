@@ -61,6 +61,15 @@ import {
 } from "./delegation.js";
 import type { EvidenceStore } from "./events.js";
 import { createFieldEvidencePack } from "./field-pack.js";
+import { CardPolicyStore } from "./card-policy.js";
+import {
+  afterCardRevoked,
+  handleFleetDelegateApi,
+  handleFleetOwnerApi,
+  type FleetServices,
+} from "./fleet-api.js";
+import { StationRegistry } from "./station-registry.js";
+import { FLEET_ROLES } from "../shared/delegation.js";
 import {
   IdentityAliasError,
   OwnerContinuityBlockedError,
@@ -90,9 +99,9 @@ import {
 import {
   OwnerTagConflictError,
   OwnerTagInputError,
+  OwnerTagRegistry,
   ownerTagRegistryFor,
   type OwnerTagRegistries,
-  type OwnerTagRegistry,
 } from "./owner-tags.js";
 import type {
   FreedomTestDeviceInput,
@@ -130,8 +139,19 @@ export function createOwnerApi(
   ownerTags: OwnerTagRegistry | OwnerTagRegistries,
   aiFetch: typeof fetch = fetch,
   directory: OwnerDirectoryStore = OwnerDirectoryStore.memory(config),
+  fleetServices: Partial<FleetServices> = {},
 ): OwnerApi {
   const troubleshoot = createTroubleshooter(config.aiRelayOrigin, aiFetch);
+  const services: FleetServices = {
+    cardPolicy: fleetServices.cardPolicy ?? CardPolicyStore.memory(),
+    driverCaptures: fleetServices.driverCaptures ?? new Set(),
+    registries:
+      fleetServices.registries ??
+      (ownerTags instanceof OwnerTagRegistry
+        ? new Map([[config.stationId, ownerTags]])
+        : (ownerTags as Map<string, OwnerTagRegistry>)),
+    stations: fleetServices.stations ?? StationRegistry.memory(config),
+  };
   const failedAuthorizations = new Map<string, FailedAuthorization>();
   // Every delegate request reads the ledger and appends a use audit; bound each grant so the
   // lowest-privilege read token cannot starve the shared event loop or exhaust evidence capacity.
@@ -185,6 +205,20 @@ export function createOwnerApi(
       const token = bearerToken(request);
       if (token && tokenMatches(token, config.ownerApiToken)) {
         failedAuthorizations.delete(remoteAddress);
+        if (
+          await handleFleetOwnerApi(
+            request,
+            response,
+            url,
+            config,
+            gateway,
+            evidence,
+            services,
+            directory,
+          )
+        ) {
+          return;
+        }
         if (url.pathname === "/api/v1/fleet" && request.method === "GET") {
           sendJson(
             response,
@@ -213,6 +247,9 @@ export function createOwnerApi(
                 timeZone,
                 new Date(),
                 directory.stationNames(config),
+                config.profile === "company"
+                  ? { retiredStationIds: services.stations.retired.map(({ id }) => id) }
+                  : undefined,
               ),
             );
           } catch (error) {
@@ -268,8 +305,10 @@ export function createOwnerApi(
           scoped.config,
           gateway,
           evidence,
-          ownerTagRegistryFor(ownerTags, scoped.config.stationId),
+          ownerTagRegistryFor(services.registries, scoped.config.stationId),
           directory,
+          services,
+          config,
         );
         return;
       }
@@ -294,6 +333,21 @@ export function createOwnerApi(
       if (principal && scoped) {
         // A valid delegate token deliberately does not clear owner-token guess failures.
         recordFailedAuthorization(delegateRequests, principal.grantId);
+        if (
+          await handleFleetDelegateApi(
+            request,
+            response,
+            scoped.url,
+            config,
+            scoped.config,
+            gateway,
+            evidence,
+            services,
+            principal,
+          )
+        ) {
+          return;
+        }
         await handleDelegateApi(
           request,
           response,
@@ -386,6 +440,8 @@ async function handleOwnerApi(
   evidence: EvidenceStore,
   ownerTags: OwnerTagRegistry,
   directory: OwnerDirectoryStore,
+  services: FleetServices,
+  rootConfig: GatewayConfig,
 ): Promise<void> {
   if (url.pathname === "/api/v1/profile" && request.method === "POST") {
     try {
@@ -426,6 +482,12 @@ async function handleOwnerApi(
   if (url.pathname === "/api/v1/delegations" && request.method === "POST") {
     try {
       const input = (await readJsonBody(request)) as unknown as DelegateGrantInput;
+      // A fleet-wide grant lives on the first charger, where its route answers.
+      if (FLEET_ROLES.includes(input.role) && config.stationId !== rootConfig.stationId) {
+        throw new DelegationInputError(
+          "A finance feed is issued for the whole fleet, not one charger",
+        );
+      }
       sendJson(response, 201, await createDelegateGrant(config.stationId, evidence, input));
     } catch (error) {
       if (!sendDelegationError(response, error)) throw error;
@@ -488,6 +550,7 @@ async function handleOwnerApi(
       await directory.forgetRevokedCards(config).catch(() => {
         console.warn("Owner directory could not forget a revoked card name");
       });
+      await afterCardRevoked(rootConfig, services);
       sendJson(response, 200, result);
     } catch (error) {
       if (!sendOwnerTagError(response, error)) throw error;
@@ -907,7 +970,7 @@ function ownerTagRevokeInput(value: unknown): OwnerTagRevokeInput {
   return { confirmation: input.confirmation };
 }
 
-function objectWithExactKeys(
+export function objectWithExactKeys(
   value: unknown,
   keys: readonly string[],
 ): Record<string, unknown> | null {
@@ -974,7 +1037,7 @@ async function handleSetupSignInProof(
   sendJson(response, 200, { proof });
 }
 
-async function readJsonBody(request: IncomingMessage): Promise<Record<string, unknown>> {
+export async function readJsonBody(request: IncomingMessage): Promise<Record<string, unknown>> {
   if (request.headers["content-type"]?.split(";", 1)[0]?.trim() !== "application/json") {
     throw new FreedomTestInputError("Content-Type must be application/json");
   }
@@ -1106,14 +1169,19 @@ function applySecurityHeaders(response: ServerResponse): void {
   response.setHeader("X-Frame-Options", "DENY");
 }
 
-function sendJson(response: ServerResponse, status: number, body: unknown): void {
+export function sendJson(response: ServerResponse, status: number, body: unknown): void {
   response.statusCode = status;
   response.setHeader("Content-Type", "application/json; charset=utf-8");
   response.setHeader("Cache-Control", "no-store");
   response.end(JSON.stringify(body));
 }
 
-function sendError(response: ServerResponse, status: number, code: string, message: string): void {
+export function sendError(
+  response: ServerResponse,
+  status: number,
+  code: string,
+  message: string,
+): void {
   const body: ApiErrorResponse = { error: { code, message } };
   sendJson(response, status, body);
 }

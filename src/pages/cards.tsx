@@ -15,11 +15,25 @@ import {
   runSaveCard,
 } from "../model.js";
 import type { Route } from "../routes.js";
-import { cardLabel, Dialog, PageHead, PersonSelect, shortPseudonym } from "../ui.js";
+import { cardLabel, closeRowMenu, Dialog, PageHead, PersonSelect, shortPseudonym } from "../ui.js";
+import { fleetCards, runSyncReady } from "../fleet-model.js";
+import { fleet as fleetSignal } from "../model.js";
+import type { MessageKey } from "../i18n/index.js";
+import type { CardOwnership, CardUse } from "../../shared/cards.js";
+import { setFleetCardPolicy } from "../fleet-client.js";
+import {
+  CardPolicyFields,
+  ClassifyCardDialog,
+  CopyCardDialog,
+  LostCardDialog,
+} from "./register-card.js";
 
 type Editing =
   | { readonly kind: "add" }
   | { readonly kind: "tap" }
+  | { readonly kind: "classify"; readonly tagPseudonym: string }
+  | { readonly kind: "copy"; readonly tagPseudonym: string }
+  | { readonly kind: "lost"; readonly tagPseudonym: string }
   | { readonly kind: "edit"; readonly tagPseudonym: string }
   | { readonly kind: "remove"; readonly tagPseudonym: string };
 
@@ -76,6 +90,14 @@ export function CardsPage({
           {authorization.tagPseudonyms.map((tag) => {
             const card = cardLabel(directory, stationId, tag);
             const onCharger = authorization.acknowledgedTagPseudonyms.includes(tag);
+            const policy = current.cardPolicies?.find(({ tagPseudonym }) => tagPseudonym === tag);
+            // The same physical card on other chargers, recognised on the server without its number.
+            const elsewhere = presentOn(stationId, tag)
+              .filter((id) => id !== stationId)
+              .map(
+                (id) =>
+                  fleetSignal.value?.stations.find((station) => station.id === id)?.label ?? id,
+              );
             return (
               <li key={tag} class="card-row">
                 <span class="rfid-chip" aria-hidden="true" />
@@ -85,7 +107,28 @@ export function CardsPage({
                     {card.holder ?? <span class="muted">{t("people.nobody")}</span>}
                     {card.named && <code class="card-ref">{shortPseudonym(tag)}</code>}
                   </small>
+                  {elsewhere.length > 0 && (
+                    <small class="card-also">
+                      {t("fleet.cards.alsoAt", { stations: elsewhere.join(", ") })}
+                    </small>
+                  )}
                 </div>
+                <span class="card-tags">
+                  {policy ? (
+                    <>
+                      <span class={`label-chip ${policy.ownership}`}>
+                        {t(`fleet.card.ownership.${policy.ownership}` as MessageKey)}
+                      </span>
+                      <span class={`label-chip ${policy.use}`}>
+                        {t(`fleet.card.use.${policy.use}` as MessageKey)}
+                      </span>
+                    </>
+                  ) : (
+                    current.cardPolicies && (
+                      <span class="label-chip unset">{t("fleet.card.unclassified")}</span>
+                    )
+                  )}
+                </span>
                 <span class={`state-chip ${onCharger ? "ok" : "warn"}`}>
                   {t(onCharger ? "cards.onCharger" : "cards.waiting")}
                 </span>
@@ -99,15 +142,51 @@ export function CardsPage({
                       {t("common.edit")}
                     </button>
                   )}
-                  <button
-                    class="button danger-ghost compact"
-                    type="button"
-                    disabled={authorization.tagCount <= 1 || action.value !== null}
-                    title={authorization.tagCount <= 1 ? t("cards.keepOne") : undefined}
-                    onClick={() => setEditing({ kind: "remove", tagPseudonym: tag })}
-                  >
-                    {t("common.remove")}
-                  </button>
+                  {current.cardPolicies ? (
+                    <details class="row-menu">
+                      <summary class="button ghost compact">{t("fleet.cards.more")}</summary>
+                      <div class="row-menu-list glass" onClickCapture={closeRowMenu}>
+                        <button
+                          type="button"
+                          onClick={() => setEditing({ kind: "classify", tagPseudonym: tag })}
+                        >
+                          {t("fleet.cards.classify")}
+                        </button>
+                        {(fleetSignal.value?.stations.length ?? 0) > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setEditing({ kind: "copy", tagPseudonym: tag })}
+                          >
+                            {t("fleet.cards.copy")}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          disabled={authorization.tagCount <= 1}
+                          onClick={() => setEditing({ kind: "remove", tagPseudonym: tag })}
+                        >
+                          {t("fleet.cards.removeHere")}
+                        </button>
+                        <button
+                          type="button"
+                          class="danger"
+                          onClick={() => setEditing({ kind: "lost", tagPseudonym: tag })}
+                        >
+                          {t("fleet.cards.lost")}
+                        </button>
+                      </div>
+                    </details>
+                  ) : (
+                    <button
+                      class="button danger-ghost compact"
+                      type="button"
+                      disabled={authorization.tagCount <= 1 || action.value !== null}
+                      title={authorization.tagCount <= 1 ? t("cards.keepOne") : undefined}
+                      onClick={() => setEditing({ kind: "remove", tagPseudonym: tag })}
+                    >
+                      {t("common.remove")}
+                    </button>
+                  )}
                 </div>
               </li>
             );
@@ -140,6 +219,43 @@ export function CardsPage({
           directory={directory}
           stationId={stationId}
           tagPseudonym={editing.tagPseudonym}
+          onClose={() => setEditing(null)}
+        />
+      )}
+      {editing?.kind === "classify" && (
+        <ClassifyCardDialog
+          stationId={stationId}
+          tagPseudonym={editing.tagPseudonym}
+          name={cardLabel(directory, stationId, editing.tagPseudonym).name}
+          initial={
+            current.cardPolicies?.find(
+              ({ tagPseudonym }) => tagPseudonym === editing.tagPseudonym,
+            ) ?? null
+          }
+          onClose={() => setEditing(null)}
+        />
+      )}
+      {editing?.kind === "copy" && fleetSignal.value && (
+        <CopyCardDialog
+          stationId={stationId}
+          tagPseudonym={editing.tagPseudonym}
+          name={cardLabel(directory, stationId, editing.tagPseudonym).name}
+          fleet={fleetSignal.value}
+          presentOn={presentOn(stationId, editing.tagPseudonym)}
+          onClose={() => setEditing(null)}
+        />
+      )}
+      {editing?.kind === "lost" && (
+        <LostCardDialog
+          stationId={stationId}
+          tagPseudonym={editing.tagPseudonym}
+          name={cardLabel(directory, stationId, editing.tagPseudonym).name}
+          stationLabels={presentOn(stationId, editing.tagPseudonym)
+            .filter((id) => !isOnlyCard(id))
+            .map(stationLabel)}
+          keptLabels={presentOn(stationId, editing.tagPseudonym)
+            .filter(isOnlyCard)
+            .map(stationLabel)}
           onClose={() => setEditing(null)}
         />
       )}
@@ -190,6 +306,16 @@ function SyncBanner({
               : t("cards.sync.checkFirst")}
         </p>
       </div>
+      {(fleetSignal.value?.stations.length ?? 0) > 1 && (
+        <button
+          class="button secondary"
+          type="button"
+          disabled={action.value !== null}
+          onClick={() => void runSyncReady()}
+        >
+          {t("fleet.cards.syncAll")}
+        </button>
+      )}
       {ready ? (
         <button
           class="button primary"
@@ -220,7 +346,7 @@ const CAPTURE_POLL_MS = 2_000;
  * Adds a card by tapping it at the charger. chargeOS listens for one tap, the charger refuses that
  * tap as usual, and the console offers the card it saw by its reference only.
  */
-function TapCardDialog({
+export function TapCardDialog({
   capture: serverCapture,
   connected,
   directory,
@@ -242,6 +368,10 @@ function TapCardDialog({
     until: null,
   };
   const [profile, setProfile] = useState<CardProfileState>(EMPTY_PROFILE);
+  const [ownership, setOwnership] = useState<CardOwnership>("company");
+  const [use, setUse] = useState<CardUse>("business");
+  // A company records who owns each card and whether its sessions are business charging.
+  const company = fleetSignal.value?.console?.profile === "company";
   const listening = capture.state === "listening";
 
   useEffect(() => {
@@ -290,6 +420,14 @@ function TapCardDialog({
               </p>
             </div>
             <CardProfileFields directory={directory} value={profile} onChange={setProfile} />
+            {company && (
+              <CardPolicyFields
+                ownership={ownership}
+                use={use}
+                onOwnership={setOwnership}
+                onUse={setUse}
+              />
+            )}
             <p class="field-hint">{t("cards.addHint")}</p>
           </>
         )}
@@ -321,6 +459,14 @@ function TapCardDialog({
                 void runCardCaptureConfirm(
                   capture.tagPseudonym!,
                   directory?.writable ? profileInput(profile) : undefined,
+                  company
+                    ? (stationId, tagPseudonym, token) =>
+                        setFleetCardPolicy({ stationId, tagPseudonym }, ownership, use, token).then(
+                          (cards) => {
+                            fleetCards.value = cards;
+                          },
+                        )
+                    : undefined,
                 ).then((added) => added && onClose())
               }
             >
@@ -572,4 +718,26 @@ function RemoveCardDialog({
       </footer>
     </Dialog>
   );
+}
+
+/** Chargers whose desired list holds the same physical card (resolved on the server). */
+function stationLabel(id: string): string {
+  return fleetSignal.value?.stations.find((station) => station.id === id)?.label ?? id;
+}
+
+/** `true` when a charger has exactly one card, which removal therefore keeps. */
+function isOnlyCard(id: string): boolean {
+  const cards = fleetCards.value?.cards ?? [];
+  return (
+    cards.filter(({ members }) => members.some((member) => member.stationId === id)).length === 1
+  );
+}
+
+function presentOn(stationId: string, tagPseudonym: string): readonly string[] {
+  const card = fleetCards.value?.cards.find(({ members }) =>
+    members.some(
+      (member) => member.stationId === stationId && member.tagPseudonym === tagPseudonym,
+    ),
+  );
+  return card ? card.members.map((member) => member.stationId) : [stationId];
 }

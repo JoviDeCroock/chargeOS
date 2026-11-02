@@ -1,6 +1,7 @@
 import { render } from "preact";
 
 import "./style.css";
+import "./fleet.css";
 
 const root = document.getElementById("app");
 if (!root) throw new Error("Missing #app mount point");
@@ -19,6 +20,8 @@ if (/^\/help\/?$/.test(window.location.pathname)) {
   void import("./service/app.js").then(({ ServiceWorkspace }) =>
     render(<ServiceWorkspace hostedPage={hostedPage} />, root),
   );
+} else if (/^\/me\/?$/.test(window.location.pathname)) {
+  void import("./driver/app.js").then(({ DriverWorkspace }) => render(<DriverWorkspace />, root));
 } else if (/^\/preview\/?$/.test(window.location.pathname)) {
   void import("./product/app.js").then(({ ProductPreview }) => render(<ProductPreview />, root));
 } else if (/^\/observe\/?$/.test(window.location.pathname)) {

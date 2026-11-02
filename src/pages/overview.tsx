@@ -6,6 +6,9 @@ import type { Route } from "../routes.js";
 import { freedomStatusLabel, migrationStatusLabel } from "../switching.js";
 import { UsagePanel } from "../usage.js";
 import { ConnectChargerPanel, needsConnectionHelp } from "./connect.js";
+import { useState } from "preact/hooks";
+import { TapCardDialog } from "./cards.js";
+import { SetupChecklist } from "./fleet-setup.js";
 import {
   cardLabel,
   connectorStatusLabel,
@@ -29,6 +32,7 @@ export function OverviewPage({
   onEdit: (() => void) | null;
 }) {
   const station = current.station;
+  const [registering, setRegistering] = useState(false);
   return (
     <div class="section-stack">
       <PageHead
@@ -59,9 +63,12 @@ export function OverviewPage({
         </div>
       )}
 
+      <SetupChecklist snapshot={current} go={go} onRegisterCard={() => setRegistering(true)} />
+
       {needsConnectionHelp(current) && <ConnectChargerPanel snapshot={current} />}
 
-      {current.authorization.tagCount === 0 && (
+      {/* The setup checklist already asks for the first card on a charger added here. */}
+      {current.authorization.tagCount === 0 && !current.setup && (
         <div class="inline-alert warn" role="status">
           <strong>{t("cards.first.title")}</strong>
           <p>{t("cards.first.body")}</p>
@@ -75,6 +82,20 @@ export function OverviewPage({
             {t("cards.tap.start")}
           </a>
         </div>
+      )}
+
+      {registering && (
+        <TapCardDialog
+          capture={current.cardCapture}
+          connected={station.connected}
+          directory={directory}
+          stationLabel={station.label}
+          onClose={() => setRegistering(false)}
+          onType={() => {
+            setRegistering(false);
+            go({ page: "cards" });
+          }}
+        />
       )}
 
       <ChargingNow snapshot={current} directory={directory} />

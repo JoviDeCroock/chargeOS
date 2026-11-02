@@ -24,6 +24,8 @@ import {
   snapshot,
 } from "./model.js";
 import { CardsPage } from "./pages/cards.js";
+import { refreshFleetExtras } from "./fleet-model.js";
+import { FinanceFeedPanel } from "./pages/finance-feed.js";
 import { OverviewPage } from "./pages/overview.js";
 import { PeoplePage } from "./pages/people.js";
 import { StationSettingsPage } from "./pages/station-settings.js";
@@ -50,7 +52,7 @@ export function App() {
   const [editingStation, setEditingStation] = useState<string | null>(null);
   useEffect(() => {
     applyDocumentLanguage();
-    if (ownerToken.value) void refreshFleet();
+    if (ownerToken.value) void refreshFleet().then(refreshFleetExtras);
   }, []);
 
   const current = snapshot.value;
@@ -283,7 +285,10 @@ export function App() {
           ) : resolved.page === "cards" ? (
             <CardsPage snapshot={current} directory={names} go={go} />
           ) : resolved.page === "usage" ? (
-            <UsageReportSection profile={profile ?? "personal"} />
+            <div class="section-stack">
+              <UsageReportSection profile={profile ?? "personal"} />
+              {company && <FinanceFeedPanel />}
+            </div>
           ) : resolved.page === "settings" ? (
             <ConsoleSettingsSection profile={profile ?? "personal"} />
           ) : (
@@ -457,7 +462,7 @@ function TokenGate() {
             onSubmit={(event) => {
               event.preventDefault();
               setOwnerToken(value);
-              void refreshFleet();
+              void refreshFleet().then(refreshFleetExtras);
             }}
           >
             <label for="owner-token">{t("signin.token")}</label>

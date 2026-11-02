@@ -14,6 +14,7 @@ import type {
   DelegateStationStatus,
 } from "../shared/delegation.js";
 import { buildStationCommands } from "./commands.js";
+import { cardPolicyHistory } from "./card-policy.js";
 import { configForStation, configuredStations, type GatewayConfig } from "./config.js";
 import { projectDelegateGrants } from "./delegation.js";
 import type { EvidenceEvent } from "./events.js";
@@ -82,6 +83,11 @@ export function buildFleetSnapshot(
   gateway: Pick<ChargeGateway, "getRuntime">,
   events: readonly EvidenceEvent[],
   names?: StationNameLookup,
+  decorate?: (
+    stationId: string,
+    snapshot: OwnerSnapshot,
+    events: readonly EvidenceEvent[],
+  ) => Partial<FleetStationSummary>,
 ): FleetSnapshot {
   const byStation = new Map<string, EvidenceEvent[]>();
   for (const event of events) {
@@ -94,7 +100,9 @@ export function buildFleetSnapshot(
     const snapshot = buildOwnerSnapshot(scoped, gateway, byStation.get(station.id) ?? [], names);
     const attention = new Set<FleetStationSummary["attention"][number]>();
     if (!snapshot.station.connected) attention.add("offline");
-    if (snapshot.authorization.syncState !== "current") attention.add("authorization-pending");
+    // A charger with no card yet has nothing to send; say that rather than "waiting to be sent".
+    if (snapshot.authorization.tagCount === 0) attention.add("no-cards");
+    else if (snapshot.authorization.syncState !== "current") attention.add("authorization-pending");
     if (snapshot.readiness?.state !== "ready") attention.add("continuity-unproven");
     if (snapshot.genesisPlan.state === "action-required") attention.add("migration-action");
     if (snapshot.sessions.some(({ integrity }) => integrity === "conflict")) {
@@ -115,6 +123,7 @@ export function buildFleetSnapshot(
       lastSessionAt: snapshot.sessions[0]?.startedAt ?? null,
       readiness: snapshot.readiness?.state ?? "not-inspected",
       site: snapshot.station.site,
+      ...decorate?.(station.id, snapshot, byStation.get(station.id) ?? []),
     };
   });
   return {
@@ -181,7 +190,9 @@ export function buildUsageReportProjection(
   timeZone: string,
   now = new Date(),
   names?: StationNameLookup,
+  company?: { readonly retiredStationIds: readonly string[] },
 ): UsageReport {
+  const policyAt = company ? cardPolicyHistory(events) : null;
   const byStation = new Map<string, EvidenceEvent[]>();
   for (const event of events) {
     const stationEvents = byStation.get(event.stationId);
@@ -192,13 +203,26 @@ export function buildUsageReportProjection(
     generatedAt: now.toISOString(),
     month,
     profile: config.profile ?? "personal",
-    stations: configuredStations(config).map((station) => {
+    stations: [
+      ...configuredStations(config),
+      // Retired chargers keep their recorded sessions in the months they happened.
+      ...(company?.retiredStationIds ?? [])
+        .filter((id) => byStation.has(id))
+        .map((id) => ({ driver: null, id, label: id, site: "" })),
+    ].map((station) => {
       const named = names?.(station.id);
       return {
         driver: named ? named.driver : (station.driver ?? null),
         id: station.id,
         label: named?.label ?? station.label,
-        sessions: sessionProjection(byStation.get(station.id) ?? []),
+        sessions: sessionProjection(byStation.get(station.id) ?? []).map((session) =>
+          policyAt
+            ? {
+                ...session,
+                cardUse: policyAt(station.id, session.tagPseudonym, session.startedAt)?.use ?? null,
+              }
+            : session,
+        ),
         site: named?.site ?? station.site,
       };
     }),
@@ -417,6 +441,14 @@ function redactEvidencePayload(message: string, payload: unknown): unknown {
       legacy.includes(key) ? [key, "[redacted]"] : [key, value],
     ),
   );
+}
+
+/** Sessions of one charger, newest first, for owner and delegate feeds. */
+export function stationSessions(
+  events: readonly EvidenceEvent[],
+  stationId: string,
+): readonly ChargeSession[] {
+  return sessionProjection(events.filter((event) => event.stationId === stationId));
 }
 
 function sessionProjection(events: readonly EvidenceEvent[]): readonly ChargeSession[] {

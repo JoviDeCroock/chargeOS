@@ -15,7 +15,12 @@ export function isConsoleProfile(value: unknown): value is ConsoleProfile {
 }
 
 /** Minimal session fields needed to attribute usage. Never includes a raw RFID value. */
+/** How the owner classified the card a session used; `null` when not classified. */
+export type UsageCardUse = "business" | "private" | null;
+
 export interface UsageSessionInput {
+  /** Company profile only: the card's business/private classification. */
+  readonly cardUse?: UsageCardUse;
   readonly energyWh: number | null;
   readonly integrity: "consistent" | "conflict";
   readonly startedAt: string;
@@ -33,6 +38,7 @@ export interface MonthlyUsage {
 }
 
 export interface UsageReportSession {
+  readonly cardUse?: UsageCardUse;
   readonly energyWh: number | null;
   readonly integrity: "consistent" | "conflict";
   readonly startedAt: string;
@@ -56,6 +62,8 @@ export interface UsageReportDriver {
   /** `null` groups chargers that have no assigned driver. */
   readonly driver: string | null;
   readonly energyWh: number;
+  /** Part of `energyWh` charged with cards classified private; never reimbursable. */
+  readonly privateEnergyWh?: number;
   readonly sessionCount: number;
   readonly stationIds: readonly string[];
 }
@@ -210,6 +218,7 @@ export function buildUsageReport(input: {
   const stations = input.stations.map((station): UsageReportStation => {
     const sessions = sessionsInMonth(station.sessions, input.month, input.timeZone)
       .map((session): UsageReportSession => ({
+        ...(session.cardUse !== undefined ? { cardUse: session.cardUse } : {}),
         energyWh: session.energyWh,
         integrity: session.integrity,
         startedAt: session.startedAt,
@@ -232,11 +241,19 @@ export function buildUsageReport(input: {
 
   const drivers = new Map<
     string | null,
-    { energyWh: number; sessionCount: number; ids: string[] }
+    { energyWh: number; privateEnergyWh: number; sessionCount: number; ids: string[] }
   >();
   for (const station of stations) {
-    const driver = drivers.get(station.driver) ?? { energyWh: 0, ids: [], sessionCount: 0 };
+    const driver = drivers.get(station.driver) ?? {
+      energyWh: 0,
+      ids: [],
+      privateEnergyWh: 0,
+      sessionCount: 0,
+    };
     driver.energyWh += station.energyWh;
+    driver.privateEnergyWh += recordedEnergyWh(
+      station.sessions.filter(({ cardUse }) => cardUse === "private"),
+    );
     driver.sessionCount += station.sessionCount;
     driver.ids.push(station.id);
     drivers.set(station.driver, driver);
@@ -248,6 +265,7 @@ export function buildUsageReport(input: {
       .map(([driver, value]) => ({
         driver,
         energyWh: value.energyWh,
+        ...(value.privateEnergyWh > 0 ? { privateEnergyWh: value.privateEnergyWh } : {}),
         sessionCount: value.sessionCount,
         stationIds: value.ids,
       }))
@@ -284,6 +302,7 @@ const CSV_HEADER = [
   "status",
   "integrity",
   "card_pseudonym",
+  "card_use",
 ] as const;
 
 /**
@@ -309,6 +328,7 @@ export function usageReportCsv(report: UsageReport): string {
         session.status === "active" ? "in-progress" : "complete",
         session.integrity,
         session.tagPseudonym,
+        session.cardUse ?? "",
       ]);
     }
   }

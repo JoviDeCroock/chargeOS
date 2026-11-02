@@ -3,12 +3,15 @@ import { useState } from "preact/hooks";
 import type { FleetSnapshot } from "../../shared/contracts.js";
 import {
   DIRECTORY_NAME_MAX_LENGTH,
+  type DirectoryCard,
   type DirectoryPerson,
   type OwnerDirectory,
 } from "../../shared/directory.js";
+import { fleetCards } from "../fleet-model.js";
 import { t, tn } from "../i18n/index.js";
 import { action, runAddPerson, runRemovePerson, runRenamePerson } from "../model.js";
 import { Dialog, initials, PageHead, shortPseudonym } from "../ui.js";
+import { EmployeeAccessDialog, OffboardDialog } from "./offboarding.js";
 
 export function PeoplePage({
   directory,
@@ -21,6 +24,8 @@ export function PeoplePage({
 }) {
   const [editing, setEditing] = useState<DirectoryPerson | "new" | null>(null);
   const [removing, setRemoving] = useState<DirectoryPerson | null>(null);
+  const [access, setAccess] = useState<DirectoryPerson | null>(null);
+  const [leaving, setLeaving] = useState<DirectoryPerson | null>(null);
   const title = t(company ? "people.titleCompany" : "people.title");
 
   if (!directory) {
@@ -60,8 +65,8 @@ export function PeoplePage({
             const stations = directory.stations.filter(
               ({ driverPersonId }) => driverPersonId === person.id,
             );
-            const cards = directory.cards.filter(
-              ({ holderPersonId }) => holderPersonId === person.id,
+            const cards = physicalCards(
+              directory.cards.filter(({ holderPersonId }) => holderPersonId === person.id),
             );
             return (
               <li class="entity-card glass person-card" key={person.id}>
@@ -93,11 +98,14 @@ export function PeoplePage({
                     <dd>
                       {cards.length ? (
                         <ul class="plain-list">
-                          {cards.map((card) => (
+                          {cards.map(({ card, stationIds }) => (
                             <li key={`${card.stationId}-${card.tagPseudonym}`}>
                               {card.name ??
                                 t("cards.unnamedShort", { id: shortPseudonym(card.tagPseudonym) })}
-                              <small class="muted"> · {stationName(card.stationId)}</small>
+                              <small class="muted">
+                                {" "}
+                                · {stationIds.map(stationName).join(", ")}
+                              </small>
                             </li>
                           ))}
                         </ul>
@@ -109,6 +117,15 @@ export function PeoplePage({
                 </dl>
                 {directory.writable && (
                   <footer class="entity-actions">
+                    {stations.length > 0 && (
+                      <button
+                        class="button secondary compact"
+                        type="button"
+                        onClick={() => setAccess(person)}
+                      >
+                        {t("fleet.access.button")}
+                      </button>
+                    )}
                     <button
                       class="button secondary compact"
                       type="button"
@@ -116,6 +133,15 @@ export function PeoplePage({
                     >
                       {t("people.rename")}
                     </button>
+                    {company && (
+                      <button
+                        class="button danger-ghost compact"
+                        type="button"
+                        onClick={() => setLeaving(person)}
+                      >
+                        {t("fleet.offboard.button")}
+                      </button>
+                    )}
                     <button
                       class="button danger-ghost compact"
                       type="button"
@@ -137,6 +163,23 @@ export function PeoplePage({
           person={editing === "new" ? null : editing}
           company={company}
           onClose={() => setEditing(null)}
+        />
+      )}
+      {access && (
+        <EmployeeAccessDialog
+          person={access}
+          stations={directory.stations
+            .filter(({ driverPersonId }) => driverPersonId === access.id)
+            .map(({ id, label }) => ({ id, label }))}
+          onClose={() => setAccess(null)}
+        />
+      )}
+      {leaving && (
+        <OffboardDialog
+          person={leaving}
+          directory={directory}
+          fleet={fleet}
+          onClose={() => setLeaving(null)}
         />
       )}
       {removing && (
@@ -215,4 +258,29 @@ function PersonDialog({
       </form>
     </Dialog>
   );
+}
+
+/**
+ * Groups name entries by physical card: the same card copied to several chargers has one entry
+ * per charger, recognised on the server without its number. Without fleet data each stays alone.
+ */
+function physicalCards(
+  entries: readonly DirectoryCard[],
+): { card: DirectoryCard; stationIds: string[] }[] {
+  const groups: { card: DirectoryCard; stationIds: string[]; key: string }[] = [];
+  for (const card of entries) {
+    const fleetCard = fleetCards.value?.cards.find(({ members }) =>
+      members.some(
+        (member) =>
+          member.stationId === card.stationId && member.tagPseudonym === card.tagPseudonym,
+      ),
+    );
+    const key = fleetCard
+      ? fleetCard.members.map((member) => `${member.stationId}/${member.tagPseudonym}`).join("|")
+      : `${card.stationId}/${card.tagPseudonym}`;
+    const group = groups.find((existing) => existing.key === key);
+    if (group) group.stationIds.push(card.stationId);
+    else groups.push({ card, key, stationIds: [card.stationId] });
+  }
+  return groups;
 }

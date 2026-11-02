@@ -267,3 +267,9 @@ export function PageHead({
     </header>
   );
 }
+
+/** Closes the `<details>` overflow menu that contains the clicked item, so a dialog opens alone. */
+export function closeRowMenu(event: MouseEvent): void {
+  const menu = (event.currentTarget as HTMLElement | null)?.closest("details");
+  if (menu) menu.open = false;
+}

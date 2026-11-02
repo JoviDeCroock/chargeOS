@@ -157,7 +157,7 @@ describe("usage report", () => {
     const csv = usageReportCsv(report);
     const lines = csv.trimEnd().split("\r\n");
     expect(lines[0]).toBe(
-      '"month","driver","charger_id","charger_label","site","session_id","transaction_id","started_at","stopped_at","energy_kwh","status","integrity","card_pseudonym"',
+      '"month","driver","charger_id","charger_label","site","session_id","transaction_id","started_at","stopped_at","energy_kwh","status","integrity","card_pseudonym","card_use"',
     );
     expect(lines).toHaveLength(6);
     expect(csv).toContain(`"2026-10","Bob","HOME_BOB","Bob's driveway","Ghent","HOME_BOB:1","1",`);
@@ -312,5 +312,239 @@ describe("usage report projection", () => {
     expect(report.stations[1]).toMatchObject({ driver: null, energyWh: 0, sessionCount: 0 });
     expect(JSON.stringify(report)).not.toContain("raw-owner-tag");
     expect(JSON.stringify(report)).not.toContain("tag_x");
+  });
+});
+
+describe("private card use in the usage report", () => {
+  const config = {
+    ownerTags: new Set(["raw-owner-tag"]),
+    profile: "company",
+    stationId: "HOME_1",
+    stationSecret: "station-secret-at-least-sixteen",
+    stations: [
+      {
+        driver: "Alice",
+        id: "HOME_1",
+        label: "Driveway",
+        ownerTags: new Set(["raw-owner-tag"]),
+        secret: "station-secret-at-least-sixteen",
+        site: "Home",
+      },
+    ],
+  } as unknown as GatewayConfig;
+  const charge = (transactionId: number, idTag: string, day: string, energyWh: number) => [
+    evidenceEvent("HOME_1", "station-to-csms", "StartTransaction", {
+      authorizationStatus: "Accepted",
+      connectorId: 1,
+      idTag,
+      meterStart: 0,
+      timestamp: `2026-10-${day}T18:00:00.000Z`,
+      transactionId,
+    }),
+    evidenceEvent("HOME_1", "station-to-csms", "StopTransaction", {
+      meterStop: energyWh,
+      timestamp: `2026-10-${day}T20:00:00.000Z`,
+      transactionId,
+    }),
+  ];
+  const classify = (
+    tagPseudonym: string,
+    use: "business" | "private",
+    at: string,
+    stationId = "HOME_1",
+  ): EvidenceEvent => ({
+    ...evidenceEvent(stationId, "system", "CardPolicyChanged", {
+      ownership: use === "private" ? "personal" : "company",
+      tagPseudonym,
+      use,
+    }),
+    at,
+  });
+  const company = { retiredStationIds: [] };
+  const events: EvidenceEvent[] = [
+    classify("tag_company", "business", "2026-10-01T08:00:00.000Z"),
+    classify("tag_personal", "private", "2026-10-01T08:00:00.000Z"),
+    ...charge(1, "tag_company", "05", 7_000),
+    ...charge(2, "tag_personal", "06", 3_000),
+    ...charge(3, "tag_unknown", "07", 1_000),
+  ];
+  const report = buildUsageReportProjection(
+    config,
+    events,
+    "2026-10",
+    "Europe/Brussels",
+    new Date("2026-11-01T00:00:00.000Z"),
+    undefined,
+    company,
+  );
+
+  it("labels every session with its card use and keeps unclassified cards unclassified", () => {
+    expect(report.stations[0]!.sessions.map(({ cardUse }) => cardUse)).toEqual([
+      "business",
+      "private",
+      null,
+    ]);
+  });
+
+  it("reports the private part per employee without removing it from the total", () => {
+    expect(report.drivers).toEqual([
+      expect.objectContaining({ driver: "Alice", energyWh: 11_000, privateEnergyWh: 3_000 }),
+    ]);
+  });
+
+  it("omits the private part when an employee charged no private session", () => {
+    const business = buildUsageReportProjection(
+      config,
+      [
+        classify("tag_company", "business", "2026-10-01T08:00:00.000Z"),
+        ...charge(1, "tag_company", "05", 7_000),
+      ],
+      "2026-10",
+      "Europe/Brussels",
+      new Date("2026-11-01T00:00:00.000Z"),
+      undefined,
+      company,
+    );
+    expect(business.drivers[0]).not.toHaveProperty("privateEnergyWh");
+  });
+
+  it("exports card use as the last CSV column, empty when unclassified", () => {
+    const lines = usageReportCsv(report).trimEnd().split("\r\n");
+    expect(lines[0]!.split(",").at(-1)).toBe('"card_use"');
+    expect(lines.slice(1).map((line) => line.split(",").at(-1))).toEqual([
+      '"business"',
+      '"private"',
+      '""',
+    ]);
+  });
+
+  it("classifies each session as its card stood then, not as it stands now", () => {
+    const history = buildUsageReportProjection(
+      config,
+      [
+        ...events,
+        // Later the private card is reclassified as business; earlier sessions stay private.
+        classify("tag_personal", "business", "2026-10-20T08:00:00.000Z"),
+        ...charge(4, "tag_personal", "21", 2_000),
+      ],
+      "2026-10",
+      "Europe/Brussels",
+      new Date("2026-11-01T00:00:00.000Z"),
+      undefined,
+      company,
+    );
+    expect(
+      history.stations[0]!.sessions.map(({ cardUse, transactionId }) => [transactionId, cardUse]),
+    ).toEqual([
+      [1, "business"],
+      [2, "private"],
+      [3, null],
+      [4, "business"],
+    ]);
+  });
+
+  const useOf = (extra: EvidenceEvent[]) =>
+    buildUsageReportProjection(
+      config,
+      extra,
+      "2026-10",
+      "Europe/Brussels",
+      new Date("2026-11-01T00:00:00.000Z"),
+      undefined,
+      company,
+    ).stations[0]!.sessions.map(({ cardUse, transactionId }) => [transactionId, cardUse]);
+
+  it("never lets a later first classification reach back beyond clock skew", () => {
+    expect(
+      useOf([
+        // Session at 18:00 on the charger clock; classified ten minutes later by the gateway.
+        ...charge(2, "tag_personal", "06", 3_000),
+        classify("tag_personal", "private", "2026-10-06T18:10:00.000Z"),
+        // A card used unclassified for days and then marked business stays unclassified then.
+        ...charge(5, "tag_late", "02", 1_000),
+        classify("tag_late", "business", "2026-10-09T08:00:00.000Z"),
+      ]),
+    ).toEqual([
+      [5, null],
+      [2, "private"],
+    ]);
+  });
+
+  it("errs towards private when a change is within clock skew of the session", () => {
+    expect(
+      useOf([
+        classify("tag_personal", "private", "2026-10-01T08:00:00.000Z"),
+        // Reclassified business at 17:55; a charger clock running ahead says the session
+        // started at 18:00 although it may really have started before the change.
+        classify("tag_personal", "business", "2026-10-06T17:55:00.000Z"),
+        ...charge(2, "tag_personal", "06", 3_000),
+      ]),
+    ).toEqual([[2, "private"]]);
+  });
+
+  it("ends a classification when the card is removed, so a re-added card is unclassified", () => {
+    expect(
+      useOf([
+        classify("tag_company", "business", "2026-10-01T08:00:00.000Z"),
+        ...charge(1, "tag_company", "05", 7_000),
+        {
+          ...evidenceEvent("HOME_1", "system", "OwnerTagDesiredStateChanged", {
+            action: "removed",
+            tagPseudonym: "tag_company",
+          }),
+          at: "2026-10-10T08:00:00.000Z",
+        },
+        ...charge(6, "tag_company", "20", 2_000),
+      ]),
+    ).toEqual([
+      [1, "business"],
+      [6, null],
+    ]);
+  });
+
+  it("keeps a retired charger's sessions in the months they happened", () => {
+    const retired = buildUsageReportProjection(
+      config,
+      [
+        ...events,
+        classify("tag_old", "business", "2026-10-01T08:00:00.000Z", "OLD_1"),
+        {
+          ...evidenceEvent("OLD_1", "station-to-csms", "StartTransaction", {
+            authorizationStatus: "Accepted",
+            connectorId: 1,
+            idTag: "tag_old",
+            meterStart: 0,
+            timestamp: "2026-10-10T18:00:00.000Z",
+            transactionId: 9,
+          }),
+        },
+        evidenceEvent("OLD_1", "station-to-csms", "StopTransaction", {
+          meterStop: 4_000,
+          timestamp: "2026-10-10T20:00:00.000Z",
+          transactionId: 9,
+        }),
+      ],
+      "2026-10",
+      "Europe/Brussels",
+      new Date("2026-11-01T00:00:00.000Z"),
+      undefined,
+      { retiredStationIds: ["OLD_1", "NEVER_USED"] },
+    );
+    expect(retired.stations.map(({ id }) => id)).toEqual(["HOME_1", "OLD_1"]);
+    expect(retired.stations[1]).toMatchObject({ energyWh: 4_000, sessionCount: 1 });
+  });
+
+  it("adds no card use when the report is built without classifications", () => {
+    const personal = buildUsageReportProjection(
+      config,
+      events,
+      "2026-10",
+      "Europe/Brussels",
+      new Date("2026-11-01T00:00:00.000Z"),
+    );
+    for (const session of personal.stations[0]!.sessions) {
+      expect(session).not.toHaveProperty("cardUse");
+    }
+    expect(personal.drivers[0]).not.toHaveProperty("privateEnergyWh");
   });
 });

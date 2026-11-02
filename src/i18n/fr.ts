@@ -1,4 +1,5 @@
 import type { MessageKey } from "./en.js";
+import { fleetFr } from "./fleet.fr.js";
 
 /** French (Belgium) owner-console messages. Keys and placeholders mirror `en.ts`. */
 export const fr: Readonly<Record<MessageKey, string>> = {
@@ -27,6 +28,7 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "attention.evidence-conflict": "Données de session contradictoires",
   "attention.migration-action": "Étape de changement ouverte",
   "attention.offline": "Hors ligne",
+  "attention.no-cards": "Aucun badge",
 
   "board.freedomDetail": "Test devant témoin à la borne",
   "board.sharingActive.one": "{count} personne a un accès en lecture",
@@ -566,4 +568,5 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "usage.titleCompany": "Consommation par collaborateur",
   "usage.unassigned": "Personne",
   "usage.withSessions": "{count} avec sessions",
+  ...fleetFr,
 };

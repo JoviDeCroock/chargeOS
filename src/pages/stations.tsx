@@ -4,13 +4,16 @@ import type { FleetSnapshot, FleetStationSummary } from "../../shared/contracts.
 import { DIRECTORY_NAME_MAX_LENGTH, type OwnerDirectory } from "../../shared/directory.js";
 import { formatDate, formatKwh, t, tn, type MessageKey } from "../i18n/index.js";
 import { action, runSaveStation } from "../model.js";
-import { Dialog, PageHead, PersonSelect, personName } from "../ui.js";
+import { closeRowMenu, Dialog, PageHead, personName, PersonSelect } from "../ui.js";
+import { runSetOwnership, setupSheet, stationRegistry } from "../fleet-model.js";
+import { AddChargerDialog, RetireChargerDialog, SetupSheetDialog } from "./fleet-setup.js";
 
 const ATTENTION_KEYS: Readonly<Record<FleetStationSummary["attention"][number], MessageKey>> = {
   "authorization-pending": "attention.authorization-pending",
   "continuity-unproven": "attention.continuity-unproven",
   "evidence-conflict": "attention.evidence-conflict",
   "migration-action": "attention.migration-action",
+  "no-cards": "attention.no-cards",
   offline: "attention.offline",
 };
 
@@ -27,9 +30,24 @@ export function StationsPage({
   showSwitching: boolean;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [added, setAdded] = useState<string | null>(null);
+  const [retiring, setRetiring] = useState<string | null>(null);
+  const registry = stationRegistry.value;
+  const firstStationId = fleet.stations[0]?.id;
   return (
     <div class="section-stack">
-      <PageHead title={t("stations.title")} lede={t("stations.lede")} />
+      <PageHead
+        title={t("stations.title")}
+        lede={t("stations.lede")}
+        actions={
+          registry && (
+            <button class="button primary" type="button" onClick={() => setAdding(true)}>
+              {t("fleet.add.button")}
+            </button>
+          )
+        }
+      />
 
       <section class="fleet-metrics glass" aria-label={t("stations.summary")}>
         <Metric label={t("stations.metric.chargers")} value={String(fleet.totals.stations)} />
@@ -52,12 +70,58 @@ export function StationsPage({
             )}
             onOpen={() => onOpen(station.id)}
             onEdit={directory?.writable ? () => setEditing(station.id) : null}
+            onRetire={
+              registry && station.id !== firstStationId ? () => setRetiring(station.id) : null
+            }
           />
         ))}
       </ul>
 
+      {registry && registry.retired.length > 0 && (
+        <details class="retired-list">
+          <summary>{tn("fleet.retired.count", registry.retired.length)}</summary>
+          <ul>
+            {registry.retired.map((station) => (
+              <li key={station.id}>
+                <code>{station.id}</code>
+                <span class="muted">
+                  {t("fleet.retired.on", { date: formatDate(station.retiredAt) })}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p class="fine-print">{t("fleet.retired.note")}</p>
+        </details>
+      )}
+
       <p class="fine-print">{t("stations.independence")}</p>
 
+      {adding && (
+        <AddChargerDialog
+          directory={directory}
+          onClose={() => setAdding(false)}
+          onAdded={(stationId) => {
+            setAdding(false);
+            setAdded(stationId);
+          }}
+        />
+      )}
+      {added && setupSheet.value && (
+        <SetupSheetDialog
+          label={fleet.stations.find(({ id }) => id === added)?.label ?? added}
+          onClose={() => {
+            setAdded(null);
+            onOpen(added);
+          }}
+        />
+      )}
+      {retiring && (
+        <RetireChargerDialog
+          stationId={retiring}
+          label={fleet.stations.find(({ id }) => id === retiring)?.label ?? retiring}
+          onClose={() => setRetiring(null)}
+        />
+      )}
       {editing && directory && (
         <StationEditDialog
           stationId={editing}
@@ -75,15 +139,18 @@ function StationCard({
   attention,
   onOpen,
   onEdit,
+  onRetire,
 }: {
   station: FleetStationSummary;
   directory: OwnerDirectory | null;
   attention: FleetStationSummary["attention"];
   onOpen: () => void;
   onEdit: (() => void) | null;
+  onRetire: (() => void) | null;
 }) {
   const cards = directory?.cards.filter(({ stationId }) => stationId === station.id) ?? [];
   const state = station.activeSessionCount ? "live" : station.connected ? "ok" : "idle";
+  const settingUp = station.setup !== undefined && station.setup !== "active";
   return (
     <li class={`entity-card glass station-card ${state}`}>
       <header class="entity-head">
@@ -98,6 +165,20 @@ function StationCard({
             : t(station.connected ? "stations.available" : "stations.offline")}
         </span>
       </header>
+      {(settingUp || station.ownership) && (
+        <div class="station-badges">
+          {settingUp && (
+            <span class={`label-chip setup ${station.setup}`}>
+              {t(`fleet.setup.state.${station.setup}` as MessageKey)}
+            </span>
+          )}
+          {station.ownership && (
+            <span class={`label-chip ${station.ownership}`}>
+              {t(`fleet.ownership.${station.ownership}Short` as MessageKey)}
+            </span>
+          )}
+        </div>
+      )}
       <dl class="entity-facts">
         <div>
           <dt>{t("stations.driver")}</dt>
@@ -140,6 +221,27 @@ function StationCard({
           <button class="button secondary compact" type="button" onClick={onEdit}>
             {t("stations.edit")}
           </button>
+        )}
+        {onRetire && (
+          <details class="row-menu">
+            <summary class="button ghost compact">{t("fleet.cards.more")}</summary>
+            <div class="row-menu-list glass" onClickCapture={closeRowMenu}>
+              {(["company", "employee"] as const)
+                .filter((value) => value !== station.ownership)
+                .map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => void runSetOwnership(station.id, value)}
+                  >
+                    {t(`fleet.ownership.mark.${value}` as MessageKey)}
+                  </button>
+                ))}
+              <button type="button" class="danger" onClick={onRetire}>
+                {t("fleet.retire.button")}
+              </button>
+            </div>
+          </details>
         )}
       </footer>
     </li>

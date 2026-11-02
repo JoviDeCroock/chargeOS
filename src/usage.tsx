@@ -324,7 +324,14 @@ export function UsageReportSection({ profile }: { profile: ConsoleProfile }) {
                             .join(", ")}
                         </td>
                         <td class="numeric">{row.sessionCount}</td>
-                        <td class="numeric">{formatKwh(row.energyWh)}</td>
+                        <td class="numeric">
+                          {formatKwh(row.energyWh)}
+                          {row.privateEnergyWh ? (
+                            <small class="usage-private">
+                              {t("usage.privatePart", { energy: formatKwh(row.privateEnergyWh) })}
+                            </small>
+                          ) : null}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

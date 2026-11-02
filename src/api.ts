@@ -135,7 +135,7 @@ export function saveCardProfile(
   );
 }
 
-function postJson<T>(path: string, token: string, body: unknown): Promise<T> {
+export function postJson<T>(path: string, token: string, body: unknown): Promise<T> {
   return requestJson<T>(path, token, {
     body: JSON.stringify(body),
     headers: { "Content-Type": "application/json" },
@@ -413,7 +413,11 @@ function saveBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-async function requestJson<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
+export async function requestJson<T>(
+  path: string,
+  token: string,
+  init: RequestInit = {},
+): Promise<T> {
   const response = await fetch(path, {
     ...init,
     headers: {
@@ -441,6 +445,6 @@ function safeFilename(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]/g, "-");
 }
 
-function stationPath(stationId: string, suffix: string): string {
+export function stationPath(stationId: string, suffix: string): string {
   return `/api/v1/stations/${encodeURIComponent(stationId)}${suffix}`;
 }

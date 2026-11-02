@@ -4,8 +4,10 @@ import { createOwnerApi } from "./api.js";
 import { configForStation, loadConfig, stationSecretInteroperabilityAdvisories } from "./config.js";
 import { NdjsonEvidenceStore } from "./events.js";
 import { OwnerDirectoryStore } from "./directory.js";
+import { CardPolicyStore } from "./card-policy.js";
 import { createChargeGateway, identityAliasesFromEvents } from "./gateway.js";
 import { openOwnerTagRegistries, withOwnerTagRegistries } from "./owner-tags.js";
+import { StationRegistry } from "./station-registry.js";
 
 try {
   loadEnvFile(process.env.CHARGEOS_ENV_FILE);
@@ -19,8 +21,11 @@ const evidence = new NdjsonEvidenceStore(
   bootstrapConfig.eventLogMaxBytes,
 );
 await evidence.readEvents();
-const ownerTags = await openOwnerTagRegistries(bootstrapConfig);
-const config = withOwnerTagRegistries(bootstrapConfig, ownerTags);
+// Chargers added or retired from the console join the stations-file chargers in one live list.
+const stations = await StationRegistry.open(bootstrapConfig, evidence);
+const ownerTags = await openOwnerTagRegistries(stations.bind(bootstrapConfig));
+for (const [stationId, registry] of ownerTags) stations.setOwnerTags(stationId, registry.tags);
+const config = withOwnerTagRegistries(stations.bind(bootstrapConfig), ownerTags, stations.stations);
 for (const [stationId, registry] of ownerTags) {
   await registry.reconcile(configForStation(config, stationId), evidence);
 }
@@ -28,7 +33,13 @@ const gateway = createChargeGateway(config, evidence, {
   identityAliases: identityAliasesFromEvents(config, await evidence.readEvents()),
 });
 const directory = await OwnerDirectoryStore.open(config);
-const api = createOwnerApi(config, gateway, evidence, ownerTags, fetch, directory);
+const cardPolicy = await CardPolicyStore.open(config);
+const api = createOwnerApi(config, gateway, evidence, ownerTags, fetch, directory, {
+  cardPolicy,
+  driverCaptures: new Set(),
+  registries: ownerTags,
+  stations,
+});
 
 await gateway.listen();
 try {

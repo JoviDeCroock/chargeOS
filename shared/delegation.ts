@@ -1,4 +1,10 @@
-export const DELEGATE_ROLES = ["installer", "employer", "energy-provider"] as const;
+export const DELEGATE_ROLES = [
+  "installer",
+  "employer",
+  "energy-provider",
+  "driver",
+  "finance",
+] as const;
 
 export type DelegateRole = (typeof DELEGATE_ROLES)[number];
 
@@ -8,6 +14,9 @@ export const DELEGATE_SCOPES = [
   "sessions:read",
   "freedom-test:read",
   "migration:read",
+  "driver:read",
+  "driver:personal-cards",
+  "reimbursement:read",
 ] as const;
 
 export type DelegateScope = (typeof DELEGATE_SCOPES)[number];
@@ -16,7 +25,17 @@ export const ROLE_SCOPES: Readonly<Record<DelegateRole, readonly DelegateScope[]
   installer: ["station-status:read", "diagnostics:read", "freedom-test:read", "migration:read"],
   employer: ["sessions:read"],
   "energy-provider": ["station-status:read"],
+  /**
+   * An employee on their own charger: their charger status, sessions and cards, and management of
+   * personal cards only (register by tap, remove, send the owner's list). Never company cards.
+   */
+  driver: ["driver:read", "driver:personal-cards"],
+  /** Fleet-wide monthly business sessions by card pseudonym, issued on the first charger only. */
+  finance: ["reimbursement:read"],
 };
+
+/** Roles whose grant covers the whole fleet; they may be issued only on the first charger. */
+export const FLEET_ROLES: readonly DelegateRole[] = ["finance"];
 
 export interface DelegateGrantInput {
   readonly expiresAt: string;

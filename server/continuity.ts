@@ -21,6 +21,7 @@ import { isIP } from "node:net";
 import { basename, dirname, join, resolve } from "node:path";
 
 import { configuredStations, type GatewayConfig } from "./config.js";
+import { hasStationRegistryHistory } from "./station-registry.js";
 import {
   type EvidenceArchiveSegment,
   type EvidenceEvent,
@@ -156,6 +157,11 @@ export async function createContinuityBundle(
   if (configuredStations(config).length !== 1) {
     throw new ContinuityBundleError(
       "Encrypted continuity bundles currently require one station per edge; fleet mode must not emit an incomplete recovery artifact",
+    );
+  }
+  if (hasStationRegistryHistory(events)) {
+    throw new ContinuityBundleError(
+      "Chargers were added or retired from the console; continuity bundles do not carry console-managed chargers yet, so this edge must not emit an incomplete recovery artifact",
     );
   }
   if (config.ownerTags.size === 0) {

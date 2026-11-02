@@ -66,6 +66,26 @@ describe("owner continuity bundle", () => {
     );
   });
 
+  it("refuses a bundle once chargers were added or retired from the console", async () => {
+    // A single remaining station is not enough: the restored edge would lack
+    // managed-stations.json, refuse to start, or resurrect a retired charger's identity.
+    for (const message of ["StationRegistryChanged", "StationRegistryReconciled"]) {
+      const events = [
+        evidenceEvent("STATION_1", "system", message, {
+          action: "retired",
+          registryVersion: 2,
+          stateSha256: "0".repeat(64),
+        }),
+      ];
+      await expect(
+        createContinuityBundle(config("unused.ndjson"), events, PASSPHRASE),
+      ).rejects.toThrow(ContinuityBundleError);
+      await expect(
+        createContinuityBundle(config("unused.ndjson"), events, PASSPHRASE),
+      ).rejects.toThrow("console-managed chargers");
+    }
+  });
+
   it("creates a custody-linked compacted replacement ledger without losing operational state", async () => {
     const directory = await mkdtemp(join(tmpdir(), "chargeos-continuity-compact-"));
     const sourcePath = join(directory, "source.ndjson");

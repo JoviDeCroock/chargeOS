@@ -5,6 +5,8 @@
  * Write for a charger owner, not an engineer: say what happens at the charger, keep protocol names
  * out of ordinary pages, and never present a software result as a physical test.
  */
+import { fleetEn } from "./fleet.en.js";
+
 export const en = {
   "advanced.englishOnly":
     "This section is only available in English for now, because its safety wording must be reviewed before it is translated.",
@@ -31,6 +33,7 @@ export const en = {
   "attention.evidence-conflict": "Conflicting session data",
   "attention.migration-action": "Switching step open",
   "attention.offline": "Offline",
+  "attention.no-cards": "No card yet",
 
   "board.freedomDetail": "Witnessed test at the charger",
   "board.sharingActive.one": "{count} person has read access",
@@ -552,6 +555,7 @@ export const en = {
   "usage.titleCompany": "Usage per employee",
   "usage.unassigned": "Nobody",
   "usage.withSessions": "{count} with sessions",
+  ...fleetEn,
 } as const;
 
 export type MessageKey = keyof typeof en;

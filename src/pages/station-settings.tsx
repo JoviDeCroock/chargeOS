@@ -622,6 +622,8 @@ const ROLE_KEYS: Readonly<Record<DelegateRole, { label: MessageKey; scope: Messa
   employer: { label: "sharing.role.employer", scope: "sharing.scope.employer" },
   "energy-provider": { label: "sharing.role.energy", scope: "sharing.scope.energy" },
   installer: { label: "sharing.role.installer", scope: "sharing.scope.installer" },
+  driver: { label: "fleet.role.driver", scope: "fleet.scope.driver" },
+  finance: { label: "fleet.role.finance", scope: "fleet.scope.finance" },
 };
 
 function SharingTab({ grants }: { grants: readonly DelegateGrantSummary[] }) {
@@ -652,11 +654,13 @@ function SharingTab({ grants }: { grants: readonly DelegateGrantSummary[] }) {
               value={role}
               onChange={(event) => setRole(event.currentTarget.value as DelegateRole)}
             >
-              {(Object.keys(ROLE_KEYS) as DelegateRole[]).map((candidate) => (
-                <option key={candidate} value={candidate}>
-                  {t(ROLE_KEYS[candidate].label)}
-                </option>
-              ))}
+              {(Object.keys(ROLE_KEYS) as DelegateRole[])
+                .filter((candidate) => candidate !== "finance")
+                .map((candidate) => (
+                  <option key={candidate} value={candidate}>
+                    {t(ROLE_KEYS[candidate].label)}
+                  </option>
+                ))}
             </select>
           </label>
           <p class="scope-note">

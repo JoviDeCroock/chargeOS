@@ -93,7 +93,10 @@ export function ConnectChargerPanel({ snapshot: current }: { snapshot: OwnerSnap
               }
               mono
             />
-            <Fact label={t("connect.password")} value={t("connect.passwordWhere")} />
+            <Fact
+              label={t("connect.password")}
+              value={t(station.managed ? "fleet.connect.passwordSheet" : "connect.passwordWhere")}
+            />
             <Fact label={t("connect.protocol")} value={t("connect.protocolValue")} />
             <Fact label={t("connect.security")} value={t("connect.securityValue")} />
           </dl>

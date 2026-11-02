@@ -535,19 +535,29 @@ export async function runOwnerTagAdd(
 }
 
 /** Adds the card that was just tapped at the charger; its value never reaches the browser. */
+/** Classifies a card right after it was added (company profile); a failure leaves it unclassified. */
+export type AfterCardAdded = (
+  stationId: string,
+  tagPseudonym: string,
+  token: string,
+) => Promise<void>;
+
 export async function runCardCaptureConfirm(
   tagPseudonym: string,
   profile?: CardProfile,
+  afterAdded?: AfterCardAdded,
 ): Promise<boolean> {
   return addCardThenName(
     (stationId, token) => confirmCardCapture(stationId, tagPseudonym, token),
     profile,
+    afterAdded,
   );
 }
 
 async function addCardThenName(
   add: (stationId: string, token: string) => Promise<OwnerTagMutationResult>,
   profile?: CardProfile,
+  afterAdded?: AfterCardAdded,
 ): Promise<boolean> {
   const current = snapshot.value;
   if (!ownerToken.value || !current) return false;
@@ -555,6 +565,11 @@ async function addCardThenName(
   try {
     const result = await add(current.station.id, ownerToken.value);
     let named = true;
+    if (afterAdded) {
+      await afterAdded(current.station.id, result.tagPseudonym, ownerToken.value).catch(() => {
+        named = false;
+      });
+    }
     if (profile) {
       try {
         let holderPersonId = profile.holderPersonId;
@@ -740,7 +755,7 @@ export async function runFreedomReportExport(): Promise<void> {
   }
 }
 
-function handleError(error: unknown): void {
+export function handleError(error: unknown): void {
   if (error instanceof OwnerApiError && error.status === 401) {
     setOwnerToken("");
   }

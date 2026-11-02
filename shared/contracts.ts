@@ -6,6 +6,9 @@ import type { GenesisPlan } from "./genesis.js";
 import type { DelegateGrantSummary } from "./delegation.js";
 import type { MigrationProjection } from "./migration.js";
 import type { ConsoleProfile } from "./usage.js";
+import type { CardPolicy } from "./cards.js";
+import type { StationSetup } from "./onboarding.js";
+import type { ExpectedChargerIdentity, StationOwnership } from "./stations.js";
 
 export type CheckState = "pass" | "fail" | "unknown";
 
@@ -90,6 +93,10 @@ export interface OwnerSnapshot {
   readonly generatedAt: string;
   readonly readiness: CapabilityAssessment | null;
   readonly sessions: readonly ChargeSession[];
+  /** Owner classification of each desired card; absent on older servers. */
+  readonly cardPolicies?: readonly ({ readonly tagPseudonym: string } & CardPolicy)[];
+  /** Setup checklist derived from evidence; absent on older servers. */
+  readonly setup?: StationSetup;
   readonly station: {
     readonly boot: {
       readonly firmwareVersion: string | null;
@@ -103,8 +110,14 @@ export interface OwnerSnapshot {
     readonly connectors: readonly ConnectorStatus[];
     /** Person whose usage this charger is reported under; `null` when unassigned. */
     readonly driver: string | null;
+    /** Make, model and firmware the owner expects at the first Boot, for chargers added here. */
+    readonly expected?: ExpectedChargerIdentity | null;
     readonly id: string;
     readonly label: string;
+    /** `true` when added from the console (and so retirable and re-keyable here). */
+    readonly managed?: boolean;
+    /** Who owns the charger hardware; `null` when not recorded. */
+    readonly ownership?: StationOwnership | null;
     readonly site: string;
   };
 }
@@ -114,6 +127,7 @@ export interface FleetStationSummary {
   readonly attention: readonly (
     | "offline"
     | "authorization-pending"
+    | "no-cards"
     | "continuity-unproven"
     | "migration-action"
     | "evidence-conflict"
@@ -129,6 +143,9 @@ export interface FleetStationSummary {
   readonly label: string;
   readonly lastSessionAt: string | null;
   readonly readiness: CapabilityAssessment["state"] | "not-inspected";
+  /** Setup progress; absent on older servers. */
+  readonly setup?: StationSetup["state"];
+  readonly ownership?: StationOwnership | null;
   readonly site: string;
 }
 
@@ -205,6 +222,10 @@ export type {
   RefusedConnectionReason,
   StationConnectionDiagnostics,
 } from "./connection.js";
+export type * from "./cards.js";
+export type * from "./onboarding.js";
+export type * from "./stations.js";
+export type * from "./driver.js";
 export type { GenesisAction, GenesisActionId, GenesisPhase, GenesisPlan } from "./genesis.js";
 export type {
   StationCommandInput,

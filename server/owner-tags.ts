@@ -279,7 +279,9 @@ export function withOwnerTagRegistry(
 
 export type OwnerTagRegistries = ReadonlyMap<string, OwnerTagRegistry>;
 
-export async function openOwnerTagRegistries(config: GatewayConfig): Promise<OwnerTagRegistries> {
+export async function openOwnerTagRegistries(
+  config: GatewayConfig,
+): Promise<Map<string, OwnerTagRegistry>> {
   const registries = new Map<string, OwnerTagRegistry>();
   const stations = configuredStations(config);
   for (const [index, station] of stations.entries()) {
@@ -293,15 +295,22 @@ export async function openOwnerTagRegistries(config: GatewayConfig): Promise<Own
   return registries;
 }
 
+/**
+ * Attaches each charger's live card set. Pass `live` (the station registry's list) to update it in
+ * place, so chargers added later share the same list; otherwise a new list is created.
+ */
 export function withOwnerTagRegistries(
   config: GatewayConfig,
   registries: OwnerTagRegistries,
+  live?: StationConfig[],
 ): GatewayConfig {
-  const stations: StationConfig[] = configuredStations(config).map((station) => {
+  const attached: StationConfig[] = configuredStations(config).map((station) => {
     const registry = registries.get(station.id);
     if (!registry) throw new OwnerTagStateError("Owner tag registry is missing for a station");
     return { ...station, ownerTags: registry.tags };
   });
+  const stations = live ?? attached;
+  if (live) live.splice(0, live.length, ...attached);
   const primary = stations[0]!;
   return {
     ...config,
@@ -310,6 +319,39 @@ export function withOwnerTagRegistries(
     stationSecret: primary.secret,
     stations,
   };
+}
+
+/**
+ * Opens (or creates empty) the registry for a charger added at runtime. Such a charger is never the
+ * first station, so its state always lives under `owner-tags/`.
+ */
+export async function openAddedStationOwnerTags(
+  config: GatewayConfig,
+  stationId: string,
+): Promise<OwnerTagRegistry> {
+  return OwnerTagRegistry.open(
+    configForStation(config, stationId),
+    stationOwnerTagStatePath(config.eventLogPath, stationId),
+  );
+}
+
+/**
+ * Replaces an added charger's empty registry after its password was reissued before first use.
+ * The old file is authenticated with the old password, so it is rewritten (still empty) under the
+ * new one. Refuses when any card is desired: their pseudonyms depend on the old password.
+ */
+export async function reissueEmptyOwnerTags(
+  config: GatewayConfig,
+  stationId: string,
+  previous: OwnerTagRegistry,
+): Promise<OwnerTagRegistry> {
+  if (previous.tags.size > 0) {
+    throw new OwnerTagConflictError("A charger with cards cannot get a new password here");
+  }
+  const scoped = configForStation(config, stationId);
+  const path = stationOwnerTagStatePath(config.eventLogPath, stationId);
+  await writeOwnerTagState(path, createState([], previous.version + 1, scoped.stationSecret));
+  return OwnerTagRegistry.open(scoped, path);
 }
 
 export function ownerTagRegistryFor(
