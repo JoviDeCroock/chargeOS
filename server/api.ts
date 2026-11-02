@@ -87,7 +87,9 @@ import {
   buildFleetSnapshot,
   buildOwnerSnapshot,
   buildRedactedContinuityExport,
+  buildUsageReportProjection,
 } from "./projections.js";
+import { parseTimeZone, parseUsageMonth, UsageInputError } from "../shared/usage.js";
 
 interface FailedAuthorization {
   count: number;
@@ -152,6 +154,24 @@ export function createOwnerApi(
         failedAuthorizations.delete(remoteAddress);
         if (url.pathname === "/api/v1/fleet" && request.method === "GET") {
           sendJson(response, 200, buildFleetSnapshot(config, gateway, await evidence.readEvents()));
+          return;
+        }
+        if (url.pathname === "/api/v1/usage" && request.method === "GET") {
+          try {
+            const month = parseUsageMonth(url.searchParams.get("month"));
+            const timeZone = parseTimeZone(url.searchParams.get("timeZone"));
+            sendJson(
+              response,
+              200,
+              buildUsageReportProjection(config, await evidence.readEvents(), month, timeZone),
+            );
+          } catch (error) {
+            if (error instanceof UsageInputError) {
+              sendError(response, 400, "invalid_request", error.message);
+              return;
+            }
+            throw error;
+          }
           return;
         }
         const scoped = resolveStationRequest(config, url);

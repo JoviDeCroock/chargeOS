@@ -135,6 +135,63 @@ describe("loadConfig", () => {
     }
   });
 
+  it("assigns optional drivers and a console profile without changing station authority", () => {
+    const directory = mkdtempSync(join(tmpdir(), "chargeos-config-"));
+    try {
+      const station = {
+        id: "HOME_ALICE",
+        label: "Driveway",
+        ownerTags: ["alice-card"],
+        secret: "home-station-secret-strong",
+        site: "Leuven",
+      };
+      const stationsFile = writeSecret(
+        directory,
+        "stations.json",
+        JSON.stringify({
+          schemaVersion: 1,
+          stations: [
+            { ...station, driver: "Alice Peeters" },
+            { ...station, id: "OFFICE_1", ownerTags: ["office"], secret: "office-secret-strong-1" },
+          ],
+        }),
+      );
+      const base = {
+        CHARGEOS_OWNER_API_TOKEN: "owner-token-at-least-thirty-two-characters",
+        CHARGEOS_STATIONS_FILE: stationsFile,
+      };
+      const config = loadConfig({ ...base, CHARGEOS_PROFILE: "company" });
+      expect(config.profile).toBe("company");
+      expect(configuredStations(config).map(({ driver }) => driver)).toEqual([
+        "Alice Peeters",
+        undefined,
+      ]);
+      expect(loadConfig(base).profile).toBe("personal");
+      expect(() => loadConfig({ ...base, CHARGEOS_PROFILE: "enterprise" })).toThrow(
+        "CHARGEOS_PROFILE must be personal or company",
+      );
+
+      for (const driver of ["", " padded", "line\nbreak", "x".repeat(121), 42]) {
+        writeFileSync(
+          stationsFile,
+          JSON.stringify({ schemaVersion: 1, stations: [{ ...station, driver }] }),
+        );
+        expect(() => loadConfig(base)).toThrow();
+      }
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+
+    const single = loadConfig({
+      CHARGEOS_OWNER_API_TOKEN: "owner-token-at-least-thirty-two-characters",
+      CHARGEOS_OWNER_TAGS: "owner",
+      CHARGEOS_STATION_DRIVER: "Bob Janssens",
+      CHARGEOS_STATION_ID: "station",
+      CHARGEOS_STATION_SECRET: "a".repeat(40),
+    });
+    expect(configuredStations(single)[0]?.driver).toBe("Bob Janssens");
+  });
+
   it("keeps the checked-in multi-charger example loadable", () => {
     const directory = mkdtempSync(join(tmpdir(), "chargeos-config-"));
     try {

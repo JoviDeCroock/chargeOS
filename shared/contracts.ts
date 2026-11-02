@@ -3,6 +3,7 @@ import type { FreedomTestProjection } from "./freedom-test.js";
 import type { GenesisPlan } from "./genesis.js";
 import type { DelegateGrantSummary } from "./delegation.js";
 import type { MigrationProjection } from "./migration.js";
+import type { ConsoleProfile } from "./usage.js";
 
 export type CheckState = "pass" | "fail" | "unknown";
 
@@ -94,6 +95,8 @@ export interface OwnerSnapshot {
     readonly connected: boolean;
     readonly connectedAt: string | null;
     readonly connectors: readonly ConnectorStatus[];
+    /** Person whose usage this charger is reported under; `null` when unassigned. */
+    readonly driver: string | null;
     readonly id: string;
     readonly label: string;
     readonly site: string;
@@ -114,6 +117,7 @@ export interface FleetStationSummary {
   readonly connected: boolean;
   readonly connectedAt: string | null;
   readonly connectorCount: number;
+  readonly driver: string | null;
   readonly energyWh: number;
   readonly id: string;
   readonly label: string;
@@ -123,6 +127,8 @@ export interface FleetStationSummary {
 }
 
 export interface FleetSnapshot {
+  /** Console arrangement chosen by the operator. Presentation only, never authority. */
+  readonly console: { readonly profile: ConsoleProfile };
   readonly generatedAt: string;
   readonly stations: readonly FleetStationSummary[];
   readonly totals: {
@@ -173,6 +179,14 @@ export type {
   FreedomTestStepSource,
   FreedomTestStepState,
 } from "./freedom-test.js";
+export type {
+  ConsoleProfile,
+  MonthlyUsage,
+  UsageReport,
+  UsageReportDriver,
+  UsageReportSession,
+  UsageReportStation,
+} from "./usage.js";
 export type { GenesisAction, GenesisActionId, GenesisPhase, GenesisPlan } from "./genesis.js";
 export type {
   StationCommandInput,

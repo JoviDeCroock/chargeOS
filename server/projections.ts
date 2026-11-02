@@ -22,6 +22,7 @@ import { buildGenesisPlan } from "./genesis.js";
 import { buildMigrationProjection } from "./migration.js";
 import type { ChargeGateway } from "./gateway.js";
 import { pseudonymizeTag } from "./tag.js";
+import { buildUsageReport, type UsageReport } from "../shared/usage.js";
 
 export function buildOwnerSnapshot(
   config: GatewayConfig,
@@ -50,6 +51,7 @@ export function buildOwnerSnapshot(
       connected: runtime.connected,
       connectedAt: runtime.connectedAt,
       connectors: connectorProjection(stationEvents),
+      driver: stationMetadata?.driver ?? null,
       id: config.stationId,
       label: stationMetadata?.label ?? config.stationId,
       site: stationMetadata?.site ?? "Primary site",
@@ -87,6 +89,7 @@ export function buildFleetSnapshot(
       connected: snapshot.station.connected,
       connectedAt: snapshot.station.connectedAt,
       connectorCount: snapshot.station.connectors.length,
+      driver: station.driver ?? null,
       energyWh: snapshot.sessions.reduce((total, session) => total + (session.energyWh ?? 0), 0),
       id: station.id,
       label: station.label,
@@ -96,6 +99,7 @@ export function buildFleetSnapshot(
     };
   });
   return {
+    console: { profile: config.profile ?? "personal" },
     generatedAt: new Date().toISOString(),
     stations,
     totals: {
@@ -148,6 +152,35 @@ export function buildDelegateDiagnostics(
       .reverse()
       .map(({ at, direction, eventId, message }) => ({ at, direction, eventId, message })),
   };
+}
+
+/** Owner-only monthly usage across every provisioned charger, grouped by assigned driver. */
+export function buildUsageReportProjection(
+  config: GatewayConfig,
+  events: readonly EvidenceEvent[],
+  month: string,
+  timeZone: string,
+  now = new Date(),
+): UsageReport {
+  const byStation = new Map<string, EvidenceEvent[]>();
+  for (const event of events) {
+    const stationEvents = byStation.get(event.stationId);
+    if (stationEvents) stationEvents.push(event);
+    else byStation.set(event.stationId, [event]);
+  }
+  return buildUsageReport({
+    generatedAt: now.toISOString(),
+    month,
+    profile: config.profile ?? "personal",
+    stations: configuredStations(config).map((station) => ({
+      driver: station.driver ?? null,
+      id: station.id,
+      label: station.label,
+      sessions: sessionProjection(byStation.get(station.id) ?? []),
+      site: station.site,
+    })),
+    timeZone,
+  });
 }
 
 export function buildDelegateSessionExport(

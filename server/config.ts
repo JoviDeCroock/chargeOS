@@ -1,5 +1,7 @@
 import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync } from "node:fs";
 
+import { isConsoleProfile, type ConsoleProfile } from "../shared/usage.js";
+
 export interface GatewayConfig {
   readonly aiRelayOrigin?: string;
   readonly apiHost: string;
@@ -15,6 +17,8 @@ export interface GatewayConfig {
   readonly ownerApiToken: string;
   readonly ownerTags: ReadonlySet<string>;
   readonly port: number;
+  /** Console arrangement only; it never changes authorization or charger behaviour. */
+  readonly profile?: ConsoleProfile;
   readonly stationId: string;
   readonly stationSecret: string;
   readonly stations?: readonly StationConfig[];
@@ -23,6 +27,8 @@ export interface GatewayConfig {
 }
 
 export interface StationConfig {
+  /** Optional person this charger's usage is reported under (for example an employee). */
+  readonly driver?: string;
   readonly id: string;
   readonly label: string;
   readonly ownerTags: ReadonlySet<string>;
@@ -96,6 +102,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     ownerApiToken,
     ownerTags,
     port,
+    profile: parseProfile(env.CHARGEOS_PROFILE),
     stationId,
     stationSecret,
     stations,
@@ -120,6 +127,14 @@ export function stationSecretInteroperabilityAdvisories(config: GatewayConfig): 
       ({ id }) =>
         `Station ${id}: its password is not 32-40 hexadecimal digits (16-20 bytes) as the OCPP 1.6 security whitepaper requires for AuthorizationKey. Some chargers may refuse it; generate one with "openssl rand -hex 20".`,
     );
+}
+
+function parseProfile(value: string | undefined): ConsoleProfile {
+  const profile = value?.trim() || "personal";
+  if (!isConsoleProfile(profile)) {
+    throw new Error("CHARGEOS_PROFILE must be personal or company");
+  }
+  return profile;
 }
 
 export function configuredStations(config: GatewayConfig): readonly StationConfig[] {
@@ -169,7 +184,9 @@ function loadStations(env: NodeJS.ProcessEnv): readonly StationConfig[] {
     return parseStationsFile(readSecretFile(fleetFile, "CHARGEOS_STATIONS_FILE"));
   }
 
+  const driver = env.CHARGEOS_STATION_DRIVER?.trim();
   const station = validateStation({
+    ...(driver ? { driver } : {}),
     id: requireValue(env, "CHARGEOS_STATION_ID"),
     label: env.CHARGEOS_STATION_LABEL?.trim() || requireValue(env, "CHARGEOS_STATION_ID"),
     ownerTags: parseOwnerTags(requireSecret(env, "CHARGEOS_OWNER_TAGS", true)),
@@ -194,9 +211,12 @@ function parseStationsFile(contents: string): readonly StationConfig[] {
     throw new Error("CHARGEOS_STATIONS_FILE must contain 1 through 1000 stations");
   }
   const stations = root.stations.map((candidate) => {
-    const record = objectWithExactKeys(candidate, ["id", "label", "ownerTags", "secret", "site"]);
+    const record =
+      objectWithExactKeys(candidate, ["id", "label", "ownerTags", "secret", "site"]) ??
+      objectWithExactKeys(candidate, ["driver", "id", "label", "ownerTags", "secret", "site"]);
     if (
       !record ||
+      (record.driver !== undefined && typeof record.driver !== "string") ||
       typeof record.id !== "string" ||
       typeof record.label !== "string" ||
       !Array.isArray(record.ownerTags) ||
@@ -207,6 +227,7 @@ function parseStationsFile(contents: string): readonly StationConfig[] {
       throw new Error("CHARGEOS_STATIONS_FILE contains an invalid station record");
     }
     return validateStation({
+      ...(typeof record.driver === "string" ? { driver: record.driver } : {}),
       id: record.id,
       label: record.label,
       ownerTags: new Set(record.ownerTags as string[]),
@@ -233,6 +254,7 @@ function validateStation(station: StationConfig): StationConfig {
   for (const [name, value] of [
     ["label", station.label],
     ["site", station.site],
+    ...(station.driver === undefined ? [] : ([["driver", station.driver]] as const)),
   ] as const) {
     if (!value || value.trim() !== value || value.length > 120 || hasControlCharacters(value)) {
       throw new Error(`Station ${name} must be 1-120 printable characters`);

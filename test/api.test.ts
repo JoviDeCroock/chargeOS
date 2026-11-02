@@ -578,6 +578,123 @@ describe("owner API", () => {
   });
 });
 
+describe("owner usage report API", () => {
+  let api: OwnerApi | undefined;
+  let directory: string | undefined;
+
+  afterEach(async () => {
+    await api?.close();
+    if (directory) await rm(directory, { force: true, recursive: true });
+  });
+
+  it("reports monthly usage per driver to the owner only", async () => {
+    directory = await mkdtemp(join(tmpdir(), "chargeos-usage-ui-"));
+    await writeFile(join(directory, "index.html"), "<h1>chargeOS</h1>");
+    const primary = testConfig(directory);
+    const config: GatewayConfig = {
+      ...primary,
+      profile: "company",
+      stations: [
+        {
+          driver: "Alice Peeters",
+          id: primary.stationId,
+          label: "Alice driveway",
+          ownerTags: new Set(["raw-owner-tag"]),
+          secret: primary.stationSecret,
+          site: "Leuven",
+        },
+        {
+          id: "OFFICE_1",
+          label: "Office bay 1",
+          ownerTags: new Set(["office-owner-tag"]),
+          secret: "office-station-secret-strong",
+          site: "Brussels office",
+        },
+      ],
+    };
+    const registries = new Map([
+      [
+        primary.stationId,
+        OwnerTagRegistry.memory(new Set(["raw-owner-tag"]), primary.stationSecret),
+      ],
+      [
+        "OFFICE_1",
+        OwnerTagRegistry.memory(new Set(["office-owner-tag"]), "office-station-secret-strong"),
+      ],
+    ]);
+    const unused = async () => {
+      throw new Error("not used");
+    };
+    const gateway: ChargeGateway = {
+      async close() {},
+      getRuntime: () => ({ connected: false, connectedAt: null }),
+      inspectLocalAuthorization: unused,
+      listen() {
+        throw new Error("not used");
+      },
+      prepareOwnerContinuity: unused,
+      sendStationCommand: unused,
+      syncOwnerList: unused,
+    };
+    const evidence = new MemoryEvidenceStore();
+    await evidence.append(
+      evidenceEvent(primary.stationId, "station-to-csms", "StartTransaction", {
+        authorizationStatus: "Accepted",
+        connectorId: 1,
+        idTag: "tag_alice",
+        meterStart: 1_000,
+        timestamp: "2026-10-12T17:00:00.000Z",
+        transactionId: 1,
+      }),
+    );
+    await evidence.append(
+      evidenceEvent(primary.stationId, "station-to-csms", "StopTransaction", {
+        meterStop: 9_000,
+        timestamp: "2026-10-12T20:00:00.000Z",
+        transactionId: 1,
+      }),
+    );
+    api = createOwnerApi(config, gateway, evidence, registries);
+    const port = await api.listen(0, "127.0.0.1");
+    const base = `http://127.0.0.1:${port}`;
+    const headers = { authorization: `Bearer ${TOKEN}` };
+    const path = "/api/v1/usage?month=2026-10&timeZone=Europe%2FBrussels";
+
+    const fleet = await (await fetch(`${base}/api/v1/fleet`, { headers })).json();
+    expect(fleet.console).toEqual({ profile: "company" });
+    expect(fleet.stations.map((station: { driver: string | null }) => station.driver)).toEqual([
+      "Alice Peeters",
+      null,
+    ]);
+
+    const response = await fetch(`${base}${path}`, { headers });
+    expect(response.status).toBe(200);
+    const report = await response.json();
+    expect(report).toMatchObject({
+      drivers: [
+        { driver: "Alice Peeters", energyWh: 8_000, sessionCount: 1 },
+        { driver: null, energyWh: 0, sessionCount: 0 },
+      ],
+      month: "2026-10",
+      profile: "company",
+      timeZone: "Europe/Brussels",
+      totals: { energyWh: 8_000, sessionCount: 1 },
+    });
+    expect(JSON.stringify(report)).not.toContain("raw-owner-tag");
+
+    expect((await fetch(`${base}${path}`)).status).toBe(401);
+    expect(
+      (await fetch(`${base}${path}`, { headers: { authorization: "Bearer not-the-owner" } }))
+        .status,
+    ).toBe(401);
+    for (const query of ["month=2026-13&timeZone=UTC", "month=2026-10&timeZone=Nowhere/City", ""]) {
+      const invalid = await fetch(`${base}/api/v1/usage?${query}`, { headers });
+      expect(invalid.status).toBe(400);
+    }
+    expect((await fetch(`${base}${path}`, { headers, method: "POST" })).status).toBe(404);
+  });
+});
+
 function testConfig(uiDirectory: string): GatewayConfig {
   return {
     apiHost: "127.0.0.1",
