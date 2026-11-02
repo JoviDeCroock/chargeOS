@@ -72,6 +72,34 @@ it("validates identities, domains, immutable image references and explicit deplo
   expect(() => managed({ cloudOrigin: "https://token:secret@app.coolify.io" })).toThrow();
   expect(() => managed({ image: "" })).toThrow();
   expect(deploymentInput(raw()).stationId).toBe("TEST_1");
+  expect(() => deploymentInput(raw({ profile: "fleet" }))).toThrow(/personal or company/);
+  expect(() => managed({ ownerTag: "" })).toThrow(/still needs the owner card/);
+});
+it("lets a Docker owner skip the charger name and card, and writes an installer sheet", async () => {
+  const input = deploymentInput(raw({ stationId: "", ownerTag: "", profile: "company" }));
+  expect(input.stationId).toBe("HOME-1");
+  expect(input.ownerTag).toBe("");
+  const { model, receipt, directory } = await prepareDeployment(input, await temp());
+  const environment = model.services.chargeos.environment;
+  expect(environment.CHARGEOS_OWNER_TAGS_FILE).toBeUndefined();
+  expect(environment.CHARGEOS_STATION_ID).toBe("HOME-1");
+  expect(environment.CHARGEOS_PROFILE).toBe("company");
+  expect(environment.CHARGEOS_OCPP_PUBLIC_URL).toBe("wss://ocpp.example.be/");
+  expect(model.services.chargeos.secrets).toEqual(["owner_api_token", "station_secret"]);
+  expect(model.secrets.owner_tags).toBeUndefined();
+  await expect(lstat(join(directory, "secrets/owner_tags"))).rejects.toThrow();
+  const sheetPath = join(directory, "INSTALLER-SHEET.txt");
+  expect((await lstat(sheetPath)).mode & 0o777).toBe(0o600);
+  const sheet = await readFile(sheetPath, "utf8");
+  expect(sheet).toContain("wss://ocpp.example.be/");
+  expect(sheet).toContain("HOME-1");
+  expect(sheet).toContain(receipt.stationSecret);
+  expect(sheet).toContain("OCPP 1.6 JSON");
+  expect(sheet).not.toContain(receipt.ownerToken);
+  const guide = await readFile(join(directory, "START-HERE.txt"), "utf8");
+  expect(guide).toContain("tap your own card");
+  expect(guide).not.toContain(receipt.ownerToken);
+  expect(guide).not.toContain(receipt.stationSecret);
 });
 it("creates private non-overwriting Docker files with unique credentials, file-secret mounts and isolated networking", async () => {
   const parent = await temp();
@@ -354,7 +382,11 @@ it("protects deployment from foreign origins, forged hosts and missing nonces; p
     body: JSON.stringify(raw()),
   });
   expect(response.status).toBe(200);
-  expect(await response.text()).not.toContain("never-return-this");
+  const text = await response.text();
+  expect(text).not.toContain("nor-this");
+  // The owner token comes back once, only as the console sign-in handoff for this authorized tab.
+  expect(JSON.parse(text)).toMatchObject({ signInToken: "never-return-this" });
+  expect(JSON.parse(text).ownerToken).toBeUndefined();
   expect(prepare).toHaveBeenCalledTimes(1);
   expect(docker).not.toHaveBeenCalled();
   expect(cloud).not.toHaveBeenCalled();

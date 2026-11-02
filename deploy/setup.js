@@ -21,6 +21,9 @@ target.addEventListener("change", () => {
   ])
     document.getElementById(id).required = managed;
   document.getElementById("image").required = managed;
+  // Managed hosting deploys a pinned template that still seeds the owner card.
+  document.getElementById("ownerTag").required = managed;
+  document.getElementById("owner-tag-optional").hidden = managed;
   document.getElementById("image-optional").hidden = managed;
   document.getElementById("destination-help").textContent = managed
     ? "Use an existing Coolify Cloud account with a connected server. Its proxy will provide HTTPS and WSS on two separate domains."
@@ -65,8 +68,9 @@ form.addEventListener("submit", async (event) => {
       headers: { "Content-Type": "application/json", "X-Setup-Token": token },
       body: JSON.stringify(values),
     });
-    const result = await response.json();
+    const { signInToken, ...result } = await response.json();
     if (!response.ok) throw new Error(result.error || "Setup did not complete.");
+    offerConsoleSignIn(result.consoleUrl, signInToken);
     const receipt = document.getElementById("receipt");
     receipt.replaceChildren();
     for (const [label, value] of [
@@ -110,3 +114,39 @@ form.addEventListener("submit", async (event) => {
     delete values.ownerTag;
   }
 });
+
+/**
+ * Opens the console and hands it the owner token by postMessage, to that exact origin, after the
+ * tab this page opened says it is ready. The token is never shown, stored or put in a URL.
+ */
+function offerConsoleSignIn(consoleUrl, signInToken) {
+  const button = document.getElementById("open-console");
+  let consoleOrigin;
+  try {
+    consoleOrigin = new URL(consoleUrl).origin;
+  } catch {
+    button.hidden = true;
+    return;
+  }
+  if (typeof signInToken !== "string" || !signInToken) {
+    button.textContent = "Open my console";
+    button.onclick = () => window.open(consoleOrigin, "_blank", "noopener");
+    document.getElementById("open-console-help").textContent =
+      "Sign in with the owner token from credentials.json.";
+    return;
+  }
+  let opened = null;
+  window.addEventListener("message", (event) => {
+    if (
+      opened === null ||
+      event.source !== opened ||
+      event.origin !== consoleOrigin ||
+      event.data?.type !== "chargeos-sign-in-ready"
+    )
+      return;
+    opened.postMessage({ type: "chargeos-sign-in", token: signInToken }, consoleOrigin);
+  });
+  button.onclick = () => {
+    opened = window.open(`${consoleOrigin}/#sign-in`, "_blank");
+  };
+}

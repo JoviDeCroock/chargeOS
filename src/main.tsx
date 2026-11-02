@@ -26,5 +26,10 @@ if (/^\/help\/?$/.test(window.location.pathname)) {
     render(<ObservationWorkspace />, root),
   );
 } else {
-  void import("./app.js").then(({ App }) => render(<App />, root));
+  void Promise.all([import("./app.js"), import("./model.js"), import("./setup-sign-in.js")]).then(
+    ([{ App }, { isAuthenticated, setOwnerToken }, { startSetupSignIn }]) => {
+      startSetupSignIn(window, () => isAuthenticated.value, setOwnerToken);
+      render(<App />, root);
+    },
+  );
 }

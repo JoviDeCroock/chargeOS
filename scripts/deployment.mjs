@@ -7,12 +7,15 @@ export const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const caddyImage =
   "caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648";
 export class DeploymentError extends Error {}
+/** Used when the owner does not know the charger's name yet; the console can adopt the real one. */
+export const DEFAULT_STATION_ID = "HOME-1";
 export function deploymentInput(value) {
   const allowed = [
     "target",
     "name",
     "stationId",
     "ownerTag",
+    "profile",
     "ownerDomain",
     "ocppDomain",
     "email",
@@ -50,16 +53,31 @@ export function deploymentInput(value) {
     /^[a-z][a-z0-9-]{0,39}$/,
     "Use a setup name starting with a lowercase letter, with letters, numbers or hyphens.",
   );
-  const stationId = field(
-    "stationId",
-    /^[a-zA-Z0-9_-]{1,64}$/,
-    "Use the charger's exact OCPP identity: 1–64 letters, numbers, underscores or hyphens.",
-  );
-  const ownerTag = field(
-    "ownerTag",
-    /^[a-zA-Z0-9]{1,20}$/,
-    "Enter the card's actual OCPP identifier, 1–20 letters or numbers. A printed card number may differ.",
-  );
+  // Both are optional on Docker: the console can adopt the name a charger already uses (after it
+  // proves the station password) and add the first card when the owner taps it at the charger.
+  const stationId =
+    value.stationId === undefined || value.stationId === ""
+      ? DEFAULT_STATION_ID
+      : field(
+          "stationId",
+          /^[a-zA-Z0-9_-]{1,64}$/,
+          "Use the charger's exact OCPP identity: 1–64 letters, numbers, underscores or hyphens. Leave it blank to use HOME-1.",
+        );
+  const ownerTag =
+    value.ownerTag === undefined || value.ownerTag === ""
+      ? ""
+      : field(
+          "ownerTag",
+          /^[a-zA-Z0-9]{1,20}$/,
+          "Enter the card's actual OCPP identifier, 1–20 letters or numbers, or leave it blank and tap the card in the console later. A printed card number may differ.",
+        );
+  if (!ownerTag && value.target === "coolify")
+    throw new DeploymentError(
+      "Managed deployment still needs the owner card identifier; tap-to-add is available for Docker setups.",
+    );
+  const profile = value.profile ?? "personal";
+  if (profile !== "personal" && profile !== "company")
+    throw new DeploymentError("Choose a personal or company console.");
   const domain = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
   const ownerDomain = field(
     "ownerDomain",
@@ -92,6 +110,7 @@ export function deploymentInput(value) {
     name,
     stationId,
     ownerTag,
+    profile,
     ownerDomain,
     ocppDomain,
     email,
@@ -195,10 +214,14 @@ export async function prepareDeployment(input, parent = join(repositoryRoot, ".c
   const stationSecret = randomBytes(20).toString("hex");
   const installId = `${input.name}-${randomBytes(6).toString("hex")}`;
   const caddyfile = await readFile(new URL("../deploy/Caddyfile", import.meta.url), "utf8");
+  const seedsOwnerTag = Boolean(input.ownerTag);
   const environment = {
     CHARGEOS_AI_RELAY_ORIGIN: "http://caddy:9092",
+    CHARGEOS_OCPP_PUBLIC_URL: `wss://${input.ocppDomain}/`,
     CHARGEOS_OWNER_API_TOKEN_FILE: "/run/secrets/owner_api_token",
-    CHARGEOS_OWNER_TAGS_FILE: "/run/secrets/owner_tags",
+    // Without a card the edge starts with none and the owner taps the first one in the console.
+    ...(seedsOwnerTag ? { CHARGEOS_OWNER_TAGS_FILE: "/run/secrets/owner_tags" } : {}),
+    CHARGEOS_PROFILE: input.profile ?? "personal",
     CHARGEOS_STATION_SECRET_FILE: "/run/secrets/station_secret",
     CHARGEOS_STATION_ID: input.stationId,
     CHARGEOS_TRUST_PROXY_HEADERS: input.target === "docker" ? "true" : "false",
@@ -218,7 +241,9 @@ export async function prepareDeployment(input, parent = join(repositoryRoot, ".c
         security_opt: ["no-new-privileges:true"],
         tmpfs: ["/tmp:size=16m,mode=1777"],
         volumes: ["chargeos-data:/data"],
-        secrets: ["owner_api_token", "owner_tags", "station_secret"],
+        secrets: seedsOwnerTag
+          ? ["owner_api_token", "owner_tags", "station_secret"]
+          : ["owner_api_token", "station_secret"],
       },
       caddy: {
         image: caddyImage,
@@ -252,14 +277,14 @@ export async function prepareDeployment(input, parent = join(repositoryRoot, ".c
     networks: { "chargeos-edge": {}, "chargeos-internal": { internal: true } },
     secrets: {
       owner_api_token: { file: "./secrets/owner_api_token" },
-      owner_tags: { file: "./secrets/owner_tags" },
+      ...(seedsOwnerTag ? { owner_tags: { file: "./secrets/owner_tags" } } : {}),
       station_secret: { file: "./secrets/station_secret" },
     },
     volumes: { "chargeos-data": {}, "caddy-config": {}, "caddy-data": {} },
   };
   const credentials = {
     owner_api_token: ownerToken,
-    owner_tags: input.ownerTag,
+    ...(seedsOwnerTag ? { owner_tags: input.ownerTag } : {}),
     station_secret: stationSecret,
   };
   if (input.target === "docker") {
@@ -295,11 +320,63 @@ export async function prepareDeployment(input, parent = join(repositoryRoot, ".c
   };
   await save("compose.json", JSON.stringify(model, null, 2));
   await save("credentials.json", JSON.stringify(receipt, null, 2));
-  await save(
-    "START-HERE.txt",
-    `chargeOS setup: ${input.name}\n\nConsole: ${receipt.consoleUrl}\nCharger endpoint: ${receipt.ocppUrl}\nPrivate credentials: credentials.json\n\nThis folder is private; keep it off shared drives and out of support messages.\nPoint both DNS names at your server. Docker: ports 80/443 must be reachable.\nManaged: Coolify supplies TLS and routes console to Caddy port 8080, OCPP to 8081.\nDeployment starts software; it never changes an existing charger's endpoint.\nFollow docs/guides/connect-a-charger.md before a charger migration.\nCreate and drill a separate encrypted continuity bundle after provisioning.\nDo not delete this deployment's data volume or create a second edge for the same live charger.\n\n${input.target === "docker" ? `Docker resume (from this folder): ${dockerComposeCommand(model.name, input.dockerContext)} up --detach --wait\nDocker stop (keeps data): ${dockerComposeCommand(model.name, input.dockerContext)} stop\n` : "Cloud: inspect the existing service in Coolify and its saved receipts before retrying any uncertain submission. Never run this cloud setup as a second local edge.\n"}`,
-  );
+  await save("START-HERE.txt", startHere(input, receipt, model));
+  await save("INSTALLER-SHEET.txt", installerSheet(input, receipt));
   return { directory, model, receipt };
+}
+
+function startHere(input, receipt, model) {
+  const compose =
+    input.target === "docker" ? dockerComposeCommand(model.name, input.dockerContext) : null;
+  return `chargeOS setup: ${input.name}
+
+Console: ${receipt.consoleUrl}
+Charger address: wss://${input.ocppDomain}/
+Charger name: ${receipt.stationId}
+Private credentials: credentials.json (ownerToken signs you in; stationSecret is the charger password)
+Installer settings: INSTALLER-SHEET.txt
+
+This folder is private; keep it off shared drives and out of support messages.
+
+Next steps
+1. Point both DNS names at your server. ${input.target === "docker" ? "Ports 80 and 443 must be reachable." : "Coolify supplies TLS and routes console to Caddy port 8080, OCPP to 8081."}
+2. Open the console. The setup page's "Open my console" button signs you in once; otherwise paste ownerToken from credentials.json.
+3. Give INSTALLER-SHEET.txt to your installer. The console's "Connect your charger" panel turns green when the charger connects and explains any refusal. If the charger uses another name, the console offers to accept it.
+4. ${input.ownerTag ? "Your card is already on the list." : "Open RFID cards and tap your own card at the charger to add it. Until then every card is refused."} Then send the card list to the charger.
+5. Create an encrypted recovery bundle and keep it off this server (docs/guides/recovery.md). It needs at least one owner card.
+
+Deployment starts software; it never changes an existing charger's endpoint.
+Follow docs/guides/connect-a-charger.md before a charger migration.
+Do not delete this deployment's data volume or create a second edge for the same live charger.
+
+${compose ? `Docker resume (from this folder): ${compose} up --detach --wait\nDocker stop (keeps data): ${compose} stop\n` : "Cloud: inspect the existing service in Coolify and its saved receipts before retrying any uncertain submission. Never run this cloud setup as a second local edge.\n"}`;
+}
+
+/** What the installer types into the charger's own configuration tool. Contains the password. */
+function installerSheet(input, receipt) {
+  return `chargeOS charger settings: ${input.name}
+PRIVATE: this sheet contains the charger password. Destroy it after use.
+
+Enter these in the charger's supported configuration tool:
+
+  Back-office (OCPP) address:  wss://${input.ocppDomain}/
+  Charger name (identity):     ${receipt.stationId}
+                               (some tools take the name separately; otherwise the full
+                                address is wss://${input.ocppDomain}/${receipt.stationId})
+  Password:                    ${receipt.stationSecret}
+  Protocol:                    OCPP 1.6 JSON (OCPP-J)
+  Security:                    the profile that sends the password (Basic authentication)
+
+Before changing anything:
+  - Export the charger configuration and transactions, and record the current back-office
+    address and settings, so you can restore them.
+  - Use only the manufacturer's supported tool and procedure for this exact model and firmware.
+  - Opening the enclosure, wiring or SIM changes are installer work with the power isolated.
+
+After saving the settings, the owner console's "Connect your charger" panel shows whether the
+charger connected or why it was refused. If the charger keeps its own name, the owner can accept
+that name in the console instead of changing it here.
+`;
 }
 
 /** One-shot, network-less step giving the unprivileged Caddy user its certificate volumes. */

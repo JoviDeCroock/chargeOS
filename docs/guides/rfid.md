@@ -11,7 +11,7 @@ The charger must be connected; the bar at the top of the console says **Charger 
 3. Within two minutes, hold one card against the charger's card reader. The charger refuses this tap, as it refuses every card it does not know yet. That is expected.
 4. The window says **Card found** with a short reference. If it says that more than one different card was tapped, nothing was added: click **Listen again** and tap only your card. If it says the card is already one of this charger's cards, nothing changed.
 5. Optionally give the card a **Card name** and choose **Who uses it**, then click **Add this card** within five minutes. After that, chargeOS forgets the tapped card and you tap it again.
-6. Continue with step 6 under **Type a card number** below to send the card list to the charger.
+6. Continue with step 5 under **Type a card number** below to send the card list to the charger.
 
 chargeOS listens only for the charger you chose and only while the window says it is listening. It keeps the tapped card's value in memory until you add it or it expires, and never shows or records it. A tap is still refused at the charger; adding the card is a separate step you confirm.
 
@@ -37,7 +37,7 @@ The console shows a card by the name you gave it, or by a short anonymous refere
 
 1. Open **RFID cards** for the correct charger and click **Remove** next to the card.
 2. Read the warning. Tick the box confirming you understand that the card may keep working at the charger until the charger accepts the new card list. Then click **Remove card**.
-3. Send the new card list to the charger as in step 6 of **Type a card number** above.
+3. Send the new card list to the charger as in step 5 of **Type a card number** above.
 4. Check that the charger accepted the new list, and ask for a new recovery bundle.
 
 The removed card's name is deleted at the same time. An offline charger can still accept its previously stored copy of a removed card until the updated list reaches it. Removing a card from chargeOS is not an immediate offline revocation. For a lost card, tell the owner or installer so they can decide how to handle access until reconnection.

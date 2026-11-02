@@ -52,30 +52,40 @@
         </fieldset>
         <fieldset>
           <legend>Connect the right charger</legend>
-          <label for="stationId">Charger OCPP identity</label
+          <label for="stationId">Charger name (OCPP identity) <span>optional</span></label
           ><input
             id="stationId"
             name="stationId"
-            required
             pattern="[a-zA-Z0-9_-]{1,64}"
             maxlength="64"
+            placeholder="HOME-1"
             autocomplete="off"
           /><small
-            >Ask your installer for the exact charging-point identity. This is not proof of
+            >Leave it blank if you don’t know it. If the charger connects with its own name and the
+            right password, the console offers to accept that name. A name is not proof of
             ownership.</small
           >
-          <label for="ownerTag">Owner’s RFID card identifier</label
+          <label for="ownerTag"
+            >Your RFID card identifier <span id="owner-tag-optional">optional</span></label
           ><input
             id="ownerTag"
             name="ownerTag"
-            required
             pattern="[a-zA-Z0-9]{1,20}"
             maxlength="20"
             type="password"
             autocomplete="off"
-          /><small
-            >Use the identifier reported by the charger, which can differ from the number printed on
-            the card. It stays in your private deployment configuration.</small
+          /><small id="owner-tag-help"
+            >Leave it blank and tap your card at the charger from the console after setup. Until you
+            add a card, every card is refused. If you type it, use the identifier the charger
+            reports, which can differ from the number printed on the card.</small
+          >
+          <p><strong>Which console?</strong></p>
+          <label class="check"
+            ><input type="radio" name="profile" value="personal" checked />Home: my own
+            charger</label
+          ><label class="check"
+            ><input type="radio" name="profile" value="company" />Company: chargers shared with
+            employees or guests</label
           >
         </fieldset>
         <fieldset>
@@ -199,14 +209,22 @@
         <h2 id="result-title">Your setup is ready</h2>
         <p id="result-message"></p>
         <dl id="receipt"></dl>
-        <p>
-          Your owner token and charger password are in the private
-          <strong>credentials.json</strong> file. Keep them in your password manager. Do not send
-          the setup folder to support.
+        <div class="actions">
+          <button id="open-console" type="button">Open my console</button>
+        </div>
+        <p id="open-console-help">
+          Opens the console in a new tab and signs you in, once DNS and HTTPS are ready. If it
+          doesn’t load yet, wait a minute and try again.
         </p>
         <p>
-          Next: check DNS and HTTPS, open the console, and follow the charger connection guide.
-          Create an encrypted recovery bundle after provisioning.
+          Your owner token and charger password are in the private
+          <strong>credentials.json</strong> file. Keep them in your password manager. Give
+          <strong>INSTALLER-SHEET.txt</strong> to your installer; it holds the charger settings. Do
+          not send the setup folder to support.
+        </p>
+        <p>
+          Next: in the console, follow “Connect your charger”, add your card by tapping it, send the
+          card list, and create an encrypted recovery bundle.
         </p>
       </section>
       <footer>

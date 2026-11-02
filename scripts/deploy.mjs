@@ -111,12 +111,15 @@ export function createSetupServer({
             receipt = { ...receipt, status: "containers-started" };
           }
         }
-        const {
-          ownerToken: _ownerToken,
-          stationSecret: _stationSecret,
-          ...publicReceipt
-        } = receipt;
-        reply(response, 200, { ...publicReceipt, directory: prepared.directory });
+        const { ownerToken, stationSecret: _stationSecret, ...publicReceipt } = receipt;
+        reply(response, 200, {
+          ...publicReceipt,
+          directory: prepared.directory,
+          // Only this nonce-authorized loopback tab receives it, to hand to the console it opens
+          // through postMessage. It is never rendered, stored or put in a URL. The charger
+          // password stays in the private folder.
+          ...(company ? {} : { signInToken: ownerToken }),
+        });
       } catch (error) {
         reply(response, error instanceof DeploymentError ? 400 : 500, {
           error:

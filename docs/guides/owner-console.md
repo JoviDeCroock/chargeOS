@@ -7,7 +7,7 @@ The console is available in English, Dutch (Nederlands) and French (Français). 
 ## Sign in
 
 1. Open your console address, for example `https://charge.company.be`. For a local source trial started with `pnpm dev`, it is `http://127.0.0.1:5173`.
-2. Paste the owner token into **Owner token**. For a setup-wizard installation, it is `ownerToken` in the private `credentials.json` file. It is at least 32 characters.
+2. Paste the owner token into **Owner token**. For a setup-wizard installation, it is `ownerToken` in the private `credentials.json` file. It is at least 32 characters. Right after setup you can skip this: **Open my console** on the setup page signs you in directly.
 3. Click **Open console**.
 
 The token is the root authority for your chargers. Keep it in your password manager and never send it to an installer, employer or support person. The console keeps it only in the current browser tab. Closing the tab or clicking **Lock console** removes it from the browser.

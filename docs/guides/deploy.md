@@ -9,7 +9,10 @@ This guide deploys the **owner edge** through the wizard, with separate console 
 1. Open setup as described in [Install the software](install.md).
 2. Choose **Docker on this computer or server**. Docker must run locally on the computer running setup. Remote SSH/TCP Docker contexts are refused. Confirm that this is the intended computer; setup checks shared file visibility before starting.
 3. Name the installation. Use a new name only for a separate installation; an existing setup is never overwritten.
-4. Enter the charger's exact OCPP identity (its name on the back-office connection) and the actual RFID identifier of one owner card. Your installer can find these. A serial number or the number printed on a card may be different. The setup form accepts identities made of letters, numbers, hyphens and underscores, up to 64 characters.
+4. Optionally enter the charger's name (its OCPP identity) and your RFID card. You can leave both blank:
+   - **Charger name**: blank uses `HOME-1`. If the charger connects with its own name and the right password, the console offers to accept that name; see [Connect your charger](connect-a-charger.md). Names use letters, numbers, hyphens and underscores, up to 64 characters.
+   - **RFID card**: blank starts with no card. After setup, open **RFID cards** in the console and tap your card at the charger; see [Add or remove an RFID card](rfid.md). Until you add one, every card is refused. If you type it, use the identifier the charger reports; the number printed on a card may differ.
+   - **Console**: choose **Home** for your own charger or **Company** for chargers shared with employees or guests. You can change this later in the console's preferences.
 5. Enter the two hostnames and the email address for certificate notices.
 6. Leave the image field blank to build this source version, or paste a verified image digest supplied by your operator.
 7. Tick the box confirming that you control this server and these addresses, then click **Deploy chargeOS**. Keep the terminal open while Docker builds and starts the containers.
@@ -21,15 +24,27 @@ You can instead click **Prepare files only**. This creates the private deploymen
 
 ## Find your console and credentials
 
-The result shows the **Console** address, the **Charger endpoint** and the **Private setup folder**. The folder is `.chargeos-deploy/<installation name>` inside your chargeOS folder. Open `START-HERE.txt` there for restart instructions. Open `credentials.json` privately: `ownerToken` is your owner-console token and `stationSecret` is the charger's separate password. Put both in your password manager. Keep this folder away from shared drives and support messages.
+The result shows the **Console** address, the **Charger endpoint** and the **Private setup folder**. The folder is `.chargeos-deploy/<installation name>` inside your chargeOS folder. It holds:
 
-Open your console address after DNS is ready and HTTPS has a valid certificate, then sign in with the owner-console token; see [Use the owner console](owner-console.md). Save the charger endpoint, OCPP identity and password for the separate [charger connection procedure](connect-a-charger.md).
+- `START-HERE.txt`: your next steps and the restart commands.
+- `INSTALLER-SHEET.txt`: the charger address, name, password and protocol to give your installer. It contains the charger password, so hand it over privately and destroy it after use.
+- `credentials.json`: `ownerToken` is your owner-console token and `stationSecret` is the charger's separate password. Put both in your password manager.
+
+Keep this folder away from shared drives and support messages.
+
+After DNS is ready and HTTPS has a valid certificate, click **Open my console** on the setup page. It opens the console in a new tab and signs you in. The token is handed to that tab directly by the setup page; it is never put in an address, so it does not end up in your browser history. If the console is not reachable yet, wait a minute and click again. You can always sign in by pasting `ownerToken` instead; see [Use the owner console](owner-console.md).
+
+Then, in the console:
+
+1. Follow **Connect your charger**. It shows the address and name to use, turns green when the charger connects, and explains in plain words why a connection was refused. Before any charger migration, follow the [charger connection procedure](connect-a-charger.md).
+2. Add your card by tapping it at the charger, then send the card list to the charger.
+3. Create an encrypted recovery bundle and keep it off this server; see [Back up and recover](recovery.md). It needs at least one owner card.
 
 The setup wizard creates one charger per installation. Several chargers on one installation need an administrator-managed stations file; see [Use the owner console](owner-console.md).
 
 ## Managed hosting
 
-Choose **Managed server through Coolify Cloud** if your administrator has connected a server to that account. Enter a Coolify API token that can create and deploy services, the project, server and environment IDs (and a destination ID if the server has several), a trusted repository and the reviewed commit containing the deployment template. The token stays in memory and is not saved. For a private repository, enter its connected Coolify GitHub App ID too. Your operator supplies the published image digest and reviewed template commit. These are a one-time infrastructure setup, not values to guess.
+Choose **Managed server through Coolify Cloud** if your administrator has connected a server to that account. Managed hosting still needs your RFID card identifier during setup, because it deploys a reviewed, pinned template that seeds the card; tapping the first card is for Docker installations. Enter a Coolify API token that can create and deploy services, the project, server and environment IDs (and a destination ID if the server has several), a trusted repository and the reviewed commit containing the deployment template. The token stays in memory and is not saved. For a private repository, enter its connected Coolify GitHub App ID too. Your operator supplies the published image digest and reviewed template commit. These are a one-time infrastructure setup, not values to guess.
 
 Click **Deploy chargeOS** after reviewing the destination. The wizard creates a Raw Compose application, checks that the platform kept that mode, configures private credentials and submits deployment. Raw Compose preserves the private gateway network; Coolify's ordinary service parser can rewrite it. If a step fails, inspect the saved receipt and the existing cloud application instead of creating another one.
 
