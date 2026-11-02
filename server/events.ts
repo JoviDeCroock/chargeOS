@@ -56,6 +56,10 @@ export class NdjsonEvidenceStore implements EvidenceStore {
   readonly #authorizationRevisions = new Map<string, number>();
   readonly #transactionFingerprints = new Map<string, number>();
   readonly #transactionIds = new Map<string, number>();
+  // Stations whose persisted StartTransaction fingerprints are fully indexed in memory. Only
+  // recordTransactionStart appends StartTransaction while the edge runs, so after one ledger
+  // scan a fingerprint miss is authoritative and needs no further full read.
+  readonly #indexedTransactionStations = new Set<string>();
   #appendTail: Promise<void> = Promise.resolve();
   #allocationTail: Promise<void> = Promise.resolve();
   #lastRecordHash: string | null | undefined;
@@ -94,16 +98,23 @@ export class NdjsonEvidenceStore implements EvidenceStore {
       if (reservedId !== undefined) {
         return { replayed: true, transactionId: reservedId };
       }
-      const events = await this.readEvents();
-      const persistedId = findTransactionByFingerprint(events, stationId, fingerprint);
-      if (persistedId !== null) {
-        this.#transactionFingerprints.set(fingerprintKey, persistedId);
-        return { replayed: true, transactionId: persistedId };
+      if (!this.#indexedTransactionStations.has(stationId)) {
+        const events = await this.readEvents();
+        for (const [persisted, transactionId] of transactionFingerprints(events, stationId)) {
+          this.#transactionFingerprints.set(`${stationId}:${persisted}`, transactionId);
+        }
+        this.#transactionIds.set(
+          stationId,
+          Math.max(
+            this.#transactionIds.get(stationId) ?? 0,
+            findHighestNumber(events, stationId, "StartTransaction", "transactionId"),
+          ),
+        );
+        this.#indexedTransactionStations.add(stationId);
+        const persistedId = this.#transactionFingerprints.get(fingerprintKey);
+        if (persistedId !== undefined) return { replayed: true, transactionId: persistedId };
       }
-      let lastId = this.#transactionIds.get(stationId);
-      if (lastId === undefined) {
-        lastId = findHighestNumber(events, stationId, "StartTransaction", "transactionId");
-      }
+      const lastId = this.#transactionIds.get(stationId) ?? 0;
       const transactionId = lastId + 1;
       await this.append(event(transactionId));
       this.#transactionIds.set(stationId, transactionId);
@@ -291,23 +302,23 @@ function findHighestNumber(
   return highest;
 }
 
-function findTransactionByFingerprint(
+function transactionFingerprints(
   events: readonly EvidenceEvent[],
   stationId: string,
-  fingerprint: string,
-): number | null {
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    const event = events[index];
-    if (!event || event.stationId !== stationId || event.message !== "StartTransaction") continue;
+): Map<string, number> {
+  // Later records win, matching the previous newest-first lookup.
+  const fingerprints = new Map<string, number>();
+  for (const event of events) {
+    if (event.stationId !== stationId || event.message !== "StartTransaction") continue;
     const payload = event.payload as Record<string, unknown>;
     if (
-      payload.transactionFingerprint === fingerprint &&
+      typeof payload.transactionFingerprint === "string" &&
       typeof payload.transactionId === "number"
     ) {
-      return payload.transactionId;
+      fingerprints.set(payload.transactionFingerprint, payload.transactionId);
     }
   }
-  return null;
+  return fingerprints;
 }
 
 function parseEvidenceEvent(line: string, lineNumber: number): EvidenceEvent {

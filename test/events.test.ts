@@ -74,6 +74,47 @@ describe("NdjsonEvidenceStore", () => {
     }
   });
 
+  it("scans the ledger once per station for new transaction fingerprints", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "chargeos-evidence-index-"));
+    const path = join(directory, "events.ndjson");
+
+    try {
+      const seed = new NdjsonEvidenceStore(path);
+      await seed.recordTransactionStart("station", "persisted", (transactionId) =>
+        evidenceEvent("station", "station-to-csms", "StartTransaction", {
+          transactionFingerprint: "persisted",
+          transactionId,
+        }),
+      );
+      const store = new NdjsonEvidenceStore(path);
+      let reads = 0;
+      const readEvents = store.readEvents.bind(store);
+      store.readEvents = async () => {
+        reads += 1;
+        return readEvents();
+      };
+      const start = (fingerprint: string) =>
+        store.recordTransactionStart("station", fingerprint, (transactionId) =>
+          evidenceEvent("station", "station-to-csms", "StartTransaction", {
+            transactionFingerprint: fingerprint,
+            transactionId,
+          }),
+        );
+
+      await expect(start("persisted")).resolves.toEqual({ replayed: true, transactionId: 1 });
+      for (let index = 0; index < 5; index += 1) {
+        await expect(start(`new-${index}`)).resolves.toEqual({
+          replayed: false,
+          transactionId: index + 2,
+        });
+      }
+      await expect(start("new-0")).resolves.toEqual({ replayed: true, transactionId: 2 });
+      expect(reads).toBe(1);
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
   it("commits one transaction start before concurrent retries receive its ID", async () => {
     const directory = await mkdtemp(join(tmpdir(), "chargeos-evidence-concurrent-"));
     const path = join(directory, "events.ndjson");

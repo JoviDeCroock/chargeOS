@@ -213,7 +213,7 @@ export function createChargeGateway(
         stationId,
         "station-to-csms",
         "BootNotification",
-        params,
+        digestFields(stationConfig, params, SUBSCRIBER_IDENTITY_FIELDS),
       );
       return {
         currentTime: new Date().toISOString(),
@@ -234,7 +234,7 @@ export function createChargeGateway(
         stationId,
         "station-to-csms",
         "StatusNotification",
-        params,
+        digestFields(stationConfig, params, STATUS_FREE_TEXT_FIELDS),
       );
       return {};
     });
@@ -943,6 +943,26 @@ const SECURITY_EVENT_TYPES = new Set([
 function securityEventType(value: unknown): string | null {
   if (typeof value !== "string") return null;
   return SECURITY_EVENT_TYPES.has(value) ? value : "VendorDefined";
+}
+
+// SIM subscriber identifiers (ICCID/IMSI) and charger-chosen status free text can identify a
+// person or carry a raw card UID, and evidence payloads reach shareable exports. Keep only a
+// station-keyed digest so repeated values stay correlatable without being disclosed.
+const SUBSCRIBER_IDENTITY_FIELDS = ["iccid", "imsi"] as const;
+const STATUS_FREE_TEXT_FIELDS = ["info", "vendorErrorCode"] as const;
+
+function digestFields(
+  config: GatewayConfig,
+  params: unknown,
+  fields: readonly string[],
+): Record<string, unknown> {
+  const source = recordValue(params);
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (fields.includes(key)) result[`${key}Digest`] = keyedDigest(config, value);
+    else result[key] = value;
+  }
+  return result;
 }
 
 function keyedDigest(config: GatewayConfig, value: unknown): string | null {

@@ -92,6 +92,33 @@ describe("owner projections", () => {
     expect(delegatedSessions).not.toContain("tag_pseudonym");
   });
 
+  it("redacts raw SIM identifiers and status free text recorded by older ledgers", () => {
+    const events = [
+      evidenceEvent("STATION_1", "station-to-csms", "BootNotification", {
+        chargePointModel: "Model",
+        chargePointVendor: "Vendor",
+        iccid: "8932000000000000001",
+        imsi: "206010000000001",
+      }),
+      evidenceEvent("STATION_1", "station-to-csms", "StatusNotification", {
+        connectorId: 1,
+        errorCode: "NoError",
+        info: "card 04A1B2C3",
+        status: "Available",
+        vendorErrorCode: "E-04A1B2C3",
+      }),
+    ];
+    const gateway = { getRuntime: () => ({ connected: false, connectedAt: null }) };
+    for (const projected of [
+      JSON.stringify(buildRedactedContinuityExport(config, events)),
+      JSON.stringify(buildOwnerSnapshot(config, gateway, events)),
+    ]) {
+      for (const raw of ["8932000000000000001", "206010000000001", "04A1B2C3"])
+        expect(projected).not.toContain(raw);
+      expect(projected).toContain('"chargePointVendor":"Vendor"');
+    }
+  });
+
   it("deduplicates exact retries and preserves the first stop when later evidence conflicts", () => {
     const start = evidenceEvent("STATION_1", "station-to-csms", "StartTransaction", {
       authorizationStatus: "Accepted",

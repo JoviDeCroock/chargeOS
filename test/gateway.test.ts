@@ -116,8 +116,32 @@ describe("OCPP 1.6J Genesis gateway", () => {
         chargePointModel: "Eve Single S-line",
         chargePointVendor: "Alfen",
         firmwareVersion: "test",
+        iccid: "8932000000000000001",
+        imsi: "206010000000001",
       }),
     ).resolves.toMatchObject({ status: "Accepted" });
+    await client.call("StatusNotification", {
+      connectorId: 1,
+      errorCode: "OtherError",
+      info: "card 04A1B2C3 rejected",
+      status: "Available",
+      vendorErrorCode: "E-04A1B2C3",
+    });
+    const boot = evidence.events.find((event) => event.message === "BootNotification");
+    expect(boot?.payload).toMatchObject({
+      chargePointVendor: "Alfen",
+      iccidDigest: expect.stringMatching(/^[a-f0-9]{24}$/),
+      imsiDigest: expect.stringMatching(/^[a-f0-9]{24}$/),
+    });
+    const status = evidence.events.find((event) => event.message === "StatusNotification");
+    expect(status?.payload).toMatchObject({
+      errorCode: "OtherError",
+      infoDigest: expect.stringMatching(/^[a-f0-9]{24}$/),
+      vendorErrorCodeDigest: expect.stringMatching(/^[a-f0-9]{24}$/),
+    });
+    const stored = JSON.stringify(evidence.events);
+    for (const raw of ["8932000000000000001", "206010000000001", "04A1B2C3"])
+      expect(stored).not.toContain(raw);
 
     await expect(client.call("Authorize", { idTag: OWNER_TAG })).resolves.toEqual({
       idTagInfo: { status: "Accepted" },

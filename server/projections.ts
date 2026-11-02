@@ -374,10 +374,26 @@ function evidenceProjection(
     );
 }
 
+// Ledgers written before record-time digests may hold raw SIM identifiers or status free text.
+const LEGACY_RAW_FIELDS: Readonly<Record<string, readonly string[]>> = {
+  BootNotification: ["iccid", "imsi"],
+  StatusNotification: ["info", "vendorErrorCode"],
+};
+
 function redactEvidencePayload(message: string, payload: unknown): unknown {
-  if (message !== "DelegateCapabilityGranted") return payload;
-  const { tokenHash: _tokenHash, ...redacted } = recordPayloadValue(payload);
-  return redacted;
+  if (message === "DelegateCapabilityGranted") {
+    const { tokenHash: _tokenHash, ...redacted } = recordPayloadValue(payload);
+    return redacted;
+  }
+  const legacy = LEGACY_RAW_FIELDS[message];
+  if (!legacy) return payload;
+  const record = recordPayloadValue(payload);
+  if (!legacy.some((field) => Object.hasOwn(record, field))) return payload;
+  return Object.fromEntries(
+    Object.entries(record).map(([key, value]) =>
+      legacy.includes(key) ? [key, "[redacted]"] : [key, value],
+    ),
+  );
 }
 
 function sessionProjection(events: readonly EvidenceEvent[]): readonly ChargeSession[] {
