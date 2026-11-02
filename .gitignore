@@ -12,3 +12,7 @@ coverage/
 .wrangler/
 .dev.vars
 .dev.vars.*
+
+# Local tool and OS artefacts
+.DS_Store
+.gstack/
