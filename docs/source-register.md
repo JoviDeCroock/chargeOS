@@ -21,6 +21,8 @@ This research did not access a competitor’s authenticated customer portal, exe
 - [Alfen: change back office on firmware 5.8.1 or lower](https://knowledgebase-alfen.atlassian.net/wiki/spaces/SER/pages/783384577/Changing%2Bthe%2BBackoffice%2Bof%2Ba%2Bcharging%2Bstation%2Bwith%2BFW5.8.1%2Bor%2Blower) — older/SIM migration caveats.
 - [Alfen: standalone operation](https://aceservice.alfen.com/en-us/knowledgebase/article/KA-01263) — configuration backup, SIM removal, known-tag offline action, whitelist, and RFID charging without a backend.
 - [Alfen: ACE account](https://aceservice.alfen.com/en-us/knowledgebase/article/KA-01075), [Windows installer](https://aceservice.alfen.com/en-us/knowledgebase/article/KA-01282), [local connection](https://aceservice.alfen.com/en-us/knowledgebase/article/KA-01084), [transaction export](https://aceservice.alfen.com/en-us/knowledgebase/article/KA-01122).
+- [Alfen: connect to Eve Control](https://aceservice.alfen.com/en-us/knowledgebase/article/KA-01647) — verified 2026-11-02; the ACE Service Installer or Eve Install app sets the back office locally by preset, and chargers on a private APN cannot reach an outside back office. It does not document a custom-URL form in Eve Install.
+- [Tap Electric: Alfen onboarding with Eve Install](https://docs.tapelectric.app/en/articles/16490979-alfen-onboarding-guide-eve-install-app) — third-party, verified 2026-11-02; preset-based back-office selection, the app is not yet for advanced configuration, and a public release is expected by the end of 2026. Not a statement by Alfen.
 
 ## Standards and open source
 

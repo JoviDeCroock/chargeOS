@@ -17,7 +17,9 @@ Make charger freedom a versioned evidence claim and a real energy-delivery test,
 ## Choose the workflow
 
 - For desk research or matrix updates, follow **Research compatibility**.
+- For an owner who wants to try chargeOS against their real charger while the incumbent backend stays restorable, follow **Run a reversible home-lab trial**.
 - For a real charger, follow **Plan a reversible migration** and then **Run the Freedom Test**.
+- For Alfen Eve chargers, also read `references/alfen-field-notes.md`.
 - For architecture/code, follow **Protect the invariant**.
 - For commercial or legal claims, follow **Bound the claim**.
 
@@ -28,6 +30,38 @@ Make charger freedom a versioned evidence claim and a real energy-delivery test,
 3. Record exact configuration paths and permission dependencies. Vendor-cloud-mediated OCPP is grade C, not direct owner control.
 4. Treat missing evidence as unknown. Never lift a field result from one model/firmware to a vendor family.
 5. Add verification date, URLs, limitations, and confidence to `docs/charger-freedom-matrix.md`. Put important primary sources in `docs/source-register.md`.
+
+## Run a reversible home-lab trial
+
+This is an online-path smoke test, not a migration or a Freedom Test. It produces no grade, needs no migration authorization, and the Genesis plan will correctly show stop or waiting states. Say so to the owner.
+
+Offer the zero-risk steps first: `pnpm dev` with `pnpm simulate`, and `/observe` for a provider session CSV. Then, before any endpoint change:
+
+- confirm exact model and firmware through the supported local tool, and that the tool can set a manual backend URL and password (a preset-only app cannot);
+- have the owner export configuration and transactions, copy them off the tool machine, and capture the current backend settings. If the password is masked, say that rollback depends on restoring the export or on the provider;
+- confirm the backend connection uses the owner's LAN, not a provider SIM or private APN;
+- state that the incumbent records no sessions during the trial, and that contracts or reimbursement may be affected.
+
+Prepare the host:
+
+- Check capacity and coexisting services, and use free ports. Do not stop, reconfigure or read the credentials of unrelated services on a shared server.
+- Without Docker or sudo, install the official Node 22 tarball in user space after checking it against `SHASUMS256.txt`. Run `corepack enable --install-directory <node>/bin pnpm`, because package scripts call bare `pnpm` and `corepack pnpm build` fails. Then run `pnpm install --frozen-lockfile && pnpm build`.
+- Smoke-test the build against a throwaway data directory on alternate loopback ports with `pnpm simulate --env-file <tmp-env> --session --exit`, check the console and snapshot, then stop it and delete that directory.
+- Run as a user systemd unit that points `CHARGEOS_ENV_FILE` at a mode-`0600` env file, with every secret supplied through `_FILE` paths in an owner-only directory. Check `loginctl show-user <user> -p Linger`. Over non-interactive SSH, set `XDG_RUNTIME_DIR=/run/user/$(id -u)` before `systemctl --user`.
+- Bind `CHARGEOS_OCPP_HOST` to the LAN interface address, not `0.0.0.0` or an overlay address. Bind `CHARGEOS_API_HOST` to loopback or an encrypted overlay address such as a tailnet IP. Never add a router port-forward.
+- Set `CHARGEOS_STATION_ID` to the identity the charger already reports, so rollback changes only the URL and password.
+
+Keep secrets out of the conversation:
+
+- Generate the station secret and owner token on the host and never print them; the owner reads them there.
+- Have the owner write the raw RFID with `umask 077; read -rsp 'idTag: ' T; printf '%s\n' "$T" > <tags-file>; unset T`. Check only its mode, line count and surrounding whitespace, never its content.
+- The service does not start until the identity and tag exist. A refused console connection before then means "not running", not a network fault.
+
+Verify reachability from another machine on the LAN with `nc -vz <host> <ocpp-port>`. A timeout while SSH connects usually means a host firewall such as `ufw`. The owner must add a rule scoped to the charger's IP, or failing that the LAN subnet.
+
+Give the endpoint as the base URL with a trailing slash, for example `ws://<lan-ip>:9000/`. chargeOS (through `ocpp-rpc`) takes the identity from the last path segment, so this works whether or not the tool appends the identity. Writing the identity yourself also works, but a trailing slash after it yields an empty identity and a 401. Require a security profile that sends the Basic-auth password.
+
+Keep the trial reversible. Do not run owner-continuity preparation, `SendLocalList` or vendor standalone/whitelist changes unless the owner wants them to persist after rollback; note any that were made. Check that **Station connected** appears and that the Boot reports the expected vendor, model and firmware. Then check one real online owner-card charge and unknown-card rejection. Roll back by re-entering the recorded backend fields, and confirm that the incumbent shows the charger online. A pass shows only the online path on that device and firmware.
 
 ## Plan a reversible migration
 
