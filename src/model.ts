@@ -244,15 +244,20 @@ export async function refreshFleet(clearNotice = true): Promise<void> {
   }
 }
 
+let latestUsageRequest = 0;
+
 export async function refreshUsage(month: string): Promise<void> {
   if (!ownerToken.value) return;
+  const request = ++latestUsageRequest;
   usageLoading.value = true;
   try {
-    usageReport.value = await fetchUsageReport(month, browserTimeZone(), ownerToken.value);
+    const report = await fetchUsageReport(month, browserTimeZone(), ownerToken.value);
+    // A slower answer for a month the owner already left must not replace the newer one.
+    if (request === latestUsageRequest) usageReport.value = report;
   } catch (error) {
-    handleError(error);
+    if (request === latestUsageRequest) handleError(error);
   } finally {
-    usageLoading.value = false;
+    if (request === latestUsageRequest) usageLoading.value = false;
   }
 }
 

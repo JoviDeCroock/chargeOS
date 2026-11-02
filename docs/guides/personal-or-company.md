@@ -30,7 +30,7 @@ These pages are optional:
 
 To change them, click **Console settings** at the bottom of the sidebar and tick or untick a module. **Use profile defaults** undoes your choice. Your choice is kept in this browser only. Another browser or colleague starts from the profile defaults.
 
-Hiding a module never switches anything off. Owner cards keep working offline, recorded evidence stays, and the server keeps every function. A hidden page comes back in the sidebar on its own when it needs you, for example when the switching dossier hits a stop condition. If you are moving a charger away from a previous provider, turn on **Switching and Freedom Test** first; see [Connect a charging station](connect-a-charger.md).
+Hiding a module never switches anything off. Owner cards keep working offline, recorded evidence stays, and the server keeps every function. A hidden page comes back in the sidebar on its own when it needs you: when someone still holds delegated access, or when a switching step or Freedom Test is open, stopped or stale. If you are moving a charger away from a previous provider, turn on **Switching and Freedom Test** first; see [Connect a charging station](connect-a-charger.md).
 
 ## See how much you charge
 

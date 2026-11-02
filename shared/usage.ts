@@ -287,8 +287,9 @@ const CSV_HEADER = [
 ] as const;
 
 /**
- * Spreadsheet-safe CSV. Cells that a spreadsheet could interpret as a formula are prefixed so a
- * hostile charger label or driver name cannot execute when the file is opened.
+ * Spreadsheet-safe CSV. Every cell is quoted, so a comma or a semicolon (the separator Excel uses
+ * in Belgian, Dutch and German locales) cannot split a cell, and cells that a spreadsheet could
+ * interpret as a formula are prefixed so a hostile label or driver name cannot execute.
  */
 export function usageReportCsv(report: UsageReport): string {
   const rows: string[][] = [[...CSV_HEADER]];
@@ -316,5 +317,5 @@ export function usageReportCsv(report: UsageReport): string {
 
 function csvCell(value: string): string {
   const safe = /^[=+\-@\t\r]/u.test(value) ? `'${value}` : value;
-  return /[",\r\n]/u.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe;
+  return `"${safe.replaceAll('"', '""')}"`;
 }

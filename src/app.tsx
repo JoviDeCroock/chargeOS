@@ -203,16 +203,15 @@ export function App() {
   const showFleet = CONSOLE_SECTIONS.has(section);
   // Console-level pages only hold fleet summaries; per-charger signals need a full snapshot.
   const navTones = showFleet ? {} : sectionTones(current);
-  const tones = navTones;
   const modules: ReadonlySet<OptionalModule> = profile
     ? enabledModules(profile)
     : new Set(OPTIONAL_MODULES);
+  const required = showFleet ? new Set<Section>() : sectionsNeedingOwner(current);
   const visibleSections = new Set(
     CHARGER_SECTIONS.filter((id) => {
       const module = SECTION_MODULE[id];
-      const tone = tones[id]?.tone;
-      // A hidden module stays reachable while it needs attention or is open.
-      return !module || modules.has(module) || tone === "risk" || tone === "live" || id === section;
+      // A hidden module stays reachable while it needs the owner or is open.
+      return !module || modules.has(module) || required.has(id) || id === section;
     }),
   );
 
@@ -453,6 +452,35 @@ function NavLink({
   );
 }
 
+/**
+ * Optional pages that must stay visible whatever the owner's module choice: someone else holds
+ * live access, a switching step is open or stopped, or field-test evidence needs attention.
+ */
+function sectionsNeedingOwner(current: OwnerSnapshot): ReadonlySet<Section> {
+  const required = new Set<Section>();
+  if (current.delegations.some(({ status }) => status === "active")) required.add("delegates");
+  const openMigration: readonly MigrationProjection["status"][] = [
+    "blocked",
+    "ready-for-owner-confirmation",
+    "owner-authorized-window",
+    "online-proof-in-progress",
+  ];
+  if (openMigration.includes(current.migration.status) || current.genesisPlan.state === "stop") {
+    required.add("migration");
+  }
+  const openFreedom: readonly FreedomTestProjection["status"][] = [
+    "in-progress",
+    "failed",
+    "baseline-stale",
+  ];
+  if (openFreedom.includes(current.freedomTest.status)) required.add("freedom");
+  if (required.has("migration") || required.has("freedom")) {
+    required.add("migration");
+    required.add("freedom");
+  }
+  return required;
+}
+
 function sectionTones(
   current: OwnerSnapshot,
 ): Partial<Record<Section, { tone: Tone; badge?: string; hint?: string }>> {
@@ -598,7 +626,7 @@ function OverviewSection({
         <StationPanel snapshot={current} />
       </div>
 
-      {visibleSections.has("migration") ? (
+      {visibleSections.has("migration") || current.genesisPlan.state === "stop" ? (
         <GenesisPlanPanel plan={current.genesisPlan} />
       ) : (
         showSettings && (

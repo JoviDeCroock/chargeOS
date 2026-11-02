@@ -692,6 +692,43 @@ describe("owner usage report API", () => {
       expect(invalid.status).toBe(400);
     }
     expect((await fetch(`${base}${path}`, { headers, method: "POST" })).status).toBe(404);
+    expect(
+      (
+        await fetch(`${base}/api/v1/stations/OFFICE_1/usage?month=2026-10&timeZone=UTC`, {
+          headers,
+        })
+      ).status,
+    ).toBe(404);
+
+    // A delegate with session access still cannot read the owner's cross-charger report.
+    const grant = await fetch(`${base}/api/v1/delegations`, {
+      body: JSON.stringify({
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        role: "employer",
+      }),
+      headers: { ...headers, "content-type": "application/json" },
+      method: "POST",
+    });
+    expect(grant.status).toBe(201);
+    const { token: delegateToken } = (await grant.json()) as { token: string };
+    const delegateHeaders = { authorization: `Bearer ${delegateToken}` };
+    expect((await fetch(`${base}${path}`, { headers: delegateHeaders })).status).toBe(404);
+    const delegateSessions = await fetch(`${base}/api/v1/delegate/sessions`, {
+      headers: delegateHeaders,
+    });
+    expect(delegateSessions.status).toBe(200);
+
+    // The driver name is owner-console data only: never in shareable or delegate output.
+    const shared = await Promise.all([
+      delegateSessions.text(),
+      fetch(`${base}/api/v1/continuity-export`, { headers }).then((response) => response.text()),
+      fetch(`${base}/api/v1/field-pack`, { headers }).then((response) => response.text()),
+      fetch(`${base}/api/v1/troubleshooting/preview`, { headers }).then((response) =>
+        response.text(),
+      ),
+    ]);
+    for (const body of shared) expect(body).not.toContain("Alice Peeters");
+    expect(JSON.stringify(evidence.events)).not.toContain("Alice Peeters");
   });
 });
 

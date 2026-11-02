@@ -73,7 +73,12 @@ function fleetSnapshot(
 }
 
 function ownerSnapshot(
-  overrides: { migrationStatus?: OwnerSnapshot["migration"]["status"] } = {},
+  overrides: {
+    activeDelegate?: boolean;
+    freedomStatus?: OwnerSnapshot["freedomTest"]["status"];
+    migrationStatus?: OwnerSnapshot["migration"]["status"];
+    planState?: OwnerSnapshot["genesisPlan"]["state"];
+  } = {},
 ): OwnerSnapshot {
   const completed = (transactionId: number, startedAt: string, energyWh: number, tag: string) => ({
     authorizationStatus: "Accepted" as const,
@@ -106,7 +111,20 @@ function ownerSnapshot(
       tagPseudonyms: ["tag_owner"],
     },
     commands: [],
-    delegations: [],
+    delegations: overrides.activeDelegate
+      ? [
+          {
+            createdAt: "2026-10-19T12:00:00.000Z",
+            expiresAt: "2026-11-19T12:00:00.000Z",
+            grantId: "12345678-1234-4123-8123-123456789abc",
+            revokedAt: null,
+            role: "employer",
+            scopes: ["sessions:read"],
+            status: "active",
+            tokenHint: "…abc123",
+          },
+        ]
+      : [],
     evidence: [],
     evidenceHistory: { custodyBundleCount: 0, custodiedEventCount: 0, mode: "complete" },
     freedomTest: {
@@ -114,7 +132,7 @@ function ownerSnapshot(
       disclaimer: "Evidence completeness is not certification.",
       run: null,
       schemaVersion: FREEDOM_TEST_SCHEMA_VERSION,
-      status: "not-started",
+      status: overrides.freedomStatus ?? "not-started",
       steps: [],
     },
     generatedAt: NOW.toISOString(),
@@ -123,7 +141,7 @@ function ownerSnapshot(
       nextActions: [],
       phase: "pre-switch-evidence",
       schemaVersion: GENESIS_PLAN_SCHEMA_VERSION,
-      state: "action-required",
+      state: overrides.planState ?? "action-required",
     },
     migration: {
       authorization: null,
@@ -260,7 +278,44 @@ describe("console profiles", () => {
     );
     expect(navLinks()).toContain("Liberate my charger");
     expect(screen.getByRole("link", { name: "Liberate my charger, stop condition" })).toBeTruthy();
-    expect(navLinks()).not.toContain("Freedom Test");
+    // Both pages of the switching module return together.
+    expect(navLinks()).toContain("Freedom Test");
+    expect(navLinks()).not.toContain("Delegated access");
+  });
+
+  it("never hides live delegated access or a stopped switching plan", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (path: string) =>
+        path === "/api/v1/fleet"
+          ? json(fleetSnapshot("personal", [station("HOME_1", "Driveway", null)]))
+          : json(
+              ownerSnapshot({
+                activeDelegate: true,
+                freedomStatus: "baseline-stale",
+                migrationStatus: "online-path-observed-unreviewed",
+                planState: "stop",
+              }),
+            ),
+      ),
+    );
+    await openConsole();
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Your charging" })).toBeTruthy(),
+    );
+    expect(navLinks()).toEqual([
+      "Overview",
+      "Charging",
+      "RFID cards",
+      "Liberate my charger",
+      "Freedom Test",
+      "Delegated access1",
+    ]);
+    expect(screen.getByText("1 active delegate")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Stop condition — preserve evidence" }),
+    ).toBeTruthy();
   });
 
   it("reports company usage per driver and exports it", async () => {
@@ -374,8 +429,8 @@ describe("console profiles", () => {
     fireEvent.click(screen.getByRole("button", { name: "Download CSV" }));
     expect(click).toHaveBeenCalledOnce();
     const csv = await created[0]!.text();
-    expect(csv).toContain("2026-10,Alice Peeters,HOME_1,Driveway,Leuven,HOME_1:3,3,");
-    expect(csv).toContain(",in-progress,consistent,tag_owner");
+    expect(csv).toContain(`"2026-10","Alice Peeters","HOME_1","Driveway","Leuven","HOME_1:3","3",`);
+    expect(csv).toContain(`,"in-progress","consistent","tag_owner"`);
     click.mockRestore();
   });
 });

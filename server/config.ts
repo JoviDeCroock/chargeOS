@@ -180,6 +180,11 @@ function loadStations(env: NodeJS.ProcessEnv): readonly StationConfig[] {
       "CHARGEOS_STATIONS_FILE is mutually exclusive with legacy single-station settings",
     );
   }
+  if (fleetFile && env.CHARGEOS_STATION_DRIVER?.trim()) {
+    throw new Error(
+      "CHARGEOS_STATION_DRIVER is for a single station; set driver in CHARGEOS_STATIONS_FILE instead",
+    );
+  }
   if (fleetFile) {
     return parseStationsFile(readSecretFile(fleetFile, "CHARGEOS_STATIONS_FILE"));
   }

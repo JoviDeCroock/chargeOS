@@ -167,6 +167,10 @@ describe("loadConfig", () => {
         undefined,
       ]);
       expect(loadConfig(base).profile).toBe("personal");
+      expect(() => loadConfig({ ...base, CHARGEOS_STATION_DRIVER: "Ignored" })).toThrow(
+        "CHARGEOS_STATION_DRIVER is for a single station",
+      );
+      expect(loadConfig({ ...base, CHARGEOS_STATION_DRIVER: "" }).profile).toBe("personal");
       expect(() => loadConfig({ ...base, CHARGEOS_PROFILE: "enterprise" })).toThrow(
         "CHARGEOS_PROFILE must be personal or company",
       );

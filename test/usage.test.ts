@@ -157,16 +157,40 @@ describe("usage report", () => {
     const csv = usageReportCsv(report);
     const lines = csv.trimEnd().split("\r\n");
     expect(lines[0]).toBe(
-      "month,driver,charger_id,charger_label,site,session_id,transaction_id,started_at,stopped_at,energy_kwh,status,integrity,card_pseudonym",
+      '"month","driver","charger_id","charger_label","site","session_id","transaction_id","started_at","stopped_at","energy_kwh","status","integrity","card_pseudonym"',
     );
     expect(lines).toHaveLength(6);
-    expect(csv).toContain("2026-10,Bob,HOME_BOB,Bob's driveway,Ghent,HOME_BOB:1,1,");
-    expect(csv).toContain(",3.000,complete,consistent,tag_a");
-    expect(csv).toContain(",,in-progress,consistent,tag_a");
-    expect(csv).toContain(",1.000,complete,conflict,tag_a");
+    expect(csv).toContain(`"2026-10","Bob","HOME_BOB","Bob's driveway","Ghent","HOME_BOB:1","1",`);
+    expect(csv).toContain(`,"3.000","complete","consistent","tag_a"`);
+    expect(csv).toContain(`,"","in-progress","consistent","tag_a"`);
+    expect(csv).toContain(`,"1.000","complete","conflict","tag_a"`);
     // A formula-looking label is neutralized and quoted rather than executed.
     expect(csv).toContain(`"'=HYPERLINK(""http://evil"")"`);
-    expect(csv).not.toMatch(/(^|,)=HYPERLINK/mu);
+    expect(csv).not.toMatch(/(^|[,;"])=HYPERLINK/mu);
+  });
+
+  it("keeps a semicolon inside one quoted cell for semicolon-separated spreadsheet locales", () => {
+    const csv = usageReportCsv(
+      buildUsageReport({
+        generatedAt: "2026-11-02T08:00:00.000Z",
+        month: "2026-10",
+        profile: "company",
+        stations: [
+          {
+            driver: "Alex;=HYPERLINK(A1)",
+            id: "HOME_ALEX",
+            label: "Home;+1+1",
+            sessions: [session({})],
+            site: "Leuven",
+          },
+        ],
+        timeZone: "UTC",
+      }),
+    );
+    expect(csv).toContain(`"Alex;=HYPERLINK(A1)","HOME_ALEX","Home;+1+1"`);
+    // Split the way a semicolon-locale spreadsheet would: no field outside quotes starts a formula.
+    const unquoted = csv.replace(/"(?:[^"]|"")*"/gu, "Q");
+    expect(unquoted).not.toMatch(/[=+@]/u);
   });
 });
 
