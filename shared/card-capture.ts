@@ -32,6 +32,11 @@ export interface CardCaptureConfirmInput {
 
 /** How long chargeOS listens for a tap after the owner asks it to. */
 export const CARD_CAPTURE_LISTEN_MS = 2 * 60_000;
+/**
+ * A StartTransaction counts as a tap only if the charger says it began after listening started,
+ * allowing this much clock drift. Retried and queued starts are never taps.
+ */
+export const CARD_CAPTURE_CLOCK_SKEW_MS = 60_000;
 /** How long a tapped card stays available to add before chargeOS forgets it. */
 export const CARD_CAPTURE_HOLD_MS = 5 * 60_000;
 

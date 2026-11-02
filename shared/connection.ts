@@ -36,12 +36,23 @@ export interface RefusedConnectionAttempt {
   readonly offeredProtocols: readonly string[];
 }
 
+/** A name this charger presented together with its own password, which the owner may adopt. */
+export interface AliasCandidate {
+  readonly at: string;
+  readonly presentedIdentity: string;
+}
+
 export interface StationConnectionDiagnostics {
   /**
    * A second charger name this charger may connect with, adopted by the owner after the charger
    * presented it with this charger's own password. Recorded as evidence; `null` when none.
    */
   readonly acceptedAlias: string | null;
+  /**
+   * The last printable name presented with this charger's own password since it last connected.
+   * Only a password-proven attempt can set it, so wrong-password noise cannot erase the offer.
+   */
+  readonly aliasCandidate: AliasCandidate | null;
   /**
    * The charger address to type into the charger tool, ending in a slash, when the deployment
    * declared it. The charger name follows the slash.

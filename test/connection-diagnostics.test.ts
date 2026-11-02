@@ -338,6 +338,40 @@ describe("charger connection diagnostics", () => {
     });
   });
 
+  it("keeps a password-proven name offer through later wrong-password noise", async () => {
+    const { port } = await start();
+    await rawUpgrade(port, "ACE0123456", { Authorization: basic("ACE0123456", OTHER_SECRET) });
+    // Anyone who knows the configured name can cause these; they must not erase the offer.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await rawUpgrade(port, "HOME-2", { Authorization: basic("HOME-2", "wrong-password-00") });
+    }
+    const connection = gateway!.getRuntime("HOME-2").connection;
+    expect(connection?.lastRefused?.reason).toBe("password-wrong");
+    expect(connection?.aliasCandidate).toMatchObject({ presentedIdentity: "ACE0123456" });
+    await expect(gateway!.acceptIdentityAlias("HOME-2", "ACE0123456")).resolves.toMatchObject({
+      alias: "ACE0123456",
+    });
+    expect(gateway!.getRuntime("HOME-2").connection?.aliasCandidate).toBeNull();
+  });
+
+  it("lets only one charger claim a name when both accept it at once", async () => {
+    const evidence = new MemoryEvidenceStore();
+    const { port } = await start(evidence);
+    // Two chargers ship with the same factory name, each with its own password.
+    await rawUpgrade(port, "CP001", { Authorization: basic("CP001", STATION_SECRET) });
+    await rawUpgrade(port, "CP001", { Authorization: basic("CP001", OTHER_SECRET) });
+    const results = await Promise.allSettled([
+      gateway!.acceptIdentityAlias("HOME-1", "CP001"),
+      gateway!.acceptIdentityAlias("HOME-2", "CP001"),
+    ]);
+    expect(results.map(({ status }) => status).sort()).toEqual(["fulfilled", "rejected"]);
+    const winner = results[0]?.status === "fulfilled" ? "HOME-1" : "HOME-2";
+    // What runs now is exactly what the ledger rebuilds after a restart.
+    expect(identityAliasesFromEvents(config, evidence.events)).toEqual(
+      new Map([[winner, "CP001"]]),
+    );
+  });
+
   it("does not accept a name when its evidence cannot be written", async () => {
     const evidence = new MemoryEvidenceStore();
     const { port } = await start(evidence);

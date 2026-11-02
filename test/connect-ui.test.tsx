@@ -18,6 +18,7 @@ function snapshotWith(
       connectedAt: null,
       connection: {
         acceptedAlias: null,
+        aliasCandidate: null,
         endpointBase: "wss://ocpp.example.test/",
         lastRefused: null,
         lastUnmatchedAt: null,
@@ -69,6 +70,27 @@ describe("connect your charger", () => {
     const alert = screen.getByRole("alert");
     expect(alert.textContent).toContain("Your charger used a different name");
     expect(alert.textContent).toContain("called itself ACE0123456. chargeOS expects HOME-1.");
+  });
+
+  it("keeps offering a password-proven name after a later wrong-password attempt", () => {
+    render(
+      <ConnectChargerPanel
+        snapshot={snapshotWith(
+          {},
+          {
+            aliasCandidate: { at: "2026-11-02T10:00:00.000Z", presentedIdentity: "ACE0123456" },
+            lastRefused: {
+              at: "2026-11-02T10:01:00.000Z",
+              offeredProtocols: [],
+              presentedIdentity: null,
+              reason: "password-wrong",
+            },
+          },
+        )}
+      />,
+    );
+    expect(screen.getByRole("alert").textContent).toContain("wrong password");
+    expect(screen.getByRole("button", { name: "Use ACE0123456" })).toBeTruthy();
   });
 
   it("translates the guide", () => {

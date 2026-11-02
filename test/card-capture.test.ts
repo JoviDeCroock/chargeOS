@@ -8,6 +8,7 @@ import type { EvidenceEvent, EvidenceStore } from "../server/events.js";
 import {
   createChargeGateway,
   OwnerContinuityBlockedError,
+  OwnerContinuityPreparationBlockedError,
   type ChargeGateway,
 } from "../server/gateway.js";
 import { OwnerTagRegistry, withOwnerTagRegistry } from "../server/owner-tags.js";
@@ -157,6 +158,45 @@ describe("tap a card to add it", () => {
     expect(gateway!.getRuntime("HOME-1").cardCapture?.state).toBe("several");
   });
 
+  it("cancels the offer when a different card follows after the listening window", async () => {
+    await start();
+    await client!.connect();
+    vi.useFakeTimers({ now: Date.now(), toFake: ["Date"] });
+    gateway!.armCardCapture("HOME-1");
+    vi.setSystemTime(Date.now() + CARD_CAPTURE_LISTEN_MS - 1_000);
+    await tap("04PASSERBY");
+    vi.setSystemTime(Date.now() + 5_000);
+    // The listening window is over, but the passer-by's card is still held: the owner's own tap
+    // must still cancel it rather than be ignored.
+    await tap(NEW_TAG);
+    expect(gateway!.getRuntime("HOME-1").cardCapture).toMatchObject({ state: "several" });
+    expect(gateway!.takeCapturedCard("HOME-1", pseudonym("04PASSERBY"))).toBeNull();
+  });
+
+  it("never treats a queued, old or replayed start as a fresh tap", async () => {
+    const { evidence } = await start();
+    await client!.connect();
+    gateway!.armCardCapture("HOME-1");
+    await client!.call("StartTransaction", {
+      connectorId: 1,
+      idTag: NEW_TAG,
+      meterStart: 0,
+      timestamp: new Date(Date.now() - 10 * 60_000).toISOString(),
+    });
+    expect(gateway!.getRuntime("HOME-1").cardCapture?.state).toBe("listening");
+    vi.spyOn(evidence, "recordTransactionStart").mockImplementationOnce(async () => ({
+      replayed: true,
+      transactionId: 1,
+    }));
+    await client!.call("StartTransaction", {
+      connectorId: 1,
+      idTag: NEW_TAG,
+      meterStart: 0,
+      timestamp: new Date().toISOString(),
+    });
+    expect(gateway!.getRuntime("HOME-1").cardCapture?.state).toBe("listening");
+  });
+
   it("says when the tapped card is already known and holds no value for it", async () => {
     await start();
     await client!.connect();
@@ -199,7 +239,7 @@ describe("tap a card to add it", () => {
         readonly: false,
         value:
           key === "AllowOfflineTxForUnknownId"
-            ? "false"
+            ? "true"
             : key.endsWith("MaxLength")
               ? "100"
               : "true",
@@ -218,6 +258,21 @@ describe("tap a card to add it", () => {
       OwnerContinuityBlockedError,
     );
     expect(sendLocalList).not.toHaveBeenCalled();
+
+    // Preparing offline charging would switch off unknown-card offline charging while no owner
+    // card exists; it must change nothing.
+    const changeConfiguration = vi.fn(async () => ({ status: "Accepted" }));
+    client!.handle("ChangeConfiguration", changeConfiguration);
+    await expect(
+      gateway!.prepareOwnerContinuity("HOME-1", {
+        confirmation: (await import("../shared/continuity.js")).CONTINUITY_PREPARATION_PHRASE,
+      }),
+    ).rejects.toBeInstanceOf(OwnerContinuityPreparationBlockedError);
+    expect(changeConfiguration).not.toHaveBeenCalled();
+    expect(evidence.events.at(-1)).toMatchObject({
+      message: "ContinuityPreparationBlocked",
+      payload: { reason: "no-owner-card" },
+    });
 
     // The first card arrives by tapping it.
     gateway!.armCardCapture("HOME-1");

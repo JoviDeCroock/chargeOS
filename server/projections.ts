@@ -61,6 +61,7 @@ export function buildOwnerSnapshot(
       connectedAt: runtime.connectedAt,
       connection: runtime.connection ?? {
         acceptedAlias: null,
+        aliasCandidate: null,
         endpointBase: config.ocppPublicUrl ?? null,
         lastRefused: null,
         lastUnmatchedAt: null,

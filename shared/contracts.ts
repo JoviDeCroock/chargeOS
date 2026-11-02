@@ -199,6 +199,7 @@ export type {
   CardCaptureState,
 } from "./card-capture.js";
 export type {
+  AliasCandidate,
   RefusedConnectionAttempt,
   RefusedConnectionReason,
   StationConnectionDiagnostics,

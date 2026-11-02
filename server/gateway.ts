@@ -5,6 +5,7 @@ import { RPCServer, createRPCError, type IHandlersOption } from "ocpp-rpc";
 
 import {
   CARD_CAPTURE_HOLD_MS,
+  CARD_CAPTURE_CLOCK_SKEW_MS,
   CARD_CAPTURE_LISTEN_MS,
   IDLE_CARD_CAPTURE,
   type CardCaptureProjection,
@@ -12,6 +13,7 @@ import {
 import type { StationCommandInput, StationCommandRecord } from "../shared/commands.js";
 import {
   DISPLAYABLE_OCPP_PROTOCOL,
+  type AliasCandidate,
   type RefusedConnectionAttempt,
   type RefusedConnectionReason,
   type StationConnectionDiagnostics,
@@ -183,6 +185,7 @@ export function createChargeGateway(
 
   // Tap-to-add holds at most one raw card value per charger, in memory, for a few minutes.
   interface CardCapture {
+    readonly armedAt: number;
     readonly listenUntil: number;
     state: "listening" | "captured" | "known" | "several";
     tag: string | null;
@@ -247,15 +250,24 @@ export function createChargeGateway(
     };
   };
 
+  const startedSinceArmed = (stationId: string, timestamp: unknown) => {
+    const capture = captures.get(stationId);
+    if (!capture || typeof timestamp !== "string") return false;
+    const startedAt = Date.parse(timestamp);
+    return Number.isFinite(startedAt) && startedAt >= capture.armedAt - CARD_CAPTURE_CLOCK_SKEW_MS;
+  };
+
   /** Called for every card the charger presents; only acts while the owner is listening. */
   const observeTap = (stationConfig: GatewayConfig, idTag: unknown, accepted: boolean) => {
     const stationId = stationConfig.stationId;
     const capture = captures.get(stationId);
     if (!capture || typeof idTag !== "string" || capture.state === "several") return;
     const now = Date.now();
-    if (now >= capture.listenUntil) return;
     const tagPseudonym = `tag_${pseudonymizeTag(idTag, stationConfig.stationSecret)}`;
     if (capture.state === "listening") {
+      // Only the first tap must fall inside the listening window. A different card afterwards
+      // always cancels the offer, for as long as a tapped card is held.
+      if (now >= capture.listenUntil) return;
       capture.state = accepted ? "known" : "captured";
       capture.tag = accepted ? null : idTag;
       capture.tagPseudonym = tagPseudonym;
@@ -284,6 +296,11 @@ export function createChargeGateway(
 
   // Refusal diagnostics live in memory only: they never reach evidence, exports or logs.
   const lastRefused = new Map<string, RefusedConnectionAttempt>();
+  // The last name presented with this charger's own password. Kept apart from `lastRefused` so a
+  // client that only knows the charger name cannot erase it with wrong-password attempts.
+  const aliasCandidates = new Map<string, AliasCandidate>();
+  // Names whose acceptance is being recorded, so two chargers cannot both claim one name.
+  const pendingAliases = new Set<string>();
   const refusedCount = new Map<string, number>();
   const unmatched = { count: 0, lastAt: null as string | null };
 
@@ -325,9 +342,10 @@ export function createChargeGateway(
       // ownership, so the connection is refused either way; only the diagnostic differs.
       const passwordOwner = stationForPassword(handshake.password);
       if (passwordOwner) {
-        noteRefusal(passwordOwner, "identity-mismatch", {
-          presentedIdentity: displayableIdentity(handshake.identity),
-        });
+        const presentedIdentity = displayableIdentity(handshake.identity);
+        noteRefusal(passwordOwner, "identity-mismatch", { presentedIdentity });
+        if (presentedIdentity)
+          aliasCandidates.set(passwordOwner, { at: new Date().toISOString(), presentedIdentity });
       } else {
         unmatched.count = Math.min(Number.MAX_SAFE_INTEGER, unmatched.count + 1);
         unmatched.lastAt = new Date().toISOString();
@@ -402,6 +420,7 @@ export function createChargeGateway(
     peers.set(stationId, peer);
     connectedAt.set(stationId, new Date().toISOString());
     lastRefused.delete(stationId);
+    aliasCandidates.delete(stationId);
     void record(evidence, stationConfig, stationId, "system", "Connected", {}).catch(
       () => undefined,
     );
@@ -510,7 +529,6 @@ export function createChargeGateway(
     handle("StartTransaction", async ({ params }) => {
       const request = params as unknown as StartTransactionRequest;
       const status = authorizationStatus(stationConfig, request.idTag);
-      observeTap(stationConfig, request.idTag, status === "Accepted");
       const transactionFingerprint = fingerprintTransaction(stationConfig, request);
       const allocation = await evidence.recordTransactionStart(
         stationId,
@@ -523,6 +541,11 @@ export function createChargeGateway(
             transactionId,
           }),
       );
+      // A retried or queued start is not a fresh tap: count only a new one that began after the
+      // owner started listening (allowing for a little charger clock drift).
+      if (!allocation.replayed && startedSinceArmed(stationId, request.timestamp)) {
+        observeTap(stationConfig, request.idTag, status === "Accepted");
+      }
       if (allocation.replayed) {
         await record(evidence, stationConfig, stationId, "system", "StartTransactionReplay", {
           transactionFingerprint,
@@ -783,10 +806,9 @@ export function createChargeGateway(
     if (typeof presentedIdentity !== "string" || displayableIdentity(presentedIdentity) === null) {
       throw new IdentityAliasError(400, "presentedIdentity must be the name the charger presented");
     }
-    const observed = lastRefused.get(stationId);
+    const observed = aliasCandidates.get(stationId);
     if (
       !observed ||
-      observed.reason !== "identity-mismatch" ||
       observed.presentedIdentity !== presentedIdentity ||
       Date.now() - Date.parse(observed.at) > IDENTITY_ALIAS_OBSERVATION_MAX_AGE_MS
     ) {
@@ -799,23 +821,32 @@ export function createChargeGateway(
       throw new IdentityAliasError(409, "That name belongs to another configured charger");
     }
     const holder = stationOfAlias.get(presentedIdentity);
-    if (holder && holder !== stationId) {
+    if ((holder && holder !== stationId) || pendingAliases.has(presentedIdentity)) {
       throw new IdentityAliasError(409, "Another charger already connects under that name");
     }
     const replacedAlias = aliasOfStation.get(stationId) ?? null;
     if (replacedAlias === presentedIdentity) {
       lastRefused.delete(stationId);
+      aliasCandidates.delete(stationId);
       return { alias: presentedIdentity, replacedAlias: null, stationId };
     }
-    // Durable evidence first: if this append fails, the charger name is not accepted.
-    await record(evidence, stationConfig, stationId, "system", IDENTITY_ALIAS_EVENT, {
-      alias: presentedIdentity,
-      replacedAlias,
-    });
+    // Reserved synchronously: acceptance for another charger is serialized separately, so without
+    // this two chargers could both record the same name and replay would then drop both.
+    pendingAliases.add(presentedIdentity);
+    try {
+      // Durable evidence first: if this append fails, the charger name is not accepted.
+      await record(evidence, stationConfig, stationId, "system", IDENTITY_ALIAS_EVENT, {
+        alias: presentedIdentity,
+        replacedAlias,
+      });
+    } finally {
+      pendingAliases.delete(presentedIdentity);
+    }
     if (replacedAlias) stationOfAlias.delete(replacedAlias);
     aliasOfStation.set(stationId, presentedIdentity);
     stationOfAlias.set(presentedIdentity, stationId);
     lastRefused.delete(stationId);
+    aliasCandidates.delete(stationId);
     return { alias: presentedIdentity, replacedAlias, stationId };
   }
 
@@ -825,8 +856,10 @@ export function createChargeGateway(
       configForStation(config, stationId);
       requirePeer(peers, stationId);
       clearCapture(stationId);
+      const armedAt = Date.now();
       captures.set(stationId, {
-        listenUntil: Date.now() + CARD_CAPTURE_LISTEN_MS,
+        armedAt,
+        listenUntil: armedAt + CARD_CAPTURE_LISTEN_MS,
         state: "listening",
         tag: null,
         tagPseudonym: null,
@@ -865,6 +898,7 @@ export function createChargeGateway(
         connectedAt: connectedAt.get(stationId) ?? null,
         connection: {
           acceptedAlias: aliasOfStation.get(stationId) ?? null,
+          aliasCandidate: aliasCandidates.get(stationId) ?? null,
           endpointBase: config.ocppPublicUrl ?? null,
           lastRefused: lastRefused.get(stationId) ?? null,
           lastUnmatchedAt: unmatched.lastAt,
@@ -893,8 +927,12 @@ export function createChargeGateway(
         throw new OwnerContinuityRestartRequiredError(before.assessment);
       }
       const plan = planOwnerContinuityPreparation(before.configuration);
-      if (plan.some((setting) => setting.state === "blocked")) {
+      // With no owner card the result could never be ready, and turning off offline charging for
+      // unknown cards would leave the owner unable to charge offline at all. Change nothing.
+      const noOwnerCard = stationConfig.ownerTags.size === 0;
+      if (noOwnerCard || plan.some((setting) => setting.state === "blocked")) {
         await record(evidence, stationConfig, stationId, "system", "ContinuityPreparationBlocked", {
+          ...(noOwnerCard ? { reason: "no-owner-card" } : {}),
           settings: plan,
         });
         throw new OwnerContinuityPreparationBlockedError(before.assessment);

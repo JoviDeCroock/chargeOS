@@ -16,6 +16,7 @@ function diagnosticsOf(current: OwnerSnapshot): StationConnectionDiagnostics {
   return (
     current.station.connection ?? {
       acceptedAlias: null,
+      aliasCandidate: null,
       endpointBase: null,
       lastRefused: null,
       lastUnmatchedAt: null,
@@ -67,6 +68,9 @@ export function ConnectChargerPanel({ snapshot: current }: { snapshot: OwnerSnap
       </header>
 
       {refused && <RefusalExplanation attempt={refused} expected={station.id} />}
+      {diagnostics.aliasCandidate && (
+        <AliasOffer presented={diagnostics.aliasCandidate.presentedIdentity} />
+      )}
 
       {!station.connected && (
         <>
@@ -157,24 +161,31 @@ function RefusalExplanation({
             : null}
       </p>
       <p>{t(text.fix, { expected })}</p>
-      {attempt.reason === "identity-mismatch" && attempt.presentedIdentity && (
-        <div class="alias-offer">
-          <p>{t("connect.alias.offer", { presented: attempt.presentedIdentity })}</p>
-          <button
-            class="button secondary compact"
-            type="button"
-            disabled={action.value !== null}
-            onClick={() => void runAcceptIdentityAlias(attempt.presentedIdentity!)}
-          >
-            {action.value === "identity-alias"
-              ? t("connect.alias.accepting")
-              : t("connect.alias.accept", { presented: attempt.presentedIdentity })}
-          </button>
-        </div>
-      )}
       {UNPROVEN_SOURCE.has(attempt.reason) && (
         <p class="fine-print">{t("connect.refused.anyDevice")}</p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Offered only for a name the charger presented with its own password; the server keeps that
+ * separately, so later wrong-password attempts by anyone else cannot make the offer disappear.
+ */
+function AliasOffer({ presented }: { presented: string }) {
+  return (
+    <div class="alias-offer">
+      <p>{t("connect.alias.offer", { presented })}</p>
+      <button
+        class="button secondary compact"
+        type="button"
+        disabled={action.value !== null}
+        onClick={() => void runAcceptIdentityAlias(presented)}
+      >
+        {action.value === "identity-alias"
+          ? t("connect.alias.accepting")
+          : t("connect.alias.accept", { presented })}
+      </button>
     </div>
   );
 }
