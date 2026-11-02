@@ -12,3 +12,7 @@ dist
 node_modules
 secrets
 *.log
+**/.wrangler
+.pnpm-store
+.claude
+AGENT_COORDINATION.md

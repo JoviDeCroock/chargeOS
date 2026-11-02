@@ -36,6 +36,10 @@ assert(chargeos && caddy, "production model must contain chargeos and caddy serv
 assert(dockerIgnore.has(".env*"), "Docker build context must exclude every environment file");
 assert(dockerIgnore.has("secrets"), "Docker build context must exclude the secrets directory");
 assert(
+  dockerIgnore.has("**/.wrangler") && dockerIgnore.has(".pnpm-store"),
+  "Docker build context must exclude local Wrangler D1 state and the package store",
+);
+assert(
   /^FROM node:22\.23\.1-alpine3\.24@sha256:[a-f0-9]{64} AS base$/mu.test(dockerfile),
   "Node base image must keep its exact version and multi-platform digest",
 );

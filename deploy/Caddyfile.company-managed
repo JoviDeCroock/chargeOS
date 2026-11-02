@@ -20,6 +20,10 @@
 # Only the platform Traefik and this proxy may join the dedicated destination.
 # There is no host port or shared coolify network. Never trust forwarded client IP.
 http://{$COMPANY_DOMAIN}:8080 {
+  # The service refuses larger bodies too; stop them at the edge before proxy buffering.
+  request_body {
+    max_size 512KB
+  }
   reverse_proxy 127.0.0.1:9091 {
     header_up Host {$COMPANY_DOMAIN}
     header_up X-Forwarded-Proto https

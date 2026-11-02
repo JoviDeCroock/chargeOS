@@ -165,6 +165,13 @@ it("rejects foreign Host/origin, absolute targets and oversized bodies without e
   });
   expect(tooLarge.status).toBe(413);
   expect(tooLarge.headers.get("Cache-Control")).toBe("no-store");
+  // Ordinary routes are refused at their own 32 KiB ceiling before the body is buffered.
+  const overRoute = await fetch(`${base}/service/api/auth/sign-in/email`, {
+    method: "POST",
+    headers: { Origin: env.SERVICE_ORIGIN, "Content-Type": "application/json" },
+    body: JSON.stringify({ padding: "x".repeat(40_000) }),
+  });
+  expect(overRoute.status).toBe(413);
 });
 it("uses the real socket peer for auth limits instead of caller-supplied proxy headers", async () => {
   const browser = new Browser(await open());

@@ -114,13 +114,23 @@ export function createNativeCommercialServer(
       (!production || !options.uiDirectory || !["GET", "HEAD"].includes(request.method ?? ""))
     )
       throw new RequestError(404, "Service route not found");
+    // Apply the handler's per-route body ceiling before buffering, so anonymous uploads cannot
+    // hold up to the largest route's limit in memory ahead of admission control.
+    const bodyLimit = /^\/service\/api\/v1\/organizations\/[^/]+\/money\/statements$/.test(
+      url.pathname,
+    )
+      ? 524288
+      : 32768;
+    const declared = request.headers["content-length"];
+    if (declared !== undefined && !(/^\d{1,9}$/.test(declared) && Number(declared) <= bodyLimit))
+      throw new RequestError(413, "Request is too large");
     const chunks: Buffer[] = [];
     let length = 0;
     request.setTimeout(10_000, () => request.destroy());
     for await (const chunk of request.iterator({ destroyOnReturn: false })) {
       const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string);
       length += bytes.length;
-      if (length > 524288) throw new RequestError(413, "Request is too large");
+      if (length > bodyLimit) throw new RequestError(413, "Request is too large");
       chunks.push(bytes);
     }
     request.setTimeout(0);
@@ -173,6 +183,7 @@ export function createNativeCommercialServer(
     async listen(port = 9091): Promise<number> {
       await new Promise<void>((resolve, reject) => {
         server.once("error", reject);
+        server.maxConnections = 512;
         server.listen(port, "127.0.0.1", resolve);
       });
       const address = server.address();
