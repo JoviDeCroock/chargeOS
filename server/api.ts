@@ -30,6 +30,18 @@ import {
 } from "./commands.js";
 import { configForStation, type GatewayConfig, UnknownStationError } from "./config.js";
 import {
+  DirectoryInputError,
+  PERSON_ID_PATTERN,
+  type CardProfileInput,
+  type PersonInput,
+  type StationProfileInput,
+} from "../shared/directory.js";
+import {
+  DirectoryNotFoundError,
+  DirectoryUnavailableError,
+  OwnerDirectoryStore,
+} from "./directory.js";
+import {
   authenticateDelegate,
   delegateGrantIdFromToken,
   createDelegateGrant,
@@ -111,6 +123,7 @@ export function createOwnerApi(
   evidence: EvidenceStore,
   ownerTags: OwnerTagRegistry | OwnerTagRegistries,
   aiFetch: typeof fetch = fetch,
+  directory: OwnerDirectoryStore = OwnerDirectoryStore.memory(config),
 ): OwnerApi {
   const troubleshoot = createTroubleshooter(config.aiRelayOrigin, aiFetch);
   const failedAuthorizations = new Map<string, FailedAuthorization>();
@@ -160,9 +173,19 @@ export function createOwnerApi(
       if (token && tokenMatches(token, config.ownerApiToken)) {
         failedAuthorizations.delete(remoteAddress);
         if (url.pathname === "/api/v1/fleet" && request.method === "GET") {
-          sendJson(response, 200, buildFleetSnapshot(config, gateway, await evidence.readEvents()));
+          sendJson(
+            response,
+            200,
+            buildFleetSnapshot(
+              config,
+              gateway,
+              await evidence.readEvents(),
+              directory.stationNames(config),
+            ),
+          );
           return;
         }
+        if (await handleDirectoryApi(request, response, url, config, directory)) return;
         if (url.pathname === "/api/v1/usage" && request.method === "GET") {
           try {
             const month = parseUsageMonth(url.searchParams.get("month"));
@@ -170,7 +193,14 @@ export function createOwnerApi(
             sendJson(
               response,
               200,
-              buildUsageReportProjection(config, await evidence.readEvents(), month, timeZone),
+              buildUsageReportProjection(
+                config,
+                await evidence.readEvents(),
+                month,
+                timeZone,
+                new Date(),
+                directory.stationNames(config),
+              ),
             );
           } catch (error) {
             if (error instanceof UsageInputError) {
@@ -226,6 +256,7 @@ export function createOwnerApi(
           gateway,
           evidence,
           ownerTagRegistryFor(ownerTags, scoped.config.stationId),
+          directory,
         );
         return;
       }
@@ -341,7 +372,34 @@ async function handleOwnerApi(
   gateway: ChargeGateway,
   evidence: EvidenceStore,
   ownerTags: OwnerTagRegistry,
+  directory: OwnerDirectoryStore,
 ): Promise<void> {
+  if (url.pathname === "/api/v1/profile" && request.method === "POST") {
+    try {
+      await directory.updateStation(
+        config.stationId,
+        stationProfileInput(await readJsonBody(request)),
+      );
+      sendJson(response, 200, directory.project(config));
+    } catch (error) {
+      if (!sendDirectoryError(response, error)) throw error;
+    }
+    return;
+  }
+  const cardProfileMatch = url.pathname.match(/^\/api\/v1\/cards\/(tag_[a-f0-9]{24})$/u);
+  if (cardProfileMatch && request.method === "POST") {
+    try {
+      await directory.updateCard(
+        config,
+        cardProfileMatch[1] ?? "",
+        cardProfileInput(await readJsonBody(request)),
+      );
+      sendJson(response, 200, directory.project(config));
+    } catch (error) {
+      if (!sendDirectoryError(response, error)) throw error;
+    }
+    return;
+  }
   if (url.pathname === "/api/v1/delegations" && request.method === "GET") {
     sendJson(
       response,
@@ -379,13 +437,27 @@ async function handleOwnerApi(
     return;
   }
   if (url.pathname === "/api/v1/snapshot" && request.method === "GET") {
-    sendJson(response, 200, buildOwnerSnapshot(config, gateway, await evidence.readEvents()));
+    sendJson(
+      response,
+      200,
+      buildOwnerSnapshot(
+        config,
+        gateway,
+        await evidence.readEvents(),
+        directory.stationNames(config),
+      ),
+    );
     return;
   }
   if (url.pathname === "/api/v1/owner-tags" && request.method === "POST") {
     try {
       const input = ownerTagAddInput(await readJsonBody(request));
-      sendJson(response, 201, await ownerTags.add(config, evidence, input.tag));
+      const result = await ownerTags.add(config, evidence, input.tag);
+      // A re-added card never inherits the name it had before it was revoked.
+      await directory.forgetAddedCard(config, result.tagPseudonym).catch(() => {
+        console.warn("Owner directory could not clear a stale card name");
+      });
+      sendJson(response, 201, result);
     } catch (error) {
       if (!sendOwnerTagError(response, error)) throw error;
     }
@@ -397,11 +469,13 @@ async function handleOwnerApi(
   if (ownerTagRevocationMatch && request.method === "POST") {
     try {
       const input = ownerTagRevokeInput(await readJsonBody(request));
-      sendJson(
-        response,
-        200,
-        await ownerTags.revoke(config, evidence, ownerTagRevocationMatch[1] ?? "", input),
-      );
+      const tagPseudonym = ownerTagRevocationMatch[1] ?? "";
+      const result = await ownerTags.revoke(config, evidence, tagPseudonym, input);
+      // Forgetting names is data minimization only; a failure never undoes the revoke.
+      await directory.forgetRevokedCards(config).catch(() => {
+        console.warn("Owner directory could not forget a revoked card name");
+      });
+      sendJson(response, 200, result);
     } catch (error) {
       if (!sendOwnerTagError(response, error)) throw error;
     }
@@ -650,6 +724,79 @@ function sendGatewayError(response: ServerResponse, error: unknown): void {
     return;
   }
   throw error;
+}
+
+/** Owner-wide people and the directory read model. Station-scoped names use handleOwnerApi. */
+async function handleDirectoryApi(
+  request: IncomingMessage,
+  response: ServerResponse,
+  url: URL,
+  config: GatewayConfig,
+  directory: OwnerDirectoryStore,
+): Promise<boolean> {
+  if (url.pathname === "/api/v1/directory" && request.method === "GET") {
+    sendJson(response, 200, directory.project(config));
+    return true;
+  }
+  const personMatch = url.pathname.match(/^\/api\/v1\/people(?:\/([^/]+)(\/remove)?)?$/u);
+  if (!personMatch || request.method !== "POST") return false;
+  const [, personId, remove] = personMatch;
+  try {
+    if (personId === undefined) {
+      const person = await directory.addPerson(personInput(await readJsonBody(request)));
+      sendJson(response, 201, { directory: directory.project(config), person });
+      return true;
+    }
+    if (!PERSON_ID_PATTERN.test(personId)) throw new DirectoryNotFoundError("Person not found");
+    if (remove) await directory.removePerson(personId);
+    else await directory.renamePerson(personId, personInput(await readJsonBody(request)));
+    sendJson(response, 200, { directory: directory.project(config) });
+  } catch (error) {
+    if (!sendDirectoryError(response, error)) throw error;
+  }
+  return true;
+}
+
+function sendDirectoryError(response: ServerResponse, error: unknown): boolean {
+  if (error instanceof DirectoryInputError || error instanceof FreedomTestInputError) {
+    sendError(response, 400, "invalid_directory_input", error.message);
+    return true;
+  }
+  if (error instanceof DirectoryNotFoundError) {
+    sendError(response, 404, "directory_not_found", error.message);
+    return true;
+  }
+  if (error instanceof DirectoryUnavailableError) {
+    sendError(response, 503, "directory_unavailable", error.message);
+    return true;
+  }
+  return false;
+}
+
+function personInput(value: unknown): PersonInput {
+  const input = objectWithExactKeys(value, ["name"]);
+  if (!input) throw new DirectoryInputError("request must contain only name");
+  return { name: input.name as string };
+}
+
+function stationProfileInput(value: unknown): StationProfileInput {
+  const input = objectWithExactKeys(value, ["driverPersonId", "label", "site"]);
+  if (!input)
+    throw new DirectoryInputError("request must contain only label, site and driverPersonId");
+  return {
+    driverPersonId: input.driverPersonId as string | null,
+    label: input.label as string,
+    site: input.site as string,
+  };
+}
+
+function cardProfileInput(value: unknown): CardProfileInput {
+  const input = objectWithExactKeys(value, ["holderPersonId", "name"]);
+  if (!input) throw new DirectoryInputError("request must contain only name and holderPersonId");
+  return {
+    holderPersonId: input.holderPersonId as string | null,
+    name: input.name as string | null,
+  };
 }
 
 function sendFreedomTestError(response: ServerResponse, error: unknown): boolean {

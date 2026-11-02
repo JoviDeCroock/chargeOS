@@ -20,16 +20,23 @@ import type { EvidenceEvent } from "./events.js";
 import { buildFreedomTestProjection } from "./freedom-test.js";
 import { buildGenesisPlan } from "./genesis.js";
 import { buildMigrationProjection } from "./migration.js";
+import type { StationNameLookup } from "./directory.js";
 import type { ChargeGateway } from "./gateway.js";
 import { pseudonymizeTag } from "./tag.js";
 import { buildUsageReport, type UsageReport } from "../shared/usage.js";
 
+/**
+ * `names` overlays owner-chosen display names. Pass it only for owner responses: delegate,
+ * export and AI troubleshooting projections must keep personal names out.
+ */
 export function buildOwnerSnapshot(
   config: GatewayConfig,
   gateway: Pick<ChargeGateway, "getRuntime">,
   events: readonly EvidenceEvent[],
+  names?: StationNameLookup,
 ): OwnerSnapshot {
   const stationMetadata = configuredStations(config).find(({ id }) => id === config.stationId);
+  const named = names?.(config.stationId);
   const runtime = gateway.getRuntime(config.stationId);
   const stationEvents = events.filter((event) => event.stationId === config.stationId);
   const freedomTest = buildFreedomTestProjection(stationEvents);
@@ -51,10 +58,10 @@ export function buildOwnerSnapshot(
       connected: runtime.connected,
       connectedAt: runtime.connectedAt,
       connectors: connectorProjection(stationEvents),
-      driver: stationMetadata?.driver ?? null,
+      driver: named ? named.driver : (stationMetadata?.driver ?? null),
       id: config.stationId,
-      label: stationMetadata?.label ?? config.stationId,
-      site: stationMetadata?.site ?? "Primary site",
+      label: named?.label ?? stationMetadata?.label ?? config.stationId,
+      site: named?.site ?? stationMetadata?.site ?? "Primary site",
     },
   };
 }
@@ -63,6 +70,7 @@ export function buildFleetSnapshot(
   config: GatewayConfig,
   gateway: Pick<ChargeGateway, "getRuntime">,
   events: readonly EvidenceEvent[],
+  names?: StationNameLookup,
 ): FleetSnapshot {
   const byStation = new Map<string, EvidenceEvent[]>();
   for (const event of events) {
@@ -72,7 +80,7 @@ export function buildFleetSnapshot(
   }
   const stations = configuredStations(config).map((station): FleetStationSummary => {
     const scoped = configForStation(config, station.id);
-    const snapshot = buildOwnerSnapshot(scoped, gateway, byStation.get(station.id) ?? []);
+    const snapshot = buildOwnerSnapshot(scoped, gateway, byStation.get(station.id) ?? [], names);
     const attention = new Set<FleetStationSummary["attention"][number]>();
     if (!snapshot.station.connected) attention.add("offline");
     if (snapshot.authorization.syncState !== "current") attention.add("authorization-pending");
@@ -89,13 +97,13 @@ export function buildFleetSnapshot(
       connected: snapshot.station.connected,
       connectedAt: snapshot.station.connectedAt,
       connectorCount: snapshot.station.connectors.length,
-      driver: station.driver ?? null,
+      driver: snapshot.station.driver,
       energyWh: snapshot.sessions.reduce((total, session) => total + (session.energyWh ?? 0), 0),
       id: station.id,
-      label: station.label,
+      label: snapshot.station.label,
       lastSessionAt: snapshot.sessions[0]?.startedAt ?? null,
       readiness: snapshot.readiness?.state ?? "not-inspected",
-      site: station.site,
+      site: snapshot.station.site,
     };
   });
   return {
@@ -161,6 +169,7 @@ export function buildUsageReportProjection(
   month: string,
   timeZone: string,
   now = new Date(),
+  names?: StationNameLookup,
 ): UsageReport {
   const byStation = new Map<string, EvidenceEvent[]>();
   for (const event of events) {
@@ -172,13 +181,16 @@ export function buildUsageReportProjection(
     generatedAt: now.toISOString(),
     month,
     profile: config.profile ?? "personal",
-    stations: configuredStations(config).map((station) => ({
-      driver: station.driver ?? null,
-      id: station.id,
-      label: station.label,
-      sessions: sessionProjection(byStation.get(station.id) ?? []),
-      site: station.site,
-    })),
+    stations: configuredStations(config).map((station) => {
+      const named = names?.(station.id);
+      return {
+        driver: named ? named.driver : (station.driver ?? null),
+        id: station.id,
+        label: named?.label ?? station.label,
+        sessions: sessionProjection(byStation.get(station.id) ?? []),
+        site: named?.site ?? station.site,
+      };
+    }),
     timeZone,
   });
 }

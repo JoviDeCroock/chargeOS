@@ -3,6 +3,7 @@ import { loadEnvFile } from "node:process";
 import { createOwnerApi } from "./api.js";
 import { configForStation, loadConfig, stationSecretInteroperabilityAdvisories } from "./config.js";
 import { NdjsonEvidenceStore } from "./events.js";
+import { OwnerDirectoryStore } from "./directory.js";
 import { createChargeGateway } from "./gateway.js";
 import { openOwnerTagRegistries, withOwnerTagRegistries } from "./owner-tags.js";
 
@@ -24,7 +25,8 @@ for (const [stationId, registry] of ownerTags) {
   await registry.reconcile(configForStation(config, stationId), evidence);
 }
 const gateway = createChargeGateway(config, evidence);
-const api = createOwnerApi(config, gateway, evidence, ownerTags);
+const directory = await OwnerDirectoryStore.open(config);
+const api = createOwnerApi(config, gateway, evidence, ownerTags, fetch, directory);
 
 await gateway.listen();
 try {
