@@ -22,15 +22,16 @@ Several chargers on one installation need a private stations file. The setup wiz
 
 ## Find your way around
 
-The sidebar lists the pages for the selected charger. On a phone it becomes a row you can swipe sideways. A small dot next to a page means it has something to look at: amber for pending changes, red for a stop condition or failure.
+The pages you see depend on the server's profile (`personal` or `company`) and on the optional modules you turned on in **Console settings**. See [Set up for yourself or for a company](personal-or-company.md). The sidebar lists the pages for the selected charger. On a phone it becomes a row you can swipe sideways. A small dot next to a page means it has something to look at: amber for pending changes, red for a stop condition or failure.
 
-- **Overview** answers the main question first. **Offline readiness** shows whether the charger reported the settings needed for offline owner charging, as a ring with one segment per check. **Software prerequisites pass** is not a physical test. **At a glance** summarizes every other page; click a row to open it. **Station** shows the hardware, firmware and each connector's status. The **Genesis plan** lists the next safe action first, the remaining ones below it, and the six migration phases with the current one highlighted. It is guidance; it never performs work and is not evidence that a step happened. **Stop condition** means keep the evidence and resolve the problem before continuing.
+- **Overview** starts with **Your charging**: kWh this month, last month and the last 12 months. **Offline readiness** shows whether the charger reported the settings needed for offline owner charging, as a ring with one segment per check. **Software prerequisites pass** is not a physical test. **At a glance** summarizes every other page; click a row to open it. **Station** shows the hardware, firmware and each connector's status. When **Switching and Freedom Test** is turned on, the **Genesis plan** lists the next safe action first, the remaining ones below it, and the six migration phases with the current one highlighted. It is guidance; it never performs work and is not evidence that a step happened. **Stop condition** means keep the evidence and resolve the problem before continuing.
 - **Charging** shows whether a session is in progress, the **Charger controls** for remote commands (see below), and **Energy history**, the list of sessions.
-- **Owner cards** manages owner cards and the **Guarded actions** that inspect and synchronize them; see [Add or remove an RFID card](rfid.md).
-- **Liberate my charger** and **Freedom Test** record migration and field-test evidence; see [Connect a charging station](connect-a-charger.md).
-- **Delegated access** gives someone temporary read access; see below.
-- **Evidence** shows **Latest owner ledger events**, recent records from the evidence ledger, the tamper-evident log chargeOS keeps.
-- **AI troubleshooting** lets you ask your own AI provider about this charger; see [Use your own AI key](ai-help.md).
+- **RFID cards** manages owner cards and the **Guarded actions** that inspect and synchronize them; see [Add or remove an RFID card](rfid.md).
+- **Usage report** (company profile, or several chargers) shows energy per driver and per charger for a month and downloads it as CSV.
+- **Liberate my charger** and **Freedom Test** (optional module **Switching and Freedom Test**) record migration and field-test evidence; see [Connect a charging station](connect-a-charger.md).
+- **Delegated access** (optional) gives someone temporary read access; see below.
+- **Evidence** (optional) shows **Latest owner ledger events**, recent records from the evidence ledger, the tamper-evident log chargeOS keeps.
+- **AI troubleshooting** (optional) lets you ask your own AI provider about this charger; see [Use your own AI key](ai-help.md).
 
 Each page has its own address, so the browser's back button and bookmarks work.
 

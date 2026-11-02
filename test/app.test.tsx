@@ -385,7 +385,7 @@ describe("owner console", () => {
       true,
     );
 
-    openSection("Owner cards");
+    openSection("RFID cards");
     expect(screen.getByText("Owner access changes are pending")).toBeTruthy();
     expect(screen.getByText(/1 removed owner tag may still authorize locally/)).toBeTruthy();
     expect(screen.getByText(/1 configured owner tag is not yet acknowledged/)).toBeTruthy();

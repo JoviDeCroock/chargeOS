@@ -24,6 +24,7 @@ import type {
   TroubleshootingInput,
   TroubleshootingPreview,
   TroubleshootingResult,
+  UsageReport,
 } from "../shared/contracts.js";
 
 export class OwnerApiError extends Error {
@@ -55,6 +56,15 @@ export function askTroubleshooter(stationId: string, token: string, input: Troub
 
 export async function fetchFleet(token: string): Promise<FleetSnapshot> {
   return requestJson<FleetSnapshot>("/api/v1/fleet", token);
+}
+
+export async function fetchUsageReport(
+  month: string,
+  timeZone: string,
+  token: string,
+): Promise<UsageReport> {
+  const query = new URLSearchParams({ month, timeZone });
+  return requestJson<UsageReport>(`/api/v1/usage?${query.toString()}`, token);
 }
 
 export async function fetchSnapshot(stationId: string, token: string): Promise<OwnerSnapshot> {
@@ -270,6 +280,11 @@ export async function downloadFieldEvidencePack(token: string, stationId: string
   );
 }
 
+/** Saves text the console already holds; nothing is sent anywhere. */
+export function downloadText(contents: string, filename: string, type: string): void {
+  saveBlob(new Blob([contents], { type }), filename);
+}
+
 async function downloadJson(path: string, token: string, filename: string): Promise<void> {
   const response = await fetch(path, {
     headers: { Authorization: `Bearer ${token}` },
@@ -277,7 +292,10 @@ async function downloadJson(path: string, token: string, filename: string): Prom
   if (!response.ok) {
     throw await apiError(response);
   }
-  const blob = await response.blob();
+  saveBlob(await response.blob(), filename);
+}
+
+function saveBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;

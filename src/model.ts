@@ -15,7 +15,9 @@ import type {
   ContinuityPreparationInput,
   StationCommandInput,
   StationCommandRecord,
+  UsageReport,
 } from "../shared/contracts.js";
+import { usageReportCsv } from "../shared/usage.js";
 import {
   addOwnerTag,
   authorizeMigration,
@@ -26,6 +28,8 @@ import {
   downloadMigrationReport,
   fetchSnapshot,
   fetchFleet,
+  fetchUsageReport,
+  downloadText,
   inspectStation,
   OwnerApiError,
   prepareOwnerContinuity,
@@ -66,6 +70,17 @@ export const action = signal<
 >(null);
 export const notice = signal<{ kind: "error" | "success"; message: string } | null>(null);
 export const issuedDelegate = signal<DelegateGrantCreated | null>(null);
+export const usageReport = signal<UsageReport | null>(null);
+export const usageLoading = signal(false);
+
+/** The browser's IANA time zone; usage months follow the person reading the report. */
+export function browserTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
 export const isAuthenticated = computed(() => ownerToken.value.length > 0);
 
 export function setOwnerToken(value: string): void {
@@ -75,6 +90,7 @@ export function setOwnerToken(value: string): void {
   fleet.value = null;
   notice.value = null;
   issuedDelegate.value = null;
+  usageReport.value = null;
   if (token) {
     sessionStorage.setItem("chargeos.ownerToken", token);
   } else {
@@ -226,6 +242,22 @@ export async function refreshFleet(clearNotice = true): Promise<void> {
   } finally {
     loading.value = false;
   }
+}
+
+export async function refreshUsage(month: string): Promise<void> {
+  if (!ownerToken.value) return;
+  usageLoading.value = true;
+  try {
+    usageReport.value = await fetchUsageReport(month, browserTimeZone(), ownerToken.value);
+  } catch (error) {
+    handleError(error);
+  } finally {
+    usageLoading.value = false;
+  }
+}
+
+export function downloadUsageCsv(report: UsageReport): void {
+  downloadText(usageReportCsv(report), `chargeos-usage-${report.month}.csv`, "text/csv");
 }
 
 export async function runInspection(): Promise<void> {

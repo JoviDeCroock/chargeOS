@@ -1,0 +1,381 @@
+// @vitest-environment jsdom
+
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { FleetSnapshot, OwnerSnapshot, UsageReport } from "../shared/contracts.js";
+import { FREEDOM_TEST_SCHEMA_VERSION } from "../shared/freedom-test.js";
+import { GENESIS_PLAN_SCHEMA_VERSION } from "../shared/genesis.js";
+import { MIGRATION_SCHEMA_VERSION } from "../shared/migration.js";
+import { App } from "../src/app.js";
+import { chosenModules } from "../src/console-modules.js";
+import {
+  action,
+  fleet,
+  issuedDelegate,
+  loading,
+  notice,
+  ownerToken,
+  selectedStationId,
+  snapshot,
+  usageReport,
+} from "../src/model.js";
+
+const TOKEN = "owner-token-at-least-thirty-two-characters";
+const NOW = new Date("2026-10-20T12:00:00.000Z");
+
+function json(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    headers: { "content-type": "application/json" },
+    status: 200,
+  });
+}
+
+function station(
+  id: string,
+  label: string,
+  driver: string | null,
+): FleetSnapshot["stations"][number] {
+  return {
+    activeSessionCount: 0,
+    attention: [],
+    authorizationState: "current",
+    boot: null,
+    connected: true,
+    connectedAt: "2026-10-20T08:00:00.000Z",
+    connectorCount: 1,
+    driver,
+    energyWh: 0,
+    id,
+    label,
+    lastSessionAt: null,
+    readiness: "ready",
+    site: "Home",
+  };
+}
+
+function fleetSnapshot(
+  profile: "personal" | "company",
+  stations: FleetSnapshot["stations"],
+): FleetSnapshot {
+  return {
+    console: { profile },
+    generatedAt: NOW.toISOString(),
+    stations,
+    totals: {
+      activeSessions: 0,
+      attentionRequired: 0,
+      connected: stations.length,
+      energyWh: 0,
+      stations: stations.length,
+    },
+  };
+}
+
+function ownerSnapshot(
+  overrides: { migrationStatus?: OwnerSnapshot["migration"]["status"] } = {},
+): OwnerSnapshot {
+  const completed = (transactionId: number, startedAt: string, energyWh: number, tag: string) => ({
+    authorizationStatus: "Accepted" as const,
+    connectorId: 1,
+    energyWh,
+    integrity: "consistent" as const,
+    meterStart: 0,
+    meterStop: energyWh,
+    replayedMessageCount: 0,
+    startedAt,
+    status: "complete" as const,
+    stoppedAt: startedAt,
+    tagPseudonym: tag,
+    transactionId,
+  });
+  return {
+    authorization: {
+      acknowledgedTagPseudonyms: ["tag_owner"],
+      lastAttemptAt: null,
+      lastAttemptRevision: 1,
+      lastAttemptStatus: "Accepted",
+      lastSyncAt: null,
+      lastSyncRevision: 1,
+      lastSyncStatus: "Accepted",
+      pendingAdditions: [],
+      pendingRevocations: [],
+      pendingRevision: null,
+      syncState: "current",
+      tagCount: 1,
+      tagPseudonyms: ["tag_owner"],
+    },
+    commands: [],
+    delegations: [],
+    evidence: [],
+    evidenceHistory: { custodyBundleCount: 0, custodiedEventCount: 0, mode: "complete" },
+    freedomTest: {
+      device: null,
+      disclaimer: "Evidence completeness is not certification.",
+      run: null,
+      schemaVersion: FREEDOM_TEST_SCHEMA_VERSION,
+      status: "not-started",
+      steps: [],
+    },
+    generatedAt: NOW.toISOString(),
+    genesisPlan: {
+      disclaimer: "Not permission for electrical work.",
+      nextActions: [],
+      phase: "pre-switch-evidence",
+      schemaVersion: GENESIS_PLAN_SCHEMA_VERSION,
+      state: "action-required",
+    },
+    migration: {
+      authorization: null,
+      disclaimer: "Not permission for electrical work.",
+      preSwitchReady: false,
+      schemaVersion: MIGRATION_SCHEMA_VERSION,
+      status: overrides.migrationStatus ?? "collecting",
+      steps: [],
+    },
+    readiness: {
+      checkedAt: NOW.toISOString(),
+      checks: [],
+      localListVersion: 1,
+      restartRequired: false,
+      state: "ready",
+    },
+    sessions: [
+      completed(3, "2026-10-18T18:00:00.000Z", 12_400, "tag_owner"),
+      completed(2, "2026-10-04T18:00:00.000Z", 2_000, "tag_guest"),
+      completed(1, "2026-09-12T18:00:00.000Z", 9_000, "tag_owner"),
+    ],
+    station: {
+      boot: null,
+      connected: true,
+      connectedAt: NOW.toISOString(),
+      connectors: [],
+      driver: null,
+      id: "HOME_1",
+      label: "Driveway",
+      site: "Home",
+    },
+  };
+}
+
+function navLinks(): string[] {
+  const nav = screen.getByRole("navigation", { name: "Console sections" });
+  return within(nav)
+    .getAllByRole("link")
+    .map((link) => link.textContent ?? "");
+}
+
+async function openConsole() {
+  render(<App />);
+  fireEvent.input(screen.getByLabelText("Owner API token"), { target: { value: TOKEN } });
+  fireEvent.click(screen.getByRole("button", { name: "Open owner console" }));
+}
+
+describe("console profiles", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ now: NOW, toFake: ["Date"] });
+    window.history.replaceState(null, "", "/");
+    sessionStorage.clear();
+    localStorage.clear();
+    chosenModules.value = null;
+    ownerToken.value = "";
+    fleet.value = null;
+    selectedStationId.value = "";
+    snapshot.value = null;
+    loading.value = false;
+    action.value = null;
+    notice.value = null;
+    issuedDelegate.value = null;
+    usageReport.value = null;
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("opens a personal console on usage and keeps power-user modules optional", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (path: string) =>
+        path === "/api/v1/fleet"
+          ? json(fleetSnapshot("personal", [station("HOME_1", "Driveway", null)]))
+          : json(ownerSnapshot()),
+      ),
+    );
+    await openConsole();
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Your charging" })).toBeTruthy(),
+    );
+    const usage = screen.getByRole("region", { name: "Your charging" });
+    // 12.4 kWh + 2.0 kWh in October, 9.0 kWh in September.
+    expect(within(usage).getByText("14.4 kWh", { selector: ".usage-tile strong" })).toBeTruthy();
+    expect(within(usage).getByText("9.0 kWh", { selector: ".usage-tile strong" })).toBeTruthy();
+    expect(within(usage).getByText("This month by card")).toBeTruthy();
+    expect(within(usage).getByText("Other card")).toBeTruthy();
+
+    expect(navLinks()).toEqual(["Overview", "Charging", "RFID cards"]);
+    expect(screen.queryByText("Next safe action")).toBeNull();
+
+    fireEvent.click(within(usage).getByRole("button", { name: "Show table" }));
+    expect(within(usage).getByRole("cell", { name: "14.4 kWh" })).toBeTruthy();
+
+    // The sidebar link and the overview hint both lead to settings.
+    expect(screen.getAllByRole("link", { name: "Console settings" })).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole("link", { name: "Console settings" })[0]!);
+    expect(screen.getByRole("heading", { name: "Console settings", level: 1 })).toBeTruthy();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Switching and Freedom Test/ }));
+
+    expect(navLinks()).toEqual([
+      "Overview",
+      "Charging",
+      "RFID cards",
+      "Liberate my charger",
+      "Freedom Test",
+    ]);
+    expect(JSON.parse(localStorage.getItem("chargeos.consoleModules") ?? "null")).toEqual([
+      "liberation",
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Use profile defaults" }));
+    expect(navLinks()).toEqual(["Overview", "Charging", "RFID cards"]);
+    expect(localStorage.getItem("chargeos.consoleModules")).toBeNull();
+  });
+
+  it("keeps a hidden module reachable while it needs the owner", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (path: string) =>
+        path === "/api/v1/fleet"
+          ? json(fleetSnapshot("personal", [station("HOME_1", "Driveway", null)]))
+          : json(ownerSnapshot({ migrationStatus: "blocked" })),
+      ),
+    );
+    await openConsole();
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Your charging" })).toBeTruthy(),
+    );
+    expect(navLinks()).toContain("Liberate my charger");
+    expect(screen.getByRole("link", { name: "Liberate my charger, stop condition" })).toBeTruthy();
+    expect(navLinks()).not.toContain("Freedom Test");
+  });
+
+  it("reports company usage per driver and exports it", async () => {
+    const report: UsageReport = {
+      drivers: [
+        { driver: "Alice Peeters", energyWh: 14_400, sessionCount: 2, stationIds: ["HOME_1"] },
+        { driver: null, energyWh: 0, sessionCount: 0, stationIds: ["OFFICE_1"] },
+      ],
+      generatedAt: NOW.toISOString(),
+      month: "2026-10",
+      profile: "company",
+      stations: [
+        {
+          driver: "Alice Peeters",
+          energyWh: 14_400,
+          id: "HOME_1",
+          label: "Driveway",
+          sessionCount: 2,
+          sessions: [
+            {
+              energyWh: 14_400,
+              integrity: "consistent",
+              startedAt: "2026-10-18T18:00:00.000Z",
+              status: "complete",
+              stoppedAt: "2026-10-18T21:00:00.000Z",
+              tagPseudonym: "tag_owner",
+              transactionId: 3,
+            },
+            {
+              energyWh: null,
+              integrity: "consistent",
+              startedAt: "2026-10-20T10:00:00.000Z",
+              status: "active",
+              stoppedAt: null,
+              tagPseudonym: "tag_owner",
+              transactionId: 4,
+            },
+          ],
+          site: "Leuven",
+        },
+        {
+          driver: null,
+          energyWh: 0,
+          id: "OFFICE_1",
+          label: "Office bay 1",
+          sessionCount: 0,
+          sessions: [],
+          site: "Brussels",
+        },
+      ],
+      timeZone: "Europe/Brussels",
+      totals: { conflictSessions: 0, energyWh: 14_400, openSessions: 1, sessionCount: 2 },
+    };
+    const requested: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (path: string) => {
+        requested.push(path);
+        if (path === "/api/v1/fleet") {
+          return json(
+            fleetSnapshot("company", [
+              station("HOME_1", "Driveway", "Alice Peeters"),
+              station("OFFICE_1", "Office bay 1", null),
+            ]),
+          );
+        }
+        if (path.startsWith("/api/v1/usage?")) return json(report);
+        return json(ownerSnapshot());
+      }),
+    );
+    const created: Blob[] = [];
+    vi.stubGlobal(
+      "URL",
+      Object.assign(URL, {
+        createObjectURL: (blob: Blob) => {
+          created.push(blob);
+          return "blob:usage";
+        },
+        revokeObjectURL: () => undefined,
+      }),
+    );
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    await openConsole();
+    await waitFor(() => expect(screen.getByText("Every charger. One owner.")).toBeTruthy());
+    expect(screen.getByRole("columnheader", { name: "Driver" })).toBeTruthy();
+    expect(screen.getByText("Unassigned")).toBeTruthy();
+    // Company defaults: sharing and evidence on, switching off.
+    expect(navLinks()).toEqual([
+      "All chargers2/2",
+      "Usage report",
+      "Overview",
+      "Charging",
+      "RFID cards",
+      "Delegated access",
+      "Evidence",
+    ]);
+
+    fireEvent.click(screen.getByRole("link", { name: "Usage report" }));
+    await waitFor(() =>
+      expect(screen.getByRole("table", { name: "Usage by driver" })).toBeTruthy(),
+    );
+    expect(requested.find((path) => path.startsWith("/api/v1/usage?"))).toMatch(
+      /^\/api\/v1\/usage\?month=2026-10&timeZone=/u,
+    );
+    const drivers = screen.getByRole("table", { name: "Usage by driver" });
+    expect(within(drivers).getByText("Alice Peeters")).toBeTruthy();
+    expect(within(drivers).getByText("14.4 kWh")).toBeTruthy();
+    expect(screen.getByText(/1 session still charging/u)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Download CSV" }));
+    expect(click).toHaveBeenCalledOnce();
+    const csv = await created[0]!.text();
+    expect(csv).toContain("2026-10,Alice Peeters,HOME_1,Driveway,Leuven,HOME_1:3,3,");
+    expect(csv).toContain(",in-progress,consistent,tag_owner");
+    click.mockRestore();
+  });
+});

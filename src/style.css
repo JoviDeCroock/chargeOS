@@ -2771,3 +2771,333 @@ body {
     transition: none !important;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Usage, usage report and console settings                           */
+/* ------------------------------------------------------------------ */
+
+:root {
+  /* Validated single-series column color (dataviz validator, light surface). */
+  --chart-usage: #009688;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Its own dark step, validated against the dark surface rather than flipped. */
+    --chart-usage: #1fa898;
+  }
+}
+
+.rail-foot-link.active {
+  background: var(--current-soft);
+  color: var(--ink);
+}
+
+.usage-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.usage-tile {
+  display: grid;
+  gap: 2px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--glass-strong);
+}
+
+.usage-tile span {
+  color: var(--ink-2);
+  font-size: 0.85rem;
+}
+
+.usage-tile strong {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.usage-tile small {
+  color: var(--ink-3);
+}
+
+.usage-chart {
+  margin: 0 0 20px;
+}
+
+.usage-chart figcaption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--current);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.usage-plot {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+}
+
+.usage-axis {
+  position: relative;
+  min-width: 2.5ch;
+  height: 168px;
+  color: var(--ink-3);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: right;
+}
+
+/* Centre each tick label on its gridline: top, middle and baseline. */
+.usage-axis span {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+.usage-axis span:nth-child(1) {
+  top: 0;
+}
+
+.usage-axis span:nth-child(2) {
+  top: 50%;
+}
+
+.usage-axis span:nth-child(3) {
+  top: 100%;
+}
+
+.usage-columns {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.usage-columns li {
+  display: grid;
+  grid-template-rows: 168px auto;
+  min-width: 0;
+}
+
+.usage-slot {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 168px;
+  border-bottom: 1px solid var(--line-strong);
+  background: linear-gradient(
+    to bottom,
+    var(--line) 0,
+    var(--line) 1px,
+    transparent 1px,
+    transparent calc(50% - 0.5px),
+    var(--line) calc(50% - 0.5px),
+    var(--line) calc(50% + 0.5px),
+    transparent calc(50% + 0.5px)
+  );
+  outline-offset: 2px;
+  cursor: default;
+}
+
+.usage-column {
+  display: block;
+  width: min(24px, 70%);
+  border-radius: 4px 4px 0 0;
+  background: var(--chart-usage);
+}
+
+.usage-columns li:not(.current) .usage-column {
+  opacity: 0.72;
+}
+
+.usage-cap {
+  position: absolute;
+  bottom: calc(100% + 2px);
+  color: var(--ink);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.usage-columns li.current .usage-cap {
+  position: static;
+  order: -1;
+}
+
+.usage-columns li.current .usage-slot {
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+}
+
+.usage-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  z-index: 3;
+  display: none;
+  min-width: 120px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--glass-strong);
+  box-shadow: var(--glass-shadow);
+  color: var(--ink);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-align: left;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.usage-tip strong,
+.usage-tip small {
+  display: block;
+}
+
+.usage-tip small {
+  color: var(--ink-3);
+}
+
+.usage-slot:hover .usage-tip,
+.usage-slot:focus-visible .usage-tip {
+  display: block;
+}
+
+.usage-columns li:first-child .usage-tip {
+  left: 0;
+  transform: none;
+}
+
+.usage-columns li:last-child .usage-tip {
+  right: 0;
+  left: auto;
+  transform: none;
+}
+
+.usage-month {
+  padding-top: 6px;
+  color: var(--ink-3);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.usage-cards h3 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.usage-cards ul {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.usage-cards li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  background: var(--idle-soft);
+}
+
+.usage-cards li span,
+.usage-cards li small {
+  color: var(--ink-3);
+}
+
+.usage-report-head {
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.usage-report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.usage-month-field {
+  display: grid;
+  gap: 4px;
+}
+
+.usage-report table + .table-scroll,
+.usage-report .table-scroll + .table-scroll {
+  margin-top: 16px;
+}
+
+.module-list {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.module-list label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--glass-strong);
+  cursor: pointer;
+}
+
+.module-list input {
+  margin-top: 3px;
+}
+
+.module-list span {
+  display: grid;
+  gap: 2px;
+}
+
+.module-list small {
+  color: var(--ink-2);
+  line-height: 1.45;
+}
+
+.overview-more {
+  margin: 0;
+}
+
+@media (forced-colors: active) {
+  .usage-column {
+    background: CanvasText;
+  }
+}

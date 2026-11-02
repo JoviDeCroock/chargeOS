@@ -479,7 +479,7 @@
         "LMS / ThreeForce": "Documented (L6)",
         "D’Ieteren": "Documented (D2)"
       },
-      "currentEvidence": "Dated cost-center assignments and per-employee financial statements exist. Cost-center aggregation, budgets and customer reporting/export acceptance remain unimplemented.",
+      "currentEvidence": "Dated cost-center assignments and per-employee financial statements exist. The company-profile owner console reports monthly recorded usage per assigned driver and charger with a CSV export that the reimbursement import accepts (shared/usage.ts, GET /api/v1/usage). Cost-center aggregation, budgets and customer reporting/export acceptance remain unimplemented.",
       "acceptance": "Reconcile driver, site, card, cost-center and invoice views to the same ledger; approved totals and exported totals agree."
     },
     {
@@ -509,7 +509,7 @@
         "LMS / ThreeForce": "Documented (L7)",
         "D’Ieteren": "Documented (D1)"
       },
-      "currentEvidence": "Preact owner/engineering console; no consumer driver flow.",
+      "currentEvidence": "Preact owner console with a personal profile that opens on monthly usage and hides engineering modules by default; no driver sign-in or phone-first driver flow.",
       "acceptance": "Phone-first home, charger, activity, money and help flows work with loading, empty, offline, pending, error and recovery states."
     },
     {

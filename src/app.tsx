@@ -2,6 +2,8 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { BrandMark } from "./brand.js";
 import { TroubleshootingPanel } from "./troubleshooting.js";
+import { enabledModules, OPTIONAL_MODULES, type OptionalModule } from "./console-modules.js";
+import { ConsoleSettingsSection, UsagePanel, UsageReportSection } from "./usage.js";
 
 import type {
   CapabilityAssessment,
@@ -68,6 +70,8 @@ import {
 
 type Section =
   | "fleet"
+  | "usage"
+  | "settings"
   | "overview"
   | "charging"
   | "cards"
@@ -79,7 +83,7 @@ type Section =
 
 const SECTION_LABELS: Readonly<Record<Section, string>> = {
   assist: "AI troubleshooting",
-  cards: "Owner cards",
+  cards: "RFID cards",
   charging: "Charging",
   delegates: "Delegated access",
   evidence: "Evidence",
@@ -87,9 +91,23 @@ const SECTION_LABELS: Readonly<Record<Section, string>> = {
   freedom: "Freedom Test",
   migration: "Liberate my charger",
   overview: "Overview",
+  settings: "Console settings",
+  usage: "Usage report",
 };
 
-const CHARGER_SECTIONS: readonly Exclude<Section, "fleet">[] = [
+/** Sections that belong to an optional module; the rest are always available. */
+const SECTION_MODULE: Partial<Readonly<Record<Section, OptionalModule>>> = {
+  assist: "assist",
+  delegates: "sharing",
+  evidence: "evidence",
+  freedom: "liberation",
+  migration: "liberation",
+};
+
+/** Pages about the whole console rather than one charger. */
+const CONSOLE_SECTIONS: ReadonlySet<Section> = new Set(["fleet", "usage", "settings"]);
+
+const CHARGER_SECTIONS: readonly Section[] = [
   "overview",
   "charging",
   "cards",
@@ -141,8 +159,13 @@ export function App() {
   const current = snapshot.value;
   const fleetSnapshot = fleet.value;
   const hasMultipleStations = (fleetSnapshot?.stations.length ?? 0) > 1;
+  // An older server without a profile keeps the complete console.
+  const profile = fleetSnapshot?.console?.profile ?? null;
+  const showUsageReport = profile === "company" || hasMultipleStations;
   const section: Section =
-    route === null || (route === "fleet" && !hasMultipleStations)
+    route === null ||
+    (route === "fleet" && !hasMultipleStations) ||
+    (route === "usage" && !showUsageReport)
       ? hasMultipleStations
         ? "fleet"
         : "overview"
@@ -177,9 +200,21 @@ export function App() {
     );
   }
 
-  const showFleet = section === "fleet";
-  // The fleet view only has fleet summaries; per-charger nav signals need a full snapshot.
+  const showFleet = CONSOLE_SECTIONS.has(section);
+  // Console-level pages only hold fleet summaries; per-charger signals need a full snapshot.
   const navTones = showFleet ? {} : sectionTones(current);
+  const tones = navTones;
+  const modules: ReadonlySet<OptionalModule> = profile
+    ? enabledModules(profile)
+    : new Set(OPTIONAL_MODULES);
+  const visibleSections = new Set(
+    CHARGER_SECTIONS.filter((id) => {
+      const module = SECTION_MODULE[id];
+      const tone = tones[id]?.tone;
+      // A hidden module stays reachable while it needs attention or is open.
+      return !module || modules.has(module) || tone === "risk" || tone === "live" || id === section;
+    }),
+  );
 
   return (
     <div class="console console-backdrop">
@@ -199,14 +234,17 @@ export function App() {
         </a>
 
         <nav class="rail-nav" aria-label="Console sections">
-          {hasMultipleStations && (
+          {(hasMultipleStations || showUsageReport) && (
             <ul class="rail-group">
-              <NavLink
-                section="fleet"
-                active={section}
-                go={go}
-                badge={`${fleetSnapshot.totals.connected}/${fleetSnapshot.totals.stations}`}
-              />
+              {hasMultipleStations && (
+                <NavLink
+                  section="fleet"
+                  active={section}
+                  go={go}
+                  badge={`${fleetSnapshot.totals.connected}/${fleetSnapshot.totals.stations}`}
+                />
+              )}
+              {showUsageReport && <NavLink section="usage" active={section} go={go} />}
             </ul>
           )}
           {hasMultipleStations ? (
@@ -230,11 +268,14 @@ export function App() {
           ) : (
             <div class="station-identity">
               <strong>{current.station.label}</strong>
-              <span>{current.station.site}</span>
+              <span>
+                {current.station.site}
+                {current.station.driver ? `, ${current.station.driver}` : ""}
+              </span>
             </div>
           )}
           <ul class="rail-group">
-            {CHARGER_SECTIONS.map((id) => (
+            {CHARGER_SECTIONS.filter((id) => visibleSections.has(id)).map((id) => (
               <NavLink
                 key={id}
                 section={id}
@@ -249,6 +290,19 @@ export function App() {
         </nav>
 
         <div class="rail-foot">
+          {profile && (
+            <a
+              class={`rail-foot-link${section === "settings" ? " active" : ""}`}
+              href="#/settings"
+              aria-current={section === "settings" ? "page" : undefined}
+              onClick={(event) => {
+                event.preventDefault();
+                go("settings");
+              }}
+            >
+              Console settings
+            </a>
+          )}
           <a class="rail-foot-link" href="/help">
             Help guides
           </a>
@@ -263,13 +317,19 @@ export function App() {
           <div class="stage-context">
             {showFleet ? (
               <>
-                <strong>Owner fleet</strong>
-                <span>{fleetSnapshot.totals.stations} chargers</span>
+                <strong>{section === "fleet" ? "Owner fleet" : SECTION_LABELS[section]}</strong>
+                <span>
+                  {fleetSnapshot.totals.stations} charger
+                  {fleetSnapshot.totals.stations === 1 ? "" : "s"}
+                </span>
               </>
             ) : (
               <>
                 <strong>{current.station.label}</strong>
-                <span>{current.station.site}</span>
+                <span>
+                  {current.station.site}
+                  {current.station.driver ? `, ${current.station.driver}` : ""}
+                </span>
                 {current.station.id !== current.station.label && <code>{current.station.id}</code>}
               </>
             )}
@@ -296,7 +356,13 @@ export function App() {
             </div>
           )}
 
-          {showFleet ? (
+          {section === "usage" && profile ? (
+            <UsageReportSection profile={profile} />
+          ) : section === "usage" ? (
+            <UsageReportSection profile="personal" />
+          ) : section === "settings" ? (
+            <ConsoleSettingsSection profile={profile ?? "personal"} />
+          ) : section === "fleet" ? (
             <FleetDashboard
               fleet={fleetSnapshot}
               onManage={(stationId) => {
@@ -306,7 +372,12 @@ export function App() {
               }}
             />
           ) : section === "overview" ? (
-            <OverviewSection snapshot={current} go={go} />
+            <OverviewSection
+              snapshot={current}
+              go={go}
+              visibleSections={visibleSections}
+              showSettings={profile !== null}
+            />
           ) : section === "charging" ? (
             <ChargingSection snapshot={current} />
           ) : section === "cards" ? (
@@ -433,9 +504,13 @@ function sectionTones(
 function OverviewSection({
   snapshot: current,
   go,
+  visibleSections,
+  showSettings,
 }: {
   snapshot: OwnerSnapshot;
   go: (next: Section) => void;
+  visibleSections: ReadonlySet<Section>;
+  showSettings: boolean;
 }) {
   const readiness = current.readiness;
   const state = readiness?.state ?? "unknown";
@@ -454,6 +529,11 @@ function OverviewSection({
         <CompactedHistoryNotice snapshot={current} />
       )}
 
+      <UsagePanel
+        sessions={current.sessions}
+        ownerCardPseudonyms={current.authorization.tagPseudonyms}
+      />
+
       <section class={`hero glass readiness-${state}`} aria-labelledby="readiness-title">
         <Halo readiness={readiness} connected={current.station.connected} />
         <div class="hero-body">
@@ -469,7 +549,7 @@ function OverviewSection({
             {state === "ready"
               ? "The charger reported every setting needed to authorize owner cards locally."
               : state === "blocked"
-                ? "At least one offline setting is missing or wrong. Resolve it under Owner cards before synchronizing."
+                ? "At least one offline setting is missing or wrong. Resolve it under RFID cards before synchronizing."
                 : current.station.connected
                   ? "Ask the charger which offline settings it supports. Inspection only reads configuration."
                   : "Connect the charge point before inspection."}
@@ -514,11 +594,30 @@ function OverviewSection({
       </section>
 
       <div class="overview-grid">
-        <StatusBoard snapshot={current} go={go} />
+        <StatusBoard snapshot={current} go={go} visibleSections={visibleSections} />
         <StationPanel snapshot={current} />
       </div>
 
-      <GenesisPlanPanel plan={current.genesisPlan} />
+      {visibleSections.has("migration") ? (
+        <GenesisPlanPanel plan={current.genesisPlan} />
+      ) : (
+        showSettings && (
+          <p class="fine-print overview-more">
+            Switching from another charging provider, sharing access with an installer or reviewing
+            raw evidence? Turn those modules on in{" "}
+            <a
+              href="#/settings"
+              onClick={(event) => {
+                event.preventDefault();
+                go("settings");
+              }}
+            >
+              Console settings
+            </a>
+            .
+          </p>
+        )
+      )}
     </div>
   );
 }
@@ -626,9 +725,11 @@ function connectorTone(status: string): Tone {
 function StatusBoard({
   snapshot: current,
   go,
+  visibleSections,
 }: {
   snapshot: OwnerSnapshot;
   go: (next: Section) => void;
+  visibleSections: ReadonlySet<Section>;
 }) {
   const activeSessions = current.sessions.filter(({ status }) => status === "active");
   const lastSession = current.sessions[0];
@@ -682,25 +783,27 @@ function StatusBoard({
         <h2 id="status-board-title">At a glance</h2>
       </header>
       <ul>
-        {rows.map((row) => (
-          <li key={row.section}>
-            <a
-              href={`#/${row.section}`}
-              onClick={(event) => {
-                event.preventDefault();
-                go(row.section);
-              }}
-            >
-              <span class={`board-dot ${row.tone}`} aria-hidden="true" />
-              <span class="board-name">{SECTION_LABELS[row.section]}</span>
-              <span class="board-value">
-                <strong>{row.value}</strong>
-                <small>{row.detail}</small>
-              </span>
-              <span class="board-chevron" aria-hidden="true" />
-            </a>
-          </li>
-        ))}
+        {rows
+          .filter((row) => visibleSections.has(row.section))
+          .map((row) => (
+            <li key={row.section}>
+              <a
+                href={`#/${row.section}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  go(row.section);
+                }}
+              >
+                <span class={`board-dot ${row.tone}`} aria-hidden="true" />
+                <span class="board-name">{SECTION_LABELS[row.section]}</span>
+                <span class="board-value">
+                  <strong>{row.value}</strong>
+                  <small>{row.detail}</small>
+                </span>
+                <span class="board-chevron" aria-hidden="true" />
+              </a>
+            </li>
+          ))}
       </ul>
     </section>
   );
@@ -1174,7 +1277,7 @@ function OwnerCardsSection({
   return (
     <div class="section-stack">
       <header class="page-head">
-        <h1>Owner cards</h1>
+        <h1>RFID cards</h1>
         <p class="lede">
           The RFID cards that can start charging at this charger, even when chargeOS and every cloud
           are unreachable. Raw RFID identifiers stay in local configuration and are never written to
@@ -1489,6 +1592,7 @@ function FleetDashboard({
   fleet: FleetSnapshot;
   onManage: (stationId: string) => void;
 }) {
+  const showDrivers = fleet.stations.some(({ driver }) => Boolean(driver));
   return (
     <div class="section-stack fleet-dashboard">
       <header class="page-head">
@@ -1529,6 +1633,7 @@ function FleetDashboard({
             <thead>
               <tr>
                 <th>Charger</th>
+                {showDrivers && <th>Driver</th>}
                 <th>Connection</th>
                 <th>Owner access</th>
                 <th>Offline readiness</th>
@@ -1542,7 +1647,12 @@ function FleetDashboard({
             </thead>
             <tbody>
               {fleet.stations.map((station) => (
-                <FleetStationRow station={station} onManage={onManage} key={station.id} />
+                <FleetStationRow
+                  station={station}
+                  onManage={onManage}
+                  showDriver={showDrivers}
+                  key={station.id}
+                />
               ))}
             </tbody>
           </table>
@@ -1559,9 +1669,11 @@ function FleetDashboard({
 function FleetStationRow({
   station,
   onManage,
+  showDriver,
 }: {
   station: FleetStationSummary;
   onManage: (stationId: string) => void;
+  showDriver: boolean;
 }) {
   return (
     <tr>
@@ -1572,6 +1684,7 @@ function FleetStationRow({
           <code>{station.id}</code>
         </div>
       </td>
+      {showDriver && <td>{station.driver ?? <span class="muted">Unassigned</span>}</td>}
       <td>
         <span class={`state-chip ${station.connected ? "ok" : "idle"}`}>
           {station.connected ? "Connected" : "Offline"}

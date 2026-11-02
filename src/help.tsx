@@ -13,6 +13,7 @@ const order = [
   "install",
   "deploy",
   "owner-console",
+  "personal-or-company",
   "connect-a-charger",
   "ai-help",
   "brands",
