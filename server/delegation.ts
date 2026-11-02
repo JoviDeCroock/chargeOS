@@ -296,6 +296,11 @@ function isNormalizedIso(value: string): boolean {
   return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value;
 }
 
+/** Cheap syntactic check so malformed bearer values never trigger a full ledger read. */
+export function delegateGrantIdFromToken(token: string): string | null {
+  return parseGrantId(token);
+}
+
 function parseGrantId(token: string): string | null {
   const match = token.match(/^chgdel\.([0-9a-f-]{36})\.[A-Za-z0-9_-]{43}$/);
   return match && isGrantId(match[1] ?? "") ? (match[1] ?? null) : null;

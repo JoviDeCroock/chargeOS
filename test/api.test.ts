@@ -454,6 +454,39 @@ describe("owner API", () => {
       }).then((response) => response.status),
     ).resolves.toBe(404);
 
+    // A valid delegate call must not reset failed owner-token guesses from the same peer.
+    const guesser = { "x-forwarded-for": "203.0.113.20" };
+    const guess = () =>
+      fetch(`${base}/api/v1/snapshot`, {
+        headers: { authorization: "Bearer invalid-owner-guess", ...guesser },
+      });
+    for (let attempt = 0; attempt < 9; attempt += 1) await guess();
+    await expect(
+      fetch(`${base}/api/v1/delegate/migration`, {
+        headers: { authorization: `Bearer ${installer.token}`, ...guesser },
+      }).then((response) => response.status),
+    ).resolves.toBe(200);
+    await guess();
+    await expect(
+      fetch(`${base}/api/v1/snapshot`, {
+        headers: { authorization: `Bearer ${TOKEN}`, ...guesser },
+      }).then((response) => response.status),
+    ).resolves.toBe(429);
+
+    // Each grant has a bounded request budget (it reads the ledger and appends a use audit).
+    const statuses: number[] = [];
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      statuses.push(
+        (
+          await fetch(`${base}/api/v1/delegate/migration`, {
+            headers: { authorization: `Bearer ${installer.token}` },
+          })
+        ).status,
+      );
+    }
+    expect(statuses.filter((status) => status === 429).length).toBeGreaterThan(0);
+    expect(statuses.at(-1)).toBe(429);
+
     const revokeResponse = await fetch(
       `${base}/api/v1/delegations/${created.grant.grantId}/revoke`,
       {

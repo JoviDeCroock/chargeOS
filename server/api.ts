@@ -31,6 +31,7 @@ import {
 import { configForStation, type GatewayConfig, UnknownStationError } from "./config.js";
 import {
   authenticateDelegate,
+  delegateGrantIdFromToken,
   createDelegateGrant,
   DelegationConflictError,
   DelegationInputError,
@@ -96,6 +97,9 @@ interface FailedAuthorization {
   resetAt: number;
 }
 
+const MAX_TRACKED_AUTH_PEERS = 4_096;
+const DELEGATE_REQUESTS_PER_MINUTE = 60;
+
 export interface OwnerApi {
   close(): Promise<void>;
   listen(port?: number, host?: string): Promise<number>;
@@ -110,6 +114,9 @@ export function createOwnerApi(
 ): OwnerApi {
   const troubleshoot = createTroubleshooter(config.aiRelayOrigin, aiFetch);
   const failedAuthorizations = new Map<string, FailedAuthorization>();
+  // Every delegate request reads the ledger and appends a use audit; bound each grant so the
+  // lowest-privilege read token cannot starve the shared event loop or exhaust evidence capacity.
+  const delegateRequests = new Map<string, FailedAuthorization>();
   const server = createServer((request, response) => {
     void handle(request, response).catch((error: unknown) => {
       const location = error instanceof Error ? error.stack?.split("\n").at(1)?.trim() : undefined;
@@ -223,15 +230,21 @@ export function createOwnerApi(
         return;
       }
       const scoped = resolveStationRequest(config, url);
-      const principal = token
-        ? authenticateDelegate(
-            await evidence.readEvents(),
-            scoped?.config.stationId ?? config.stationId,
-            token,
-          )
-        : null;
+      const principal =
+        token && delegateGrantIdFromToken(token)
+          ? authenticateDelegate(
+              await evidence.readEvents(),
+              scoped?.config.stationId ?? config.stationId,
+              token,
+            )
+          : null;
       if (principal && scoped) {
-        failedAuthorizations.delete(remoteAddress);
+        // A valid delegate token deliberately does not clear owner-token guess failures.
+        recordFailedAuthorization(delegateRequests, principal.grantId);
+        if (isRateLimited(delegateRequests, principal.grantId, DELEGATE_REQUESTS_PER_MINUTE + 1)) {
+          sendError(response, 429, "rate_limited", "Too many delegate requests");
+          return;
+        }
         await handleDelegateApi(
           request,
           response,
@@ -800,6 +813,15 @@ function recordFailedAuthorization(
   remoteAddress: string,
 ): void {
   const now = Date.now();
+  if (failures.size >= MAX_TRACKED_AUTH_PEERS && !failures.has(remoteAddress)) {
+    for (const [key, entry] of failures) if (entry.resetAt <= now) failures.delete(key);
+    // Still full of live windows: evict the oldest so rotating source addresses cannot grow
+    // the table without bound.
+    if (failures.size >= MAX_TRACKED_AUTH_PEERS) {
+      const oldest = failures.keys().next().value;
+      if (oldest !== undefined) failures.delete(oldest);
+    }
+  }
   const current = failures.get(remoteAddress);
   failures.set(remoteAddress, {
     count: current && current.resetAt > now ? current.count + 1 : 1,
@@ -810,9 +832,10 @@ function recordFailedAuthorization(
 function isRateLimited(
   failures: ReadonlyMap<string, FailedAuthorization>,
   remoteAddress: string,
+  limit = 10,
 ): boolean {
   const current = failures.get(remoteAddress);
-  return Boolean(current && current.resetAt > Date.now() && current.count >= 10);
+  return Boolean(current && current.resetAt > Date.now() && current.count >= limit);
 }
 
 function applySecurityHeaders(response: ServerResponse): void {

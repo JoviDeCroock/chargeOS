@@ -243,6 +243,11 @@ function parseStationsFile(contents: string): readonly StationConfig[] {
   if (new Set(stations.map(({ id }) => id)).size !== stations.length) {
     throw new Error("CHARGEOS_STATIONS_FILE station IDs must be unique");
   }
+  // A shared secret would let one charger (or its installer) authenticate as another offline
+  // station, receive its owner list and share its pseudonym key.
+  if (new Set(stations.map(({ secret }) => secret)).size !== stations.length) {
+    throw new Error("CHARGEOS_STATIONS_FILE station secrets must be unique");
+  }
   return stations;
 }
 

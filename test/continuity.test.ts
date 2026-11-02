@@ -514,6 +514,19 @@ describe("owner continuity bundle", () => {
       await expect(openContinuityBundle(JSON.stringify(tampered), PASSPHRASE)).rejects.toThrow(
         "authentication failed",
       );
+      // A truncated GCM tag must never be accepted as a weaker authenticator.
+      const truncatedTag = {
+        ...bundle,
+        encryption: {
+          ...bundle.encryption,
+          authTag: Buffer.from(bundle.encryption.authTag, "base64")
+            .subarray(0, 4)
+            .toString("base64"),
+        },
+      };
+      await expect(openContinuityBundle(JSON.stringify(truncatedTag), PASSPHRASE)).rejects.toThrow(
+        "encryption parameters are invalid",
+      );
 
       const payload = await openContinuityBundle(serialized, PASSPHRASE);
       await expect(restoreContinuityPayload(payload, directory)).rejects.toBeInstanceOf(

@@ -235,6 +235,17 @@ describe("loadConfig", () => {
           CHARGEOS_STATIONS_FILE: stationsFile,
         }),
       ).toThrow("station IDs must be unique");
+      const sharedSecretFile = writeSecret(
+        directory,
+        "shared-secret.json",
+        JSON.stringify({ schemaVersion: 1, stations: [station, { ...station, id: "OTHER" }] }),
+      );
+      expect(() =>
+        loadConfig({
+          CHARGEOS_OWNER_API_TOKEN: "owner-token-at-least-thirty-two-characters",
+          CHARGEOS_STATIONS_FILE: sharedSecretFile,
+        }),
+      ).toThrow("station secrets must be unique");
       expect(() =>
         loadConfig({
           CHARGEOS_OWNER_API_TOKEN: "owner-token-at-least-thirty-two-characters",

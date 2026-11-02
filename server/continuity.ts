@@ -355,9 +355,15 @@ export async function openContinuityBundle(
     encryption.p,
   );
   try {
-    const decipher = createDecipheriv(ALGORITHM, key, decodeBase64(encryption.iv, "iv"));
+    const iv = decodeBase64(encryption.iv, "iv");
+    const authTag = decodeBase64(encryption.authTag, "authTag");
+    // Node otherwise accepts truncated GCM tags (down to 4 bytes) unless authTagLength is fixed.
+    if (iv.length !== 12 || authTag.length !== 16) {
+      throw new ContinuityBundleError("Continuity bundle encryption parameters are invalid");
+    }
+    const decipher = createDecipheriv(ALGORITHM, key, iv, { authTagLength: 16 });
     decipher.setAAD(continuityAad(envelope.createdAt));
-    decipher.setAuthTag(decodeBase64(encryption.authTag, "authTag"));
+    decipher.setAuthTag(authTag);
     const plaintext = Buffer.concat([
       decipher.update(decodeBase64(encryption.ciphertext, "ciphertext")),
       decipher.final(),

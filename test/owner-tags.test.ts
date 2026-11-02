@@ -292,3 +292,64 @@ function config(eventLogPath: string): GatewayConfig {
     uiDirectory: "dist/ui",
   };
 }
+
+describe("owner tag rollback detection", () => {
+  const rollbackDirectories: string[] = [];
+  afterEach(async () => {
+    await Promise.all(
+      rollbackDirectories.splice(0).map((path) => rm(path, { force: true, recursive: true })),
+    );
+  });
+
+  it("refuses a state file rolled back behind its last audited version", async () => {
+    const directory = await temporaryDirectory(rollbackDirectories);
+    const bootstrap = config(join(directory, "events.ndjson"));
+    const statePath = ownerTagStatePath(bootstrap.eventLogPath);
+    const registry = await OwnerTagRegistry.open(bootstrap);
+    const evidence = new MemoryEvidenceStore();
+    const liveConfig = withOwnerTagRegistry(bootstrap, registry);
+    await registry.reconcile(liveConfig, evidence);
+    await registry.add(liveConfig, evidence, "later-owner-tag");
+    const beforeRevocation = await readFile(statePath, "utf8");
+    await registry.revoke(
+      liveConfig,
+      evidence,
+      createTagPseudonym("later-owner-tag", bootstrap.stationSecret),
+      { confirmation: OWNER_TAG_REVOCATION_CONFIRMATION },
+    );
+
+    // Putting back the pre-revocation file would silently re-desire the revoked tag.
+    await writeFile(statePath, beforeRevocation, { mode: 0o600 });
+    const rolledBack = await OwnerTagRegistry.open(bootstrap);
+    const eventCount = evidence.events.length;
+    await expect(
+      rolledBack.reconcile(withOwnerTagRegistry(bootstrap, rolledBack), evidence),
+    ).rejects.toThrow(/older than or differs from its last audited version/);
+    expect(evidence.events).toHaveLength(eventCount);
+  });
+
+  it("continues the audited version sequence when state is reseeded from deployment input", async () => {
+    const directory = await temporaryDirectory(rollbackDirectories);
+    const bootstrap = config(join(directory, "events.ndjson"));
+    const statePath = ownerTagStatePath(bootstrap.eventLogPath);
+    const registry = await OwnerTagRegistry.open(bootstrap);
+    const evidence = new MemoryEvidenceStore();
+    const liveConfig = withOwnerTagRegistry(bootstrap, registry);
+    await registry.reconcile(liveConfig, evidence);
+    await registry.add(liveConfig, evidence, "later-owner-tag");
+    await registry.add(liveConfig, evidence, "third-owner-tag");
+
+    // A continuity restore boots a fresh state from the recovered seed against the old ledger.
+    await rm(statePath);
+    const reseeded = await OwnerTagRegistry.open(bootstrap);
+    await reseeded.reconcile(withOwnerTagRegistry(bootstrap, reseeded), evidence);
+    expect(evidence.events.at(-1)).toMatchObject({
+      message: "OwnerTagDesiredStateReconciled",
+      payload: { stateVersion: 4 },
+    });
+    const restarted = await OwnerTagRegistry.open(bootstrap);
+    const eventCount = evidence.events.length;
+    await restarted.reconcile(withOwnerTagRegistry(bootstrap, restarted), evidence);
+    expect(evidence.events).toHaveLength(eventCount);
+  });
+});
