@@ -397,3 +397,27 @@ it("pages more than fifty events without gaps and refuses capacity without delet
   }
   await validateSupportHistory(env);
 });
+
+it("keeps one driver from exhausting organization support capacity for staff and other drivers", async () => {
+  const f = await setup();
+  const original = await env.SERVICE_DB.prepare("SELECT payload_json FROM support_event WHERE id=?")
+    .bind(f.body.mutationId)
+    .first<string>("payload_json");
+  try {
+    // Simulate a driver who already used their personal quota (trailing whitespace keeps the
+    // stored event parseable for the staff reply's detail projection).
+    await env.SERVICE_DB.prepare("UPDATE support_event SET payload_json=? WHERE id=?")
+      .bind(`${original}${" ".repeat(262144)}`, f.body.mutationId)
+      .run();
+    expect(
+      (await update(f.driver.browser, f.root, f.c, "reply", { message: "Over quota" })).status,
+    ).toBe(409);
+    expect((await f.other.browser.request(f.root, createBody())).status).toBe(201);
+    const staff = await update(f.admin.browser, f.root, f.c, "reply", { message: "Staff answer" });
+    expect(staff.status, await staff.clone().text()).toBe(200);
+  } finally {
+    await env.SERVICE_DB.prepare("UPDATE support_event SET payload_json=? WHERE id=?")
+      .bind(original, f.body.mutationId)
+      .run();
+  }
+});

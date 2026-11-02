@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { api, signedIn, createOrganization } from "./helpers.js";
+import { api, signedIn, createOrganization, totp } from "./helpers.js";
 import {
   mapping,
   from,
@@ -110,6 +110,59 @@ describe("durable reimbursement review", () => {
         })
       ).status,
     ).toBe(403);
+  });
+  it("refuses approval by the finance member who created the draft", async () => {
+    const f = await fixture();
+    const created = await f.finance.browser.request(`${f.root}/statements`, {
+      assignmentId: f.assignment.id,
+      ...period,
+      csvBase64: btoa(csv),
+      mapping,
+      revisionOf: null,
+    });
+    expect(created.status, await created.clone().text()).toBe(201);
+    const statement = await created.json<ReimbursementStatement>();
+    const response = await approve(f, statement);
+    expect(response.status).toBe(403);
+    expect(await response.text()).toMatch(/different finance reviewer/);
+    expect(
+      await env.SERVICE_DB.prepare(
+        "SELECT count(*) AS count FROM reimbursement_claim WHERE statement_id = ?",
+      )
+        .bind(statement.id)
+        .first("count"),
+    ).toBe(0);
+  });
+  it("locks approval step-up after repeated wrong authenticator codes from a signed-in session", async () => {
+    const f = await fixture();
+    const statement = await draft(f);
+    const wrongCode = async () =>
+      String((Number(await totp(f.financeTotpUri!)) + 500_000) % 1_000_000).padStart(6, "0");
+    const attempt = async (authenticatorCode: string) =>
+      (
+        await f.finance.browser.request(`${f.root}/statements/${statement.id}/approve`, {
+          snapshotSha256: statement.snapshotSha256,
+          authenticatorCode,
+        })
+      ).status;
+    for (let index = 0; index < 10; index += 1) expect(await attempt(await wrongCode())).toBe(403);
+    // Even the correct code is refused while the lock holds.
+    expect(await attempt(await totp(f.financeTotpUri!))).toBe(429);
+    const locked = await env.SERVICE_DB.prepare(
+      "SELECT t.failed_verification_count AS count, t.locked_until AS lockedUntil FROM two_factor t JOIN membership m ON m.user_id = t.user_id WHERE m.organization_id = ? AND m.role = 'finance'",
+    )
+      .bind(f.org.id)
+      .first<{ count: number; lockedUntil: number }>();
+    expect(locked?.count).toBe(10);
+    expect(locked?.lockedUntil).toBeGreaterThan(Date.now());
+    await env.SERVICE_DB.prepare("UPDATE two_factor SET locked_until = ? WHERE locked_until = ?")
+      .bind(Date.now() - 1, locked!.lockedUntil)
+      .run();
+    expect(await attempt(await totp(f.financeTotpUri!))).toBe(200);
+    const reset = await env.SERVICE_DB.prepare(
+      "SELECT failed_verification_count AS count FROM two_factor WHERE locked_until IS NULL AND failed_verification_count = 0",
+    ).all();
+    expect(reset.results.length).toBeGreaterThan(0);
   });
   it("requires MFA and the reviewed snapshot hash; holds invalid/boundary rows and retains a rejected revision", async () => {
     const f = await fixture(false);

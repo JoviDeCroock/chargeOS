@@ -11,7 +11,7 @@ An administrator assigns the employee, vehicle/card aliases and cost center to a
 1. Use an authorized session export from the charger or existing provider. Keep the live provider connected while testing imports.
 2. Choose the employee's assignment, statement period and exact CSV columns.
 3. Create a draft and check included sessions, held records, energy, rate and total. Missing evidence, conflicting sessions or eligibility issues need review.
-4. Ask a different authorized finance reviewer to inspect the exact snapshot and approve it with their current authenticator code, or reject it with a reason.
+4. Ask a different authorized finance reviewer to inspect the exact snapshot and approve it with their current authenticator code, or reject it with a reason. The person who created the draft cannot approve it. After ten wrong codes in a row, approval pauses for 15 minutes.
 5. The driver can view their own statement and supporting evidence. Finance can inspect the organization's journal and current balance.
 
 Duplicate-session reservations prevent the same sessions being approved twice within an organization. They do not reconcile a payment already made by a different provider. Agree the migration cut-off with the current provider and finance team.

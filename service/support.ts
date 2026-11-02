@@ -270,10 +270,26 @@ export async function handleSupport(
     bytes = new TextEncoder().encode(payloadJson).length;
   // Bounded durable text for the pilot; refuse new content rather than deleting
   // history or silently exceeding the operational recovery contract.
-  const capacity =
-    "(SELECT count(*) FROM support_event WHERE organization_id=?)<4096 AND (SELECT coalesce(sum(length(CAST(payload_json AS BLOB))),0) FROM support_event WHERE organization_id=?) + ? <= 2097152";
+  // Drivers get a personal quota and may not use the staff reserve, so one member cannot
+  // exhaust the organization's pilot capacity and block staff from answering or closing cases.
+  const driverQuota =
+    role === "driver"
+      ? " AND (SELECT count(*) FROM support_event WHERE organization_id=? AND actor_role='driver')<3072 AND (SELECT coalesce(sum(length(CAST(payload_json AS BLOB))),0) FROM support_event WHERE organization_id=? AND actor_role='driver') + ? <= 1572864 AND (SELECT count(*) FROM support_event WHERE organization_id=? AND actor_id=?)<512 AND (SELECT coalesce(sum(length(CAST(payload_json AS BLOB))),0) FROM support_event WHERE organization_id=? AND actor_id=?) + ? <= 262144"
+      : "";
+  const capacity = `(SELECT count(*) FROM support_event WHERE organization_id=?)<4096 AND (SELECT coalesce(sum(length(CAST(payload_json AS BLOB))),0) FROM support_event WHERE organization_id=?) + ? <= 2097152${driverQuota}`;
   const gate = `EXISTS(SELECT 1 FROM membership WHERE organization_id=? AND user_id=? AND role=?) AND EXISTS(SELECT 1 FROM rate_limit WHERE key=? AND count<=${maximum} AND last_request>?) AND ${capacity} AND NOT EXISTS(SELECT 1 FROM support_event WHERE id=?)`;
-  const gateArgs = [org, actorId, role, rateKey, cutoff, org, org, bytes, mutationId];
+  const gateArgs = [
+    org,
+    actorId,
+    role,
+    rateKey,
+    cutoff,
+    org,
+    org,
+    bytes,
+    ...(role === "driver" ? [org, org, bytes, org, actorId, org, actorId, bytes] : []),
+    mutationId,
+  ];
   const writes = [
     db
       .prepare(

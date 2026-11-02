@@ -110,6 +110,9 @@ export interface ReimbursementContext {
   mfaEnabled: boolean;
 }
 
+const APPROVAL_TOTP_MAX_FAILURES = 10;
+const APPROVAL_TOTP_LOCK_MS = 15 * 60_000;
+
 export async function handleReimbursements(
   request: Request,
   env: ServiceEnv,
@@ -770,8 +773,13 @@ async function handle(
         throw new HttpError(403, "Enable authenticator MFA before approving statements");
       if (saved.status === "approved") return json(saved);
       const correction = saved.snapshot.correction;
-      if (correction && saved.createdBy === actorId)
-        throw new HttpError(403, "A different person must approve this correction draft");
+      if (saved.createdBy === actorId)
+        throw new HttpError(
+          403,
+          correction
+            ? "A different person must approve this correction draft"
+            : "A different finance reviewer must approve the draft you created",
+        );
       if (correction && body.previousSnapshotSha256 !== correction.previousSnapshotSha256)
         throw new HttpError(
           409,
@@ -779,14 +787,44 @@ async function handle(
         );
       if (typeof body.authenticatorCode !== "string" || !/^[0-9]{6}$/.test(body.authenticatorCode))
         throw new HttpError(403, "Enter a current authenticator code to approve this statement");
+      // Better Auth applies its lockout only to sign-in verification, and server-side
+      // auth.api calls skip its HTTP rate limiter. Reserve each step-up attempt atomically on
+      // the same two_factor counter before verifying, so a stolen session cannot brute-force
+      // the six-digit code: the attempt that reaches the limit sets the lock itself.
+      const reserved = await q(
+        `UPDATE two_factor SET
+          failed_verification_count = CASE WHEN locked_until IS NOT NULL AND locked_until <= ? THEN 1 ELSE coalesce(failed_verification_count,0) + 1 END,
+          locked_until = CASE
+            WHEN locked_until IS NOT NULL AND locked_until <= ? THEN NULL
+            WHEN coalesce(failed_verification_count,0) + 1 >= ${APPROVAL_TOTP_MAX_FAILURES} THEN ?
+            ELSE locked_until END
+        WHERE user_id = ? AND verified = 1
+          AND (locked_until IS NULL OR locked_until <= ?)
+          AND (coalesce(failed_verification_count,0) < ${APPROVAL_TOTP_MAX_FAILURES} OR locked_until IS NOT NULL)
+        RETURNING id`,
+        nowMs,
+        nowMs,
+        nowMs + APPROVAL_TOTP_LOCK_MS,
+        actorId,
+        nowMs,
+      ).all();
+      if (reserved.results.length !== 1)
+        throw new HttpError(
+          429,
+          "Too many authenticator attempts; wait 15 minutes before approving again",
+        );
       try {
         await createServiceAuth(env).api.verifyTOTP({
           headers: request.headers,
           body: { code: body.authenticatorCode, trustDevice: false },
         });
       } catch {
-        throw new HttpError(403, "Authenticator code is invalid or temporarily locked");
+        throw new HttpError(403, "Authenticator code is invalid");
       }
+      await q(
+        "UPDATE two_factor SET failed_verification_count = 0, locked_until = NULL WHERE user_id = ?",
+        actorId,
+      ).run();
       if (
         saved.status !== "draft" ||
         saved.heldRecords ||
@@ -898,7 +936,7 @@ async function handle(
           );
         return json(current);
       }
-      const eligible = `s.id = ? AND s.organization_id = ? AND s.status = 'draft' AND s.employee_id != ? AND s.held_records = 0 AND s.invalid_records = 0 AND s.included_records > 0 AND ${guard} AND EXISTS (SELECT 1 FROM user WHERE id = ? AND two_factor_enabled = 1) AND EXISTS (SELECT 1 FROM reimbursement_assignment a LEFT JOIN reimbursement_assignment_end e ON e.assignment_id = a.id WHERE a.id = s.assignment_id AND a.organization_id = s.organization_id AND coalesce(e.effective_until,a.effective_until) = s.assignment_until)`;
+      const eligible = `s.id = ? AND s.organization_id = ? AND s.status = 'draft' AND s.employee_id != ? AND s.created_by != ? AND s.held_records = 0 AND s.invalid_records = 0 AND s.included_records > 0 AND ${guard} AND EXISTS (SELECT 1 FROM user WHERE id = ? AND two_factor_enabled = 1) AND EXISTS (SELECT 1 FROM reimbursement_assignment a LEFT JOIN reimbursement_assignment_end e ON e.assignment_id = a.id WHERE a.id = s.assignment_id AND a.organization_id = s.organization_id AND coalesce(e.effective_until,a.effective_until) = s.assignment_until)`;
       const results = await env.SERVICE_DB.batch([
         q(
           `INSERT INTO reimbursement_claim (organization_id,station_alias,session_id,statement_id)
@@ -906,6 +944,7 @@ async function handle(
           AND NOT EXISTS (SELECT 1 FROM reimbursement_claim c, json_each(s.snapshot_json,'$.decisions') candidate WHERE c.organization_id = s.organization_id AND c.station_alias = json_extract(candidate.value,'$.session.stationId') AND c.session_id = json_extract(candidate.value,'$.session.sessionId') AND json_extract(candidate.value,'$.status') = 'included')`,
           saved.id,
           org.id,
+          actorId,
           actorId,
           org.id,
           actorId,

@@ -27,6 +27,6 @@ Finance and administrators open the company case list and select a case. Under *
 
 If a save result is uncertain, keep the tab open and choose **Retry same update**. Do not open another case to work around it. Reloading, leaving the page or changing devices loses that in-tab retry identifier. If the case changed elsewhere, reload its current history before writing a new update.
 
-A departed assigned colleague needs reassignment by current finance/admin staff. Leaving an organization ends access while preserving history for staff. If the pilot limit is reached, ask your administrator about capacity and retention. chargeOS refuses new content rather than deleting replies.
+A departed assigned colleague needs reassignment by current finance/admin staff. Leaving an organization ends access while preserving history for staff. If the pilot limit is reached, ask your administrator about capacity and retention. Each driver also has a personal limit, and part of the capacity is kept for staff answers. chargeOS refuses new content rather than deleting replies.
 
 IT reference: [Company support cases](../support-cases.md).
