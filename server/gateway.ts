@@ -1,4 +1,5 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import type { IncomingMessage, Server as HttpServer } from "node:http";
 import type { Socket } from "node:net";
 import { RPCServer, createRPCError, type IHandlersOption } from "ocpp-rpc";
 
@@ -116,7 +117,16 @@ export function createChargeGateway(
       return;
     }
 
-    pendingConnections.set(stationConfig.stationId, handshake.request.socket);
+    const socket = handshake.request.socket;
+    pendingConnections.set(stationConfig.stationId, socket);
+    // The WebSocket library can refuse an authenticated handshake (bad key/version) after
+    // accept() without emitting upgradeAborted or client; release the reservation on close
+    // so one malformed handshake cannot lock the provisioned charger out until restart.
+    socket.once("close", () => {
+      if (pendingConnections.get(stationConfig.stationId) === socket) {
+        pendingConnections.delete(stationConfig.stationId);
+      }
+    });
     accept({ provisionedStationId: stationConfig.stationId }, "ocpp1.6");
   });
 
@@ -335,7 +345,10 @@ export function createChargeGateway(
 
     peer.handle(async ({ method }) => {
       await enforceRateLimit();
-      await record(evidence, stationConfig, stationId, "station-to-csms", method ?? "Unknown", {
+      // Only standard action names become evidence message names; anything else (including
+      // `prefix:Action` names that the patched validator resolves) is charger-chosen text.
+      const message = method && OCPP_16_ACTIONS.has(method) ? method : "Unrecognized";
+      await record(evidence, stationConfig, stationId, "station-to-csms", message, {
         payloadDiscarded: true,
       });
       throw createRPCError("NotImplemented");
@@ -517,6 +530,7 @@ export function createChargeGateway(
     inspectLocalAuthorization: inspect,
     async listen(port = config.port, host = config.ocppHost) {
       const httpServer = await server.listen(port, host);
+      guardUpgradeHandler(httpServer, server.handleUpgrade);
       httpServer.headersTimeout = 10_000;
       httpServer.keepAliveTimeout = 5_000;
       httpServer.maxConnections = config.ocppMaxConnections;
@@ -1027,4 +1041,38 @@ function redactTags(value: unknown, secret: string): unknown {
     );
   }
   return value;
+}
+
+/**
+ * ocpp-rpc decodes the identity path segment before its own error handling and registers an
+ * un-awaited async upgrade listener, so one unauthenticated malformed percent-escape would reject
+ * outside any handler and terminate the edge. Replace that listener (synchronously, before any
+ * socket I/O can be processed) with one that refuses undecodable targets and contains failures.
+ */
+function guardUpgradeHandler(
+  httpServer: HttpServer,
+  handleUpgrade: (request: IncomingMessage, socket: Socket, head: Buffer) => Promise<void>,
+): void {
+  httpServer.removeAllListeners("upgrade");
+  httpServer.on("upgrade", (request: IncomingMessage, socket: Socket, head: Buffer) => {
+    if (!hasDecodableUpgradeTarget(request.url)) {
+      socket.end("HTTP/1.1 400 Bad Request\r\nConnection: close\r\nContent-Length: 0\r\n\r\n", () =>
+        socket.destroy(),
+      );
+      return;
+    }
+    handleUpgrade(request, socket, head).catch(() => {
+      socket.destroy();
+    });
+  });
+}
+
+export function hasDecodableUpgradeTarget(target: string | undefined): boolean {
+  try {
+    const url = new URL(`http://localhost${target ?? "/"}`);
+    decodeURIComponent(url.pathname.split("/").pop() ?? "");
+    return true;
+  } catch {
+    return false;
+  }
 }

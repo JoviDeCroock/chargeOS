@@ -436,11 +436,16 @@ function parseAuthorization(value: unknown): StoredAuthorization | null {
 function authorizationEvidence(events: readonly EvidenceEvent[]): readonly EvidenceEvent[] {
   const resultIndex = events.findLastIndex(
     (event) =>
-      event.message === "SendLocalListResult" && payloadRecord(event).status === "Accepted",
+      event.message === "SendLocalListResult" &&
+      event.direction === "station-to-csms" &&
+      payloadRecord(event).status === "Accepted",
   );
   if (resultIndex < 0) return [];
   const commandIndex = events.findLastIndex(
-    (event, index) => index < resultIndex && event.message === "SendLocalList",
+    (event, index) =>
+      index < resultIndex &&
+      event.message === "SendLocalList" &&
+      event.direction === "csms-to-station",
   );
   return commandIndex < 0 ? [] : [events[commandIndex]!, events[resultIndex]!];
 }

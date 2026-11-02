@@ -1,4 +1,4 @@
-import type { AddressInfo } from "node:net";
+import { connect, type AddressInfo } from "node:net";
 
 import { RPCClient } from "ocpp-rpc";
 import { afterEach, describe, expect, it } from "vitest";
@@ -470,6 +470,58 @@ describe("OCPP 1.6J Genesis gateway", () => {
     }
   });
 
+  it("refuses an undecodable upgrade target without terminating the gateway", async () => {
+    const evidence = new MemoryEvidenceStore();
+    gateway = createChargeGateway(config, evidence);
+    const httpServer = await gateway.listen(0, "127.0.0.1");
+    const port = (httpServer.address() as AddressInfo).port;
+
+    const reply = await rawUpgrade(port, "/%E0", {});
+    expect(reply).toMatch(/^HTTP\/1\.1 400 /);
+
+    client = testClient(port);
+    await client.connect();
+    await expect(client.call("Heartbeat", {})).resolves.toHaveProperty("currentTime");
+  });
+
+  it("releases the station reservation after an authenticated handshake fails", async () => {
+    const evidence = new MemoryEvidenceStore();
+    gateway = createChargeGateway(config, evidence);
+    const httpServer = await gateway.listen(0, "127.0.0.1");
+    const port = (httpServer.address() as AddressInfo).port;
+    const authorization = Buffer.from(`${config.stationId}:${STATION_SECRET}`).toString("base64");
+
+    const reply = await rawUpgrade(port, `/${config.stationId}`, {
+      Authorization: `Basic ${authorization}`,
+      "Sec-WebSocket-Key": "bad",
+    });
+    expect(reply).toMatch(/^HTTP\/1\.1 400 /);
+
+    client = testClient(port);
+    await client.connect();
+    await expect(client.call("Heartbeat", {})).resolves.toHaveProperty("currentTime");
+  });
+
+  it("records charger-chosen namespaced method names only as Unrecognized", async () => {
+    const evidence = new MemoryEvidenceStore();
+    gateway = createChargeGateway(config, evidence);
+    const httpServer = await gateway.listen(0, "127.0.0.1");
+    const port = (httpServer.address() as AddressInfo).port;
+    client = new RPCClient({
+      endpoint: `ws://127.0.0.1:${port}`,
+      identity: config.stationId,
+      password: STATION_SECRET,
+      protocols: ["ocpp1.6"],
+      strictMode: false,
+    } as ConstructorParameters<typeof RPCClient>[0]);
+    await client.connect();
+
+    await expect(client.call("ocpp-rpc:Heartbeat", {})).rejects.toThrow();
+    const recorded = evidence.events.filter((event) => event.direction === "station-to-csms");
+    expect(recorded.at(-1)).toMatchObject({ message: "Unrecognized" });
+    expect(recorded.some((event) => event.message.includes(":"))).toBe(false);
+  });
+
   it("closes a station that exhausts its message burst", async () => {
     const evidence = new MemoryEvidenceStore();
     gateway = createChargeGateway(
@@ -525,4 +577,29 @@ function fleetClient(port: number, identity: string, password: string): RPCClien
     protocols: ["ocpp1.6"],
     strictMode: true,
   } as ConstructorParameters<typeof RPCClient>[0]);
+}
+
+function rawUpgrade(
+  port: number,
+  target: string,
+  headers: Record<string, string>,
+): Promise<string> {
+  const lines = [
+    `GET ${target} HTTP/1.1`,
+    "Host: 127.0.0.1",
+    "Upgrade: websocket",
+    "Connection: Upgrade",
+    "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
+    "Sec-WebSocket-Version: 13",
+    "Sec-WebSocket-Protocol: ocpp1.6",
+  ].filter((line) => !Object.keys(headers).some((name) => line.startsWith(`${name}:`)));
+  for (const [name, value] of Object.entries(headers)) lines.push(`${name}: ${value}`);
+  return new Promise((resolveReply, rejectReply) => {
+    let reply = "";
+    const socket = connect(port, "127.0.0.1", () => socket.write(`${lines.join("\r\n")}\r\n\r\n`));
+    socket.setEncoding("utf8");
+    socket.on("data", (chunk: string) => (reply += chunk));
+    socket.on("error", rejectReply);
+    socket.on("close", () => resolveReply(reply));
+  });
 }
