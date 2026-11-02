@@ -198,6 +198,7 @@ export type {
   CardCaptureProjection,
   CardCaptureState,
 } from "./card-capture.js";
+export type { SetupSignInProofInput, SetupSignInProofResponse } from "./setup-sign-in.js";
 export type {
   AliasCandidate,
   RefusedConnectionAttempt,

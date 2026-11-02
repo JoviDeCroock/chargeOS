@@ -78,6 +78,10 @@ export function deploymentInput(value) {
   const profile = value.profile ?? "personal";
   if (profile !== "personal" && profile !== "company")
     throw new DeploymentError("Choose a personal or company console.");
+  if (value.target === "coolify" && profile !== "personal")
+    throw new DeploymentError(
+      "Managed deployment starts the Home console; switch to Company later in the console's preferences.",
+    );
   const domain = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
   const ownerDomain = field(
     "ownerDomain",
@@ -365,7 +369,8 @@ Enter these in the charger's supported configuration tool:
                                 address is wss://${input.ocppDomain}/${receipt.stationId})
   Password:                    ${receipt.stationSecret}
   Protocol:                    OCPP 1.6 JSON (OCPP-J)
-  Security:                    the profile that sends the password (Basic authentication)
+  Security:                    Security Profile 2: TLS (wss://) with Basic authentication.
+                               The charger must trust a public certificate authority.
 
 Before changing anything:
   - Export the charger configuration and transactions, and record the current back-office

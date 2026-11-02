@@ -32,7 +32,7 @@ The result shows the **Console** address, the **Charger endpoint** and the **Pri
 
 Keep this folder away from shared drives and support messages.
 
-After DNS is ready and HTTPS has a valid certificate, click **Open my console** on the setup page. It opens the console in a new tab and signs you in. The token is handed to that tab directly by the setup page; it is never put in an address, so it does not end up in your browser history. If the console is not reachable yet, wait a minute and click again. You can always sign in by pasting `ownerToken` instead; see [Use the owner console](owner-console.md).
+After DNS is ready and HTTPS has a valid certificate, click **Open my console** on the setup page. It opens the console in a new tab and signs you in. The setup page first checks that the console really is this installation; if another site answers at that address, you are not signed in and the page says so. The token is handed to the console tab directly; it is never put in an address, so it does not end up in your browser history. If the console is not reachable yet, wait a minute and click again. **Prepare files only** has no automatic sign-in. You can always sign in by pasting `ownerToken` instead; see [Use the owner console](owner-console.md).
 
 Then, in the console:
 
@@ -44,7 +44,7 @@ The setup wizard creates one charger per installation. Several chargers on one i
 
 ## Managed hosting
 
-Choose **Managed server through Coolify Cloud** if your administrator has connected a server to that account. Managed hosting still needs your RFID card identifier during setup, because it deploys a reviewed, pinned template that seeds the card; tapping the first card is for Docker installations. Enter a Coolify API token that can create and deploy services, the project, server and environment IDs (and a destination ID if the server has several), a trusted repository and the reviewed commit containing the deployment template. The token stays in memory and is not saved. For a private repository, enter its connected Coolify GitHub App ID too. Your operator supplies the published image digest and reviewed template commit. These are a one-time infrastructure setup, not values to guess.
+Choose **Managed server through Coolify Cloud** if your administrator has connected a server to that account. Managed hosting still needs your RFID card identifier during setup, because it deploys a reviewed, pinned template that seeds the card; tapping the first card is for Docker installations. It starts with the Home console; switch to Company later in the console's preferences. Enter a Coolify API token that can create and deploy services, the project, server and environment IDs (and a destination ID if the server has several), a trusted repository and the reviewed commit containing the deployment template. The token stays in memory and is not saved. For a private repository, enter its connected Coolify GitHub App ID too. Your operator supplies the published image digest and reviewed template commit. These are a one-time infrastructure setup, not values to guess.
 
 Click **Deploy chargeOS** after reviewing the destination. The wizard creates a Raw Compose application, checks that the platform kept that mode, configures private credentials and submits deployment. Raw Compose preserves the private gateway network; Coolify's ordinary service parser can rewrite it. If a step fails, inspect the saved receipt and the existing cloud application instead of creating another one.
 

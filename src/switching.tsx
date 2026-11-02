@@ -38,15 +38,18 @@ import {
  */
 export function EvidenceFileDigest({
   label,
+  value,
   onDigest,
 }: {
   label: string;
+  /** The digest field's current value; the "filled in" note only stands while it is unchanged. */
+  value: string;
   onDigest(value: string): void;
 }) {
   const [state, setState] = useState<
     | { readonly kind: "idle" }
     | { readonly kind: "hashing"; readonly percent: number }
-    | { readonly kind: "done"; readonly name: string }
+    | { readonly kind: "done"; readonly name: string; readonly digest: string }
     | { readonly kind: "error"; readonly message: string }
   >({ kind: "idle" });
   return (
@@ -70,7 +73,7 @@ export function EvidenceFileDigest({
             ).then(
               (digest) => {
                 onDigest(digest);
-                setState({ kind: "done", name: file.name });
+                setState({ digest, kind: "done", name: file.name });
               },
               (error: unknown) =>
                 setState({
@@ -85,7 +88,7 @@ export function EvidenceFileDigest({
         />
       </label>
       <small class="file-digest-note" role="status">
-        {state.kind === "done"
+        {state.kind === "done" && state.digest === value
           ? `Fingerprint of ${state.name} filled in. The file was not uploaded.`
           : state.kind === "error"
             ? state.message
@@ -330,7 +333,9 @@ export function MigrationPanel({ migration }: { migration: MigrationProjection }
                     key={step.id}
                     step={step}
                     digest={digests[step.id] ?? ""}
-                    onDigest={(value) => setDigests({ ...digests, [step.id]: value })}
+                    onDigest={(value) =>
+                      setDigests((current) => ({ ...current, [step.id]: value }))
+                    }
                   />
                 ))}
               </ul>
@@ -487,7 +492,7 @@ function MigrationStep({
               onInput={(event) => onDigest(event.currentTarget.value.trim())}
             />
           </label>
-          <EvidenceFileDigest label={step.label} onDigest={onDigest} />
+          <EvidenceFileDigest label={step.label} value={digest} onDigest={onDigest} />
           <button
             class="button secondary compact"
             type="button"
@@ -804,15 +809,19 @@ export function FreedomTestPanel({ test }: { test: FreedomTestProjection }) {
                 value={device.evidenceSha256}
                 placeholder="64-character digest"
                 spellcheck={false}
-                onInput={(event) =>
-                  setDevice({ ...device, evidenceSha256: event.currentTarget.value.trim() })
-                }
+                onInput={(event) => {
+                  const evidenceSha256 = event.currentTarget.value.trim();
+                  setDevice((current) => ({ ...current, evidenceSha256 }));
+                }}
               />
             </label>
             <div class="full-field">
               <EvidenceFileDigest
                 label="the device inventory"
-                onDigest={(value) => setDevice({ ...device, evidenceSha256: value })}
+                value={device.evidenceSha256}
+                onDigest={(value) =>
+                  setDevice((current) => ({ ...current, evidenceSha256: value }))
+                }
               />
             </div>
           </div>
@@ -842,7 +851,7 @@ export function FreedomTestPanel({ test }: { test: FreedomTestProjection }) {
                 step={step}
                 runId={test.run?.state === "active" ? test.run.runId : null}
                 digest={digests[step.id] ?? ""}
-                onDigest={(value) => setDigests({ ...digests, [step.id]: value })}
+                onDigest={(value) => setDigests((current) => ({ ...current, [step.id]: value }))}
               />
             ))}
           </ul>
@@ -890,7 +899,7 @@ function FreedomStep({
               onInput={(event) => onDigest(event.currentTarget.value.trim())}
             />
           </label>
-          <EvidenceFileDigest label={step.label} onDigest={onDigest} />
+          <EvidenceFileDigest label={step.label} value={digest} onDigest={onDigest} />
           <button
             class="button secondary compact"
             type="button"

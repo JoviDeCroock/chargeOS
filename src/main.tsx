@@ -28,7 +28,21 @@ if (/^\/help\/?$/.test(window.location.pathname)) {
 } else {
   void Promise.all([import("./app.js"), import("./model.js"), import("./setup-sign-in.js")]).then(
     ([{ App }, { isAuthenticated, setOwnerToken }, { startSetupSignIn }]) => {
-      startSetupSignIn(window, () => isAuthenticated.value, setOwnerToken);
+      startSetupSignIn(
+        {
+          addEventListener: (type, listener) => window.addEventListener(type, listener),
+          dropOpener: () => {
+            window.opener = null;
+          },
+          history: window.history,
+          location: window.location,
+          opener: window.opener as Window | null,
+          removeEventListener: (type, listener) => window.removeEventListener(type, listener),
+          setTimeout: (handler, timeout) => window.setTimeout(handler, timeout),
+        },
+        () => isAuthenticated.value,
+        setOwnerToken,
+      );
       render(<App />, root);
     },
   );

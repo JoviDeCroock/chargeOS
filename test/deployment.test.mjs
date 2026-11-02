@@ -74,6 +74,7 @@ it("validates identities, domains, immutable image references and explicit deplo
   expect(deploymentInput(raw()).stationId).toBe("TEST_1");
   expect(() => deploymentInput(raw({ profile: "fleet" }))).toThrow(/personal or company/);
   expect(() => managed({ ownerTag: "" })).toThrow(/still needs the owner card/);
+  expect(() => managed({ profile: "company" })).toThrow(/starts the Home console/);
 });
 it("lets a Docker owner skip the charger name and card, and writes an installer sheet", async () => {
   const input = deploymentInput(raw({ stationId: "", ownerTag: "", profile: "company" }));
@@ -384,10 +385,51 @@ it("protects deployment from foreign origins, forged hosts and missing nonces; p
   expect(response.status).toBe(200);
   const text = await response.text();
   expect(text).not.toContain("nor-this");
-  // The owner token comes back once, only as the console sign-in handoff for this authorized tab.
-  expect(JSON.parse(text)).toMatchObject({ signInToken: "never-return-this" });
-  expect(JSON.parse(text).ownerToken).toBeUndefined();
+  // Prepare-only starts nothing, so there is no console to sign in to.
+  expect(text).not.toContain("never-return-this");
   expect(prepare).toHaveBeenCalledTimes(1);
   expect(docker).not.toHaveBeenCalled();
   expect(cloud).not.toHaveBeenCalled();
+});
+
+it("returns the owner token only after a real deployment, never the charger password", async () => {
+  const docker = vi.fn(async () => undefined),
+    dockerProbe = vi.fn(async () => undefined);
+  server = createSetupServer({
+    prepare: async () => ({
+      directory: "/private/setup",
+      model: { name: "chargeos-synthetic" },
+      receipt: {
+        status: "prepared",
+        ownerToken: "owner-token-for-the-console-handoff",
+        stationSecret: "charger-password-stays-private",
+        consoleUrl: "https://example.test",
+      },
+    }),
+    docker,
+    dockerProbe,
+    dockerDestination: async () => ({
+      context: "synthetic-local",
+      endpoint: "unix:///synthetic/docker.sock",
+    }),
+  });
+  const { origin, url } = await server.listen();
+  const response = await fetch(`${origin}/deploy`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: origin,
+      "X-Setup-Token": new URL(url).hash.slice(1),
+    },
+    body: JSON.stringify(raw({ deploy: true })),
+  });
+  expect(response.status).toBe(200);
+  const text = await response.text();
+  expect(docker).toHaveBeenCalledTimes(1);
+  expect(text).not.toContain("charger-password-stays-private");
+  expect(JSON.parse(text)).toMatchObject({
+    signInToken: "owner-token-for-the-console-handoff",
+    status: "containers-started",
+  });
+  expect(JSON.parse(text).ownerToken).toBeUndefined();
 });

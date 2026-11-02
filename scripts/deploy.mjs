@@ -115,10 +115,10 @@ export function createSetupServer({
         reply(response, 200, {
           ...publicReceipt,
           directory: prepared.directory,
-          // Only this nonce-authorized loopback tab receives it, to hand to the console it opens
-          // through postMessage. It is never rendered, stored or put in a URL. The charger
-          // password stays in the private folder.
-          ...(company ? {} : { signInToken: ownerToken }),
+          // Only this nonce-authorized loopback tab receives it, after a real deployment, to hand
+          // to the console it opens once that console proves it holds the same token. It is never
+          // rendered, stored or put in a URL. The charger password stays in the private folder.
+          ...(company || !input.deploy ? {} : { signInToken: ownerToken }),
         });
       } catch (error) {
         reply(response, error instanceof DeploymentError ? 400 : 500, {

@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { connect, type AddressInfo } from "node:net";
 
 import { afterEach, describe, expect, it } from "vitest";
@@ -111,6 +112,35 @@ describe("owner onboarding API", () => {
       }).then((response) => response.json() as Promise<Record<string, unknown>>);
     return { evidence, get, ocppPort: (ocpp.address() as AddressInfo).port, ownerTags, post };
   }
+
+  it("proves the owner token to the setup wizard without revealing it, within a bounded budget", async () => {
+    const { evidence, post } = await start();
+    const challenge = "ab".repeat(32);
+    const response = await post("/api/v1/setup-sign-in/proof", { challenge }, "");
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { proof: string };
+    expect(body).toEqual({
+      proof: createHmac("sha256", TOKEN)
+        .update(`chargeos-setup-sign-in-v1\n${challenge}`)
+        .digest("hex"),
+    });
+    expect(JSON.stringify(body)).not.toContain(TOKEN);
+    expect(evidence.events).toEqual([]);
+    for (const bad of [
+      { challenge: "AB".repeat(32) },
+      { challenge: "ab" },
+      { challenge, extra: 1 },
+      {},
+    ]) {
+      expect((await post("/api/v1/setup-sign-in/proof", bad, "")).status).toBe(400);
+    }
+    // Each request costs the caller the same budget as a failed sign-in.
+    let status = 0;
+    for (let attempt = 0; attempt < 40 && status !== 429; attempt += 1) {
+      status = (await post("/api/v1/setup-sign-in/proof", { challenge }, "")).status;
+    }
+    expect(status).toBe(429);
+  });
 
   it("adopts a charger name only for the owner and only after a password-proven attempt", async () => {
     const { evidence, ocppPort, post } = await start();

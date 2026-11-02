@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import {
   createTroubleshooter,
   troubleshootingInput,
@@ -14,6 +14,11 @@ import type { StationCommandResult } from "../shared/commands.js";
 import type { ApiErrorResponse } from "../shared/contracts.js";
 import type { ContinuityPreparationInput } from "../shared/continuity.js";
 import type { DelegateGrantInput, DelegateScope } from "../shared/delegation.js";
+import {
+  SETUP_SIGN_IN_CHALLENGE,
+  SETUP_SIGN_IN_PROOF_CONTEXT,
+  SETUP_SIGN_IN_PROOF_PATH,
+} from "../shared/setup-sign-in.js";
 import {
   OWNER_TAG_REVOCATION_CONFIRMATION,
   type OwnerTagAddInput,
@@ -168,6 +173,13 @@ export function createOwnerApi(
       const remoteAddress = clientAddress(request, config.trustProxyHeaders);
       if (isRateLimited(failedAuthorizations, remoteAddress)) {
         sendError(response, 429, "rate_limited", "Too many failed authorization attempts");
+        return;
+      }
+      if (url.pathname === SETUP_SIGN_IN_PROOF_PATH && request.method === "POST") {
+        // Unauthenticated by design: the console asks for it before it holds a token. It costs the
+        // caller the same budget as a failed sign-in, and an HMAC reveals nothing about its key.
+        recordFailedAuthorization(failedAuthorizations, remoteAddress);
+        await handleSetupSignInProof(request, response, config.ownerApiToken);
         return;
       }
       const token = bearerToken(request);
@@ -930,6 +942,36 @@ function sendMigrationError(response: ServerResponse, error: unknown): boolean {
     return true;
   }
   return false;
+}
+
+async function handleSetupSignInProof(
+  request: IncomingMessage,
+  response: ServerResponse,
+  ownerApiToken: string,
+): Promise<void> {
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonBody(request);
+  } catch (error) {
+    if (error instanceof FreedomTestInputError) {
+      sendError(response, 400, "invalid_request", error.message);
+      return;
+    }
+    throw error;
+  }
+  const { challenge } = body;
+  if (
+    Object.keys(body).length !== 1 ||
+    typeof challenge !== "string" ||
+    !SETUP_SIGN_IN_CHALLENGE.test(challenge)
+  ) {
+    sendError(response, 400, "invalid_request", "challenge must be 64 lowercase hex digits");
+    return;
+  }
+  const proof = createHmac("sha256", ownerApiToken)
+    .update(`${SETUP_SIGN_IN_PROOF_CONTEXT}${challenge}`)
+    .digest("hex");
+  sendJson(response, 200, { proof });
 }
 
 async function readJsonBody(request: IncomingMessage): Promise<Record<string, unknown>> {

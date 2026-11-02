@@ -24,6 +24,8 @@ target.addEventListener("change", () => {
   // Managed hosting deploys a pinned template that still seeds the owner card.
   document.getElementById("ownerTag").required = managed;
   document.getElementById("owner-tag-optional").hidden = managed;
+  // Managed hosting starts the Home console; the profile can be changed later in the console.
+  document.getElementById("profile-choice").hidden = managed;
   document.getElementById("image-optional").hidden = managed;
   document.getElementById("destination-help").textContent = managed
     ? "Use an existing Coolify Cloud account with a connected server. Its proxy will provide HTTPS and WSS on two separate domains."
@@ -39,6 +41,7 @@ form.addEventListener("submit", async (event) => {
   if (form.dataset.busy) return;
   const values = Object.fromEntries(new FormData(form));
   values.deploy = event.submitter?.value === "deploy";
+  if (values.target === "coolify") delete values.profile;
   if (values.target === "docker")
     for (const key of [
       "cloudOrigin",
@@ -115,12 +118,32 @@ form.addEventListener("submit", async (event) => {
   }
 });
 
+const SIGN_IN_CONTEXT = "chargeos-setup-sign-in-v1\n";
+const hex = (bytes) =>
+  Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, "0")).join("");
+
+/** HMAC-SHA-256 of the challenge keyed by the owner token, as the console's server computes it. */
+async function expectedProof(signInToken, challenge) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(signInToken),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  return hex(await crypto.subtle.sign("HMAC", key, encoder.encode(SIGN_IN_CONTEXT + challenge)));
+}
+
 /**
- * Opens the console and hands it the owner token by postMessage, to that exact origin, after the
- * tab this page opened says it is ready. The token is never shown, stored or put in a URL.
+ * Opens the console and hands it the owner token by postMessage, to that exact origin, only after
+ * the tab this page opened proves its server holds the same token (an HMAC of a fresh challenge).
+ * A page at a mistyped or stale hostname cannot answer, so it never receives the token. The token
+ * is never shown, stored or put in a URL.
  */
 function offerConsoleSignIn(consoleUrl, signInToken) {
   const button = document.getElementById("open-console");
+  const help = document.getElementById("open-console-help");
   let consoleOrigin;
   try {
     consoleOrigin = new URL(consoleUrl).origin;
@@ -129,24 +152,40 @@ function offerConsoleSignIn(consoleUrl, signInToken) {
     return;
   }
   if (typeof signInToken !== "string" || !signInToken) {
-    button.textContent = "Open my console";
     button.onclick = () => window.open(consoleOrigin, "_blank", "noopener");
-    document.getElementById("open-console-help").textContent =
-      "Sign in with the owner token from credentials.json.";
+    help.textContent = "Start chargeOS, then sign in with the owner token from credentials.json.";
     return;
   }
   let opened = null;
-  window.addEventListener("message", (event) => {
-    if (
-      opened === null ||
-      event.source !== opened ||
-      event.origin !== consoleOrigin ||
-      event.data?.type !== "chargeos-sign-in-ready"
-    )
+  let challenge = null;
+  const listener = async (event) => {
+    if (opened === null || event.source !== opened || event.origin !== consoleOrigin) return;
+    const data = event.data;
+    if (data?.type === "chargeos-sign-in-ready" && challenge === null) {
+      challenge = hex(crypto.getRandomValues(new Uint8Array(32)));
+      opened.postMessage({ type: "chargeos-sign-in-challenge", challenge }, consoleOrigin);
       return;
+    }
+    if (data?.type !== "chargeos-sign-in-proof" || challenge === null) return;
+    const sent = challenge;
+    if (data.challenge !== sent || typeof data.proof !== "string") return;
+    if (data.proof !== (await expectedProof(signInToken, sent))) {
+      window.removeEventListener("message", listener);
+      opened = null;
+      help.textContent =
+        "That address answered but is not this chargeOS installation, so you were not signed in. Check the console hostname and DNS, then sign in with the owner token from credentials.json.";
+      return;
+    }
+    if (opened === null || challenge !== sent) return;
     opened.postMessage({ type: "chargeos-sign-in", token: signInToken }, consoleOrigin);
-  });
+    window.removeEventListener("message", listener);
+    opened = null;
+    help.textContent = "Signed in. You can close this tab and stop the setup tool.";
+  };
   button.onclick = () => {
+    window.removeEventListener("message", listener);
+    challenge = null;
     opened = window.open(`${consoleOrigin}/#sign-in`, "_blank");
+    window.addEventListener("message", listener);
   };
 }
