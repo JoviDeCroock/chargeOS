@@ -23,6 +23,7 @@ import { buildMigrationProjection } from "./migration.js";
 import type { StationNameLookup } from "./directory.js";
 import type { ChargeGateway } from "./gateway.js";
 import { pseudonymizeTag } from "./tag.js";
+import { IDLE_CARD_CAPTURE } from "../shared/card-capture.js";
 import { buildUsageReport, type UsageReport } from "../shared/usage.js";
 
 /**
@@ -43,6 +44,7 @@ export function buildOwnerSnapshot(
   const migration = buildMigrationProjection(stationEvents);
   return {
     authorization: authorizationProjection(stationEvents, config),
+    cardCapture: runtime.cardCapture ?? IDLE_CARD_CAPTURE,
     commands: buildStationCommands(stationEvents),
     delegations: projectDelegateGrants(stationEvents),
     evidence: evidenceProjection(stationEvents, 50),

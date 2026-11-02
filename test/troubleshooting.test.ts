@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { IDLE_CARD_CAPTURE } from "../shared/card-capture.js";
 import {
   createTroubleshooter,
   troubleshootingInput,
@@ -253,6 +255,9 @@ describe("BYOK troubleshooting boundary", () => {
     const command = vi.fn();
     const gateway: ChargeGateway = {
       acceptIdentityAlias: () => Promise.reject(new Error("unused")),
+      armCardCapture: () => IDLE_CARD_CAPTURE,
+      cancelCardCapture: () => IDLE_CARD_CAPTURE,
+      takeCapturedCard: () => null,
       getRuntime: () => ({ connected: false, connectedAt: null }),
       close: command,
       listen: command,

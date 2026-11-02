@@ -477,6 +477,12 @@ describe("owner console", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Add card" }));
+    // Tapping the card is the default; typing the number is one click away.
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Type the card number instead",
+      }),
+    );
     const addDialog = screen.getByRole("dialog");
     fireEvent.input(within(addDialog).getByLabelText("Card number"), {
       target: { value: "second-owner-tag" },

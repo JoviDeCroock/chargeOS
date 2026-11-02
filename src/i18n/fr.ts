@@ -50,8 +50,12 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "cards.field.newPerson": "Quelqu’un de nouveau…",
   "cards.field.number": "Numéro du badge",
   "cards.field.numberHint":
-    "Le numéro imprimé sur la carte RFID ou le porte-clés, ou lu à partir de celui-ci. chargeOS le conserve uniquement sur ce serveur et ne l’affiche plus jamais.",
+    "La valeur que la borne lit sur le badge. Ce n’est souvent pas le numéro imprimé dessus ; il est donc plus simple de présenter le badge à la borne. chargeOS la conserve uniquement sur ce serveur et ne l’affiche plus jamais.",
   "cards.field.reference": "Référence du badge :",
+  "cards.first.body":
+    "Aucun badge ne peut encore charger ici : chargeOS refuse tous les badges tant que vous n’en avez pas ajouté. Présentez votre propre badge à la borne pour l’ajouter.",
+  "cards.first.title": "Ajoutez votre premier badge",
+
   "cards.keepOne":
     "Une borne garde toujours au moins un badge, pour que vous ne puissiez jamais vous bloquer.",
   "cards.lede":
@@ -86,6 +90,27 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "cards.sync.readyHint": "Envoyez la liste pour que la borne connaisse exactement ces badges.",
   "cards.sync.send": "Envoyer à la borne",
   "cards.sync.sending": "Envoi en cours…",
+  "cards.tap.add": "Ajouter ce badge",
+  "cards.tap.again": "Écouter à nouveau",
+  "cards.tap.captured": "Badge trouvé",
+  "cards.tap.capturedBody":
+    "Un badge a été présenté à {time} (référence {reference}). La borne l’a refusé cette fois, comme prévu. Ajoutez-le et il fonctionnera ici désormais.",
+  "cards.tap.expired":
+    "Aucun badge n’est arrivé jusqu’à chargeOS. Vérifiez que la borne est connectée et écoutez à nouveau, ou saisissez le numéro du badge.",
+  "cards.tap.intro":
+    "Présentez votre badge à la borne et chargeOS l’ajoute : vous n’avez jamais besoin de connaître son numéro. La borne refuse ce passage-là ; c’est normal.",
+  "cards.tap.known": "Ce badge fait déjà partie des badges de cette borne. Rien n’a changé.",
+  "cards.tap.listening": "Présentez votre badge à la borne maintenant",
+  "cards.tap.listeningBody":
+    "Tenez un seul badge contre le lecteur de la borne. Seule cette borne écoute, et seulement un court moment.",
+  "cards.tap.offline":
+    "La borne est hors ligne. chargeOS ne voit un badge que lorsque la borne est connectée.",
+  "cards.tap.several":
+    "Plusieurs badges différents ont été présentés : aucun n’a été ajouté. Écoutez à nouveau et présentez uniquement votre badge.",
+  "cards.tap.start": "Présenter un badge à la borne",
+  "cards.tap.typeInstead": "Saisir le numéro du badge",
+  "cards.tap.until": "Écoute jusqu’à {time}.",
+
   "cards.title": "Badges RFID",
   "cards.unnamed": "Badge sans nom",
   "cards.unnamedShort": "Badge {id}",

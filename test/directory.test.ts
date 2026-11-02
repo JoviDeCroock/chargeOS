@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { IDLE_CARD_CAPTURE } from "../shared/card-capture.js";
+
 import { createOwnerApi, type OwnerApi } from "../server/api.js";
 import type { GatewayConfig } from "../server/config.js";
 import {
@@ -467,6 +469,9 @@ describe("owner directory API", () => {
     const gateway: ChargeGateway = {
       async close() {},
       acceptIdentityAlias: () => Promise.reject(new Error("unused")),
+      armCardCapture: () => IDLE_CARD_CAPTURE,
+      cancelCardCapture: () => IDLE_CARD_CAPTURE,
+      takeCapturedCard: () => null,
       getRuntime: () => ({ connected: false, connectedAt: null }),
       inspectLocalAuthorization: unused,
       listen() {
@@ -666,6 +671,9 @@ describe("owner directory API", () => {
       {
         async close() {},
         acceptIdentityAlias: () => Promise.reject(new Error("unused")),
+        armCardCapture: () => IDLE_CARD_CAPTURE,
+        cancelCardCapture: () => IDLE_CARD_CAPTURE,
+        takeCapturedCard: () => null,
         getRuntime: () => ({ connected: false, connectedAt: null }),
         inspectLocalAuthorization: unused,
         listen() {

@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { IDLE_CARD_CAPTURE } from "../shared/card-capture.js";
+
 import { createOwnerApi, type OwnerApi } from "../server/api.js";
 import type { GatewayConfig } from "../server/config.js";
 import {
@@ -65,6 +67,9 @@ describe("owner API", () => {
     const gateway: ChargeGateway = {
       async close() {},
       acceptIdentityAlias: () => Promise.reject(new Error("unused")),
+      armCardCapture: () => IDLE_CARD_CAPTURE,
+      cancelCardCapture: () => IDLE_CARD_CAPTURE,
+      takeCapturedCard: () => null,
       getRuntime: () => ({ connected: false, connectedAt: null }),
       async inspectLocalAuthorization() {
         throw new Error("not used");
@@ -539,6 +544,9 @@ describe("owner API", () => {
     const gateway: ChargeGateway = {
       async close() {},
       acceptIdentityAlias: () => Promise.reject(new Error("unused")),
+      armCardCapture: () => IDLE_CARD_CAPTURE,
+      cancelCardCapture: () => IDLE_CARD_CAPTURE,
+      takeCapturedCard: () => null,
       getRuntime: (stationId) => ({
         connected: stationId === "OFFICE_1",
         connectedAt: stationId === "OFFICE_1" ? "2026-08-15T08:00:00.000Z" : null,
@@ -663,6 +671,9 @@ describe("owner usage report API", () => {
     const gateway: ChargeGateway = {
       async close() {},
       acceptIdentityAlias: () => Promise.reject(new Error("unused")),
+      armCardCapture: () => IDLE_CARD_CAPTURE,
+      cancelCardCapture: () => IDLE_CARD_CAPTURE,
+      takeCapturedCard: () => null,
       getRuntime: () => ({ connected: false, connectedAt: null }),
       inspectLocalAuthorization: unused,
       listen() {

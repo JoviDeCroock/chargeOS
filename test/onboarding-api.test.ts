@@ -2,11 +2,14 @@ import { connect, type AddressInfo } from "node:net";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { RPCClient } from "ocpp-rpc";
+
 import { createOwnerApi, type OwnerApi } from "../server/api.js";
 import type { GatewayConfig } from "../server/config.js";
 import type { EvidenceEvent, EvidenceStore } from "../server/events.js";
 import { createChargeGateway, type ChargeGateway } from "../server/gateway.js";
 import { OwnerTagRegistry, withOwnerTagRegistry } from "../server/owner-tags.js";
+import { pseudonymizeTag } from "../server/tag.js";
 
 const TOKEN = "owner-token-at-least-thirty-two-characters";
 const SECRET = "0123456789abcdef0123456789abcdef01234567";
@@ -78,13 +81,17 @@ describe("owner onboarding API", () => {
   let api: OwnerApi | undefined;
   let gateway: ChargeGateway | undefined;
 
+  let client: RPCClient | undefined;
+
   afterEach(async () => {
+    await client?.close({ force: true });
+    client = undefined;
     await api?.close();
     await gateway?.close();
   });
 
-  async function start() {
-    const bootstrap = onboardingConfig();
+  async function start(ownerTagSeed: ReadonlySet<string> = new Set(["owner-tag"])) {
+    const bootstrap = { ...onboardingConfig(), ownerTags: ownerTagSeed };
     const ownerTags = OwnerTagRegistry.memory(bootstrap.ownerTags, bootstrap.stationSecret);
     const config = withOwnerTagRegistry(bootstrap, ownerTags);
     const evidence = new MemoryEvidenceStore();
@@ -98,7 +105,11 @@ describe("owner onboarding API", () => {
         headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
         method: "POST",
       });
-    return { evidence, ocppPort: (ocpp.address() as AddressInfo).port, post };
+    const get = (path: string) =>
+      fetch(`http://127.0.0.1:${apiPort}${path}`, {
+        headers: { authorization: `Bearer ${TOKEN}` },
+      }).then((response) => response.json() as Promise<Record<string, unknown>>);
+    return { evidence, get, ocppPort: (ocpp.address() as AddressInfo).port, ownerTags, post };
   }
 
   it("adopts a charger name only for the owner and only after a password-proven attempt", async () => {
@@ -118,5 +129,49 @@ describe("owner onboarding API", () => {
     });
     expect(evidence.events.map(({ message }) => message)).toEqual(["StationIdentityAliasAccepted"]);
     await expect(upgrade(ocppPort, "ACE0123456", SECRET)).resolves.toMatch(/^HTTP\/1\.1 101 /);
+  });
+
+  it("adds the first card by tapping it, without its value ever leaving the server", async () => {
+    const { evidence, get, ocppPort, ownerTags, post } = await start(new Set());
+    const base = "/api/v1/stations/HOME-1";
+    // Listening needs a connected charger.
+    expect((await post(`${base}/card-capture`, {})).status).toBe(409);
+    client = new RPCClient({
+      endpoint: `ws://127.0.0.1:${ocppPort}`,
+      identity: "HOME-1",
+      password: SECRET,
+      protocols: ["ocpp1.6"],
+      strictMode: true,
+    } as ConstructorParameters<typeof RPCClient>[0]);
+    await client.connect();
+    expect((await post(`${base}/card-capture`, { extra: 1 })).status).toBe(400);
+    const armed = await post(`${base}/card-capture`, {});
+    expect(armed.status).toBe(200);
+    await expect(armed.json()).resolves.toMatchObject({ state: "listening" });
+
+    await client.call("Authorize", { idTag: "04A1B2C3D4E5F6" });
+    const snapshot = await get(`${base}/snapshot`);
+    const pseudonym = `tag_${pseudonymizeTag("04A1B2C3D4E5F6", SECRET)}`;
+    expect(snapshot.cardCapture).toMatchObject({ state: "captured", tagPseudonym: pseudonym });
+    expect(JSON.stringify(snapshot)).not.toContain("04A1B2C3D4E5F6");
+
+    expect(
+      (await post(`${base}/card-capture/confirm`, { tagPseudonym: "tag_000000000000000000000000" }))
+        .status,
+    ).toBe(409);
+    const confirmed = await post(`${base}/card-capture/confirm`, { tagPseudonym: pseudonym });
+    expect(confirmed.status).toBe(201);
+    const body = await confirmed.text();
+    expect(body).not.toContain("04A1B2C3D4E5F6");
+    expect(JSON.parse(body)).toMatchObject({ tagCount: 1, tagPseudonym: pseudonym });
+    expect(ownerTags.tags.has("04A1B2C3D4E5F6")).toBe(true);
+    expect(JSON.stringify(evidence.events)).not.toContain("04A1B2C3D4E5F6");
+    // Confirming twice adds nothing.
+    expect((await post(`${base}/card-capture/confirm`, { tagPseudonym: pseudonym })).status).toBe(
+      409,
+    );
+    await expect(client.call("Authorize", { idTag: "04A1B2C3D4E5F6" })).resolves.toMatchObject({
+      idTagInfo: { status: "Accepted" },
+    });
   });
 });

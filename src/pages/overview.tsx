@@ -61,6 +61,22 @@ export function OverviewPage({
 
       {needsConnectionHelp(current) && <ConnectChargerPanel snapshot={current} />}
 
+      {current.authorization.tagCount === 0 && (
+        <div class="inline-alert warn" role="status">
+          <strong>{t("cards.first.title")}</strong>
+          <p>{t("cards.first.body")}</p>
+          <a
+            href="#/cards"
+            onClick={(event) => {
+              event.preventDefault();
+              go({ page: "cards" });
+            }}
+          >
+            {t("cards.tap.start")}
+          </a>
+        </div>
+      )}
+
       <ChargingNow snapshot={current} directory={directory} />
 
       <UsagePanel sessions={current.sessions} stationId={station.id} directory={directory} />

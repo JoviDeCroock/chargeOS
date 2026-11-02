@@ -3,6 +3,12 @@ import type { IncomingMessage, Server as HttpServer } from "node:http";
 import type { Socket } from "node:net";
 import { RPCServer, createRPCError, type IHandlersOption } from "ocpp-rpc";
 
+import {
+  CARD_CAPTURE_HOLD_MS,
+  CARD_CAPTURE_LISTEN_MS,
+  IDLE_CARD_CAPTURE,
+  type CardCaptureProjection,
+} from "../shared/card-capture.js";
 import type { StationCommandInput, StationCommandRecord } from "../shared/commands.js";
 import {
   DISPLAYABLE_OCPP_PROTOCOL,
@@ -68,6 +74,9 @@ export interface ChargeGateway {
    * just presented together with this charger's own password; recorded as evidence first.
    */
   acceptIdentityAlias(stationId: string, presentedIdentity: unknown): Promise<IdentityAliasResult>;
+  /** Starts listening for one card tap at a connected charger. */
+  armCardCapture(stationId: string): CardCaptureProjection;
+  cancelCardCapture(stationId: string): CardCaptureProjection;
   close(): Promise<void>;
   getRuntime(stationId: string): StationRuntime;
   inspectLocalAuthorization(stationId: string): Promise<CapabilityAssessment>;
@@ -78,9 +87,16 @@ export interface ChargeGateway {
   ): Promise<ContinuityPreparationResult>;
   sendStationCommand(stationId: string, input: StationCommandInput): Promise<StationCommandRecord>;
   syncOwnerList(stationId: string): Promise<AuthorizationSyncResult>;
+  /**
+   * Hands over the raw value of the card that was just tapped, once, if it is still the card with
+   * this pseudonym. The value never leaves the server; the caller adds it to the owner-tag registry.
+   */
+  takeCapturedCard(stationId: string, tagPseudonym: string): string | null;
 }
 
 export interface StationRuntime {
+  /** Owner-only tap-to-add state; absent from test doubles and older gateways. */
+  readonly cardCapture?: CardCaptureProjection;
   readonly connected: boolean;
   readonly connectedAt: string | null;
   /** In-memory refusal diagnostics; absent from test doubles and older gateways. */
@@ -164,6 +180,99 @@ export function createChargeGateway(
   const stationOfAlias = new Map(
     [...aliasOfStation].map(([stationId, alias]) => [alias, stationId]),
   );
+
+  // Tap-to-add holds at most one raw card value per charger, in memory, for a few minutes.
+  interface CardCapture {
+    readonly listenUntil: number;
+    state: "listening" | "captured" | "known" | "several";
+    tag: string | null;
+    tagPseudonym: string | null;
+    tappedAt: number | null;
+    timer: ReturnType<typeof setTimeout> | null;
+  }
+  const captures = new Map<string, CardCapture>();
+
+  const clearCapture = (stationId: string) => {
+    const capture = captures.get(stationId);
+    if (capture?.timer) clearTimeout(capture.timer);
+    captures.delete(stationId);
+  };
+
+  const forgetCapturedTagLater = (stationId: string, capture: CardCapture, at: number) => {
+    if (capture.timer) clearTimeout(capture.timer);
+    capture.timer = setTimeout(
+      () => {
+        if (captures.get(stationId) !== capture) return;
+        // Expired: drop the raw value but keep a tag-free state so the console can say so.
+        capture.tag = null;
+        capture.timer = null;
+      },
+      Math.max(0, at - Date.now()),
+    );
+    capture.timer.unref?.();
+  };
+
+  const projectCapture = (stationId: string): CardCaptureProjection => {
+    const capture = captures.get(stationId);
+    if (!capture) return IDLE_CARD_CAPTURE;
+    const now = Date.now();
+    if (capture.state === "listening") {
+      return now < capture.listenUntil
+        ? {
+            state: "listening",
+            tagPseudonym: null,
+            tappedAt: null,
+            until: new Date(capture.listenUntil).toISOString(),
+          }
+        : { ...IDLE_CARD_CAPTURE, state: "expired" };
+    }
+    const tappedAt = capture.tappedAt === null ? null : new Date(capture.tappedAt).toISOString();
+    if (capture.state === "captured") {
+      const holdUntil = (capture.tappedAt ?? 0) + CARD_CAPTURE_HOLD_MS;
+      if (now >= holdUntil || capture.tag === null) {
+        return { ...IDLE_CARD_CAPTURE, state: "expired" };
+      }
+      return {
+        state: "captured",
+        tagPseudonym: capture.tagPseudonym,
+        tappedAt,
+        until: new Date(holdUntil).toISOString(),
+      };
+    }
+    return {
+      state: capture.state,
+      tagPseudonym: capture.state === "known" ? capture.tagPseudonym : null,
+      tappedAt,
+      until: null,
+    };
+  };
+
+  /** Called for every card the charger presents; only acts while the owner is listening. */
+  const observeTap = (stationConfig: GatewayConfig, idTag: unknown, accepted: boolean) => {
+    const stationId = stationConfig.stationId;
+    const capture = captures.get(stationId);
+    if (!capture || typeof idTag !== "string" || capture.state === "several") return;
+    const now = Date.now();
+    if (now >= capture.listenUntil) return;
+    const tagPseudonym = `tag_${pseudonymizeTag(idTag, stationConfig.stationSecret)}`;
+    if (capture.state === "listening") {
+      capture.state = accepted ? "known" : "captured";
+      capture.tag = accepted ? null : idTag;
+      capture.tagPseudonym = tagPseudonym;
+      capture.tappedAt = now;
+      if (!accepted) forgetCapturedTagLater(stationId, capture, now + CARD_CAPTURE_HOLD_MS);
+      return;
+    }
+    // The same card again (a retry, or Authorize followed by StartTransaction) changes nothing.
+    if (capture.tagPseudonym === tagPseudonym) return;
+    // Two different cards: offer neither, so a passer-by's tap can never be added by mistake.
+    if (capture.timer) clearTimeout(capture.timer);
+    capture.state = "several";
+    capture.tag = null;
+    capture.tagPseudonym = null;
+    capture.timer = null;
+    capture.tappedAt = now;
+  };
 
   const server = new RPCServer({
     maxBadMessages: 3,
@@ -390,6 +499,7 @@ export function createChargeGateway(
       const request = params as unknown as AuthorizeRequest;
       await record(evidence, stationConfig, stationId, "station-to-csms", "Authorize", request);
       const status = authorizationStatus(stationConfig, request.idTag);
+      observeTap(stationConfig, request.idTag, status === "Accepted");
       await record(evidence, stationConfig, stationId, "system", "AuthorizationDecision", {
         idTag: request.idTag,
         status,
@@ -400,6 +510,7 @@ export function createChargeGateway(
     handle("StartTransaction", async ({ params }) => {
       const request = params as unknown as StartTransactionRequest;
       const status = authorizationStatus(stationConfig, request.idTag);
+      observeTap(stationConfig, request.idTag, status === "Accepted");
       const transactionFingerprint = fingerprintTransaction(stationConfig, request);
       const allocation = await evidence.recordTransactionStart(
         stationId,
@@ -710,11 +821,46 @@ export function createChargeGateway(
 
   const gateway: ChargeGateway = {
     acceptIdentityAlias,
+    armCardCapture(stationId) {
+      configForStation(config, stationId);
+      requirePeer(peers, stationId);
+      clearCapture(stationId);
+      captures.set(stationId, {
+        listenUntil: Date.now() + CARD_CAPTURE_LISTEN_MS,
+        state: "listening",
+        tag: null,
+        tagPseudonym: null,
+        tappedAt: null,
+        timer: null,
+      });
+      return projectCapture(stationId);
+    },
+    cancelCardCapture(stationId) {
+      configForStation(config, stationId);
+      clearCapture(stationId);
+      return projectCapture(stationId);
+    },
+    takeCapturedCard(stationId, tagPseudonym) {
+      const projection = projectCapture(stationId);
+      const capture = captures.get(stationId);
+      if (
+        projection.state !== "captured" ||
+        !capture?.tag ||
+        capture.tagPseudonym !== tagPseudonym
+      ) {
+        return null;
+      }
+      const tag = capture.tag;
+      clearCapture(stationId);
+      return tag;
+    },
     async close() {
+      for (const stationId of captures.keys()) clearCapture(stationId);
       await server.close({ awaitPending: true });
     },
     getRuntime(stationId) {
       return {
+        cardCapture: projectCapture(stationId),
         connected: peers.has(stationId),
         connectedAt: connectedAt.get(stationId) ?? null,
         connection: {
@@ -834,6 +980,9 @@ export function createChargeGateway(
         );
         throw new OwnerContinuityBlockedError(assessment);
       }
+      // A full replacement with no cards would erase the charger's own list. The readiness check
+      // already blocks this; refuse here too so no future change can send an empty list.
+      if (stationConfig.ownerTags.size === 0) throw new OwnerContinuityBlockedError(assessment);
       const peer = requirePeer(peers, stationId);
       const listVersion = await evidence.allocateAuthorizationRevision(
         stationId,

@@ -221,14 +221,23 @@ function loadStations(env: NodeJS.ProcessEnv): readonly StationConfig[] {
   }
 
   const driver = env.CHARGEOS_STATION_DRIVER?.trim();
-  const station = validateStation({
-    ...(driver ? { driver } : {}),
-    id: requireValue(env, "CHARGEOS_STATION_ID"),
-    label: env.CHARGEOS_STATION_LABEL?.trim() || requireValue(env, "CHARGEOS_STATION_ID"),
-    ownerTags: parseOwnerTags(requireSecret(env, "CHARGEOS_OWNER_TAGS", true)),
-    secret: requireSecret(env, "CHARGEOS_STATION_SECRET"),
-    site: env.CHARGEOS_STATION_SITE?.trim() || "Primary site",
-  });
+  // A single charger may start without an owner card: the owner then adds the first one by
+  // tapping it at the charger. Until then every card is refused and nothing is sent to the charger.
+  const hasSeedTags =
+    env.CHARGEOS_OWNER_TAGS !== undefined || env.CHARGEOS_OWNER_TAGS_FILE !== undefined;
+  const station = validateStation(
+    {
+      ...(driver ? { driver } : {}),
+      id: requireValue(env, "CHARGEOS_STATION_ID"),
+      label: env.CHARGEOS_STATION_LABEL?.trim() || requireValue(env, "CHARGEOS_STATION_ID"),
+      ownerTags: hasSeedTags
+        ? parseOwnerTags(requireSecret(env, "CHARGEOS_OWNER_TAGS", true))
+        : new Set<string>(),
+      secret: requireSecret(env, "CHARGEOS_STATION_SECRET"),
+      site: env.CHARGEOS_STATION_SITE?.trim() || "Primary site",
+    },
+    { allowNoOwnerTags: !hasSeedTags },
+  );
   return [station];
 }
 
@@ -282,7 +291,10 @@ function parseStationsFile(contents: string): readonly StationConfig[] {
   return stations;
 }
 
-function validateStation(station: StationConfig): StationConfig {
+function validateStation(
+  station: StationConfig,
+  { allowNoOwnerTags = false }: { readonly allowNoOwnerTags?: boolean } = {},
+): StationConfig {
   if (
     !station.id ||
     station.id.trim() !== station.id ||
@@ -304,7 +316,7 @@ function validateStation(station: StationConfig): StationConfig {
   if (station.secret.length < 16 || hasControlCharacters(station.secret)) {
     throw new Error("Every station secret must be a single-line value of at least 16 characters");
   }
-  if (station.ownerTags.size === 0) {
+  if (station.ownerTags.size === 0 && !allowNoOwnerTags) {
     throw new Error("Every station must contain at least one owner tag");
   }
   for (const tag of station.ownerTags) {

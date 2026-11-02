@@ -355,8 +355,10 @@ function createState(
   stationSecret: string,
 ): StoredOwnerTagState {
   const normalized = [...new Set(tags.map(ownerTag))].sort();
-  if (!normalized.length || normalized.length > MAXIMUM_OWNER_TAGS) {
-    throw new OwnerTagStateError("Owner tag state must contain a supported non-empty tag set");
+  // An empty set is the state before the first card is added. Revocation can never return to it:
+  // removing the last desired card is refused.
+  if (normalized.length > MAXIMUM_OWNER_TAGS) {
+    throw new OwnerTagStateError("Owner tag state exceeds its supported maximum");
   }
   if (!Number.isSafeInteger(version) || version < 1) {
     throw new OwnerTagStateError("Owner tag state version is invalid");

@@ -54,6 +54,16 @@ export function assessOwnerContinuity(
       unsupported,
       ownerTagCount,
     ),
+    ...(ownerTagCount === 0
+      ? [
+          {
+            id: "owner-card",
+            label: "At least one owner card is set up",
+            observed: "no owner card yet",
+            state: "fail",
+          } satisfies CapabilityCheck,
+        ]
+      : []),
     {
       id: "local-list-version",
       label: "Local list version can be read",

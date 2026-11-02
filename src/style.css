@@ -3679,3 +3679,19 @@ body {
   justify-items: start;
   margin-top: 8px;
 }
+
+.tap-listening {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.tap-listening p {
+  margin: 4px 0;
+}
+
+.first-card {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}

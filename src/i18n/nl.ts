@@ -50,8 +50,12 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "cards.field.newPerson": "Iemand nieuw…",
   "cards.field.number": "Pasnummer",
   "cards.field.numberHint":
-    "Het nummer dat op de RFID-pas of sleutelhanger staat of ervan wordt gelezen. chargeOS bewaart het alleen op deze server en toont het nooit opnieuw.",
+    "De waarde die de laadpaal van de pas leest. Dat is vaak niet het nummer dat erop gedrukt staat; de pas tegen de laadpaal houden is daarom makkelijker. chargeOS bewaart ze alleen op deze server en toont ze nooit opnieuw.",
   "cards.field.reference": "Referentie van de laadpas:",
+  "cards.first.body":
+    "Nog geen enkele pas kan hier laden: chargeOS weigert elke pas tot je er een toevoegt. Houd je eigen pas tegen de laadpaal om ze toe te voegen.",
+  "cards.first.title": "Voeg je eerste pas toe",
+
   "cards.keepOne":
     "Een laadpaal houdt altijd minstens één laadpas, zodat je jezelf nooit kunt buitensluiten.",
   "cards.lede":
@@ -87,6 +91,27 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "cards.sync.readyHint": "Stuur de lijst zodat de laadpaal precies deze laadpassen kent.",
   "cards.sync.send": "Naar laadpaal sturen",
   "cards.sync.sending": "Bezig met versturen…",
+  "cards.tap.add": "Deze pas toevoegen",
+  "cards.tap.again": "Opnieuw luisteren",
+  "cards.tap.captured": "Pas gevonden",
+  "cards.tap.capturedBody":
+    "Er werd om {time} een pas aangeboden (referentie {reference}). De laadpaal weigerde ze deze keer, zoals verwacht. Voeg ze toe en ze werkt hier voortaan.",
+  "cards.tap.expired":
+    "Er kwam geen pas bij chargeOS aan. Controleer of de laadpaal verbonden is en luister opnieuw, of typ het pasnummer.",
+  "cards.tap.intro":
+    "Houd je pas tegen de laadpaal en chargeOS voegt ze toe, zodat je het nummer nooit hoeft te kennen. De laadpaal weigert die ene keer; dat is normaal.",
+  "cards.tap.known": "Die pas hoort al bij deze laadpaal. Er is niets veranderd.",
+  "cards.tap.listening": "Houd je pas nu tegen de laadpaal",
+  "cards.tap.listeningBody":
+    "Houd één pas tegen de paslezer van de laadpaal. Alleen deze laadpaal luistert, en maar even.",
+  "cards.tap.offline":
+    "De laadpaal is offline. chargeOS ziet een pas alleen als de laadpaal verbonden is.",
+  "cards.tap.several":
+    "Er werden verschillende passen aangeboden, dus er is geen enkele toegevoegd. Luister opnieuw en bied alleen je eigen pas aan.",
+  "cards.tap.start": "Pas aanbieden aan de laadpaal",
+  "cards.tap.typeInstead": "Pasnummer typen",
+  "cards.tap.until": "Luistert tot {time}.",
+
   "cards.title": "Laadpassen",
   "cards.unnamed": "Laadpas zonder naam",
   "cards.unnamedShort": "Laadpas {id}",

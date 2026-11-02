@@ -118,6 +118,15 @@ An accepted charger name (identity alias) lets a charger keep the name it alread
 
 The migration dossier still binds the configured station ID in its endpoint path. A charger that connects under an accepted alias therefore cannot satisfy a dossier-bound endpoint authorization yet; configure the station ID to the charger's own name for that workflow.
 
+Tap-to-add is an online, owner-armed convenience. For two minutes after the owner asks, the gateway remembers in memory the first card value the connected charger presents in `Authorize` or `StartTransaction`; that tap is still answered `Invalid`, and evidence records only its pseudonym as before. A second different card cancels the offer; a known card is reported by pseudonym only. The owner adds the card within five minutes by its pseudonym, which moves the value straight into the owner-tag registry as an ordinary desired-state addition; nothing is synchronized until a later `Accepted` full-list revision. A single-station edge may also start with no owner card: every card is refused, readiness reports the missing card, synchronization refuses to send an empty full list (which would erase the charger's own list), and continuity export refuses to create a bundle without an owner credential. Here is the effect on each failure row:
+
+- **Hosted, WAN/DNS or local-edge loss:** no change. A tap held in memory is lost with the edge and must be repeated; no acknowledged list changes.
+- **Isolated restart:** no change. Capture sends no command.
+- **Permanent company loss:** no change. Captured values are never recovery state; an edge without an owner card cannot emit a bundle, so it can never be "recovered" into a no-owner state.
+- **One week disconnected:** no change. Capture only works while connected.
+
+Before the first card exists there is no previously authorized owner, so the core invariant has nothing to preserve yet; the edge fails closed by refusing every card and never touches the charger's existing list.
+
 ## Effect of local observation and the product preview
 
 The `/observe` browser-only import/calculation workspace and fictional `/preview` product workspace have no charger-facing connection or command path. Browser/network/tool failure removes analysis or preview access only; it cannot change desired or acknowledged RFID state, a charger endpoint, power limits or essential local charging. Imported observations never enter the canonical charger ledger through this tool. Neither a successful draft calculation nor a preview interaction satisfies a physical Freedom Test.

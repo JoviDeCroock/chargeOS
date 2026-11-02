@@ -73,6 +73,32 @@ describe("owner-custodied RFID desired state", () => {
     expect(JSON.stringify(evidence.events)).not.toContain("second-owner-tag");
   });
 
+  it("starts empty before the first card, persists it, and never returns to empty", async () => {
+    const directory = await temporaryDirectory(directories);
+    const bootstrap = { ...config(join(directory, "events.ndjson")), ownerTags: new Set<string>() };
+    const evidence = new MemoryEvidenceStore();
+    const registry = await OwnerTagRegistry.open(bootstrap);
+    expect(registry.tags.size).toBe(0);
+    await registry.reconcile(withOwnerTagRegistry(bootstrap, registry), evidence);
+
+    const added = await registry.add(withOwnerTagRegistry(bootstrap, registry), evidence, "first");
+    expect(added.tagCount).toBe(1);
+    const restarted = await OwnerTagRegistry.open(bootstrap);
+    expect(restarted.tags).toEqual(new Set(["first"]));
+    await expect(
+      restarted.revoke(withOwnerTagRegistry(bootstrap, restarted), evidence, added.tagPseudonym, {
+        confirmation: OWNER_TAG_REVOCATION_CONFIRMATION,
+      }),
+    ).rejects.toThrow("At least one desired owner tag must remain");
+
+    // Deleting the state file cannot silently return to the empty first-boot seed.
+    await rm(ownerTagStatePath(bootstrap.eventLogPath));
+    const reseeded = await OwnerTagRegistry.open(bootstrap);
+    await expect(
+      reseeded.reconcile(withOwnerTagRegistry(bootstrap, reseeded), evidence),
+    ).rejects.toBeInstanceOf(OwnerTagStateError);
+  });
+
   it("persists independent desired tag registries for every fleet station", async () => {
     const directory = await temporaryDirectory(directories);
     const primary = config(join(directory, "events.ndjson"));

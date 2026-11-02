@@ -18,6 +18,7 @@ import type {
   OwnerSnapshot,
   OwnerTagAddInput,
   OwnerTagMutationResult,
+  CardCaptureProjection,
   OwnerTagRevokeInput,
   StationCommandInput,
   StationCommandResult,
@@ -156,6 +157,25 @@ export async function addOwnerTag(
     headers: { "Content-Type": "application/json" },
     method: "POST",
   });
+}
+
+export function armCardCapture(stationId: string, token: string): Promise<CardCaptureProjection> {
+  return postJson(stationPath(stationId, "/card-capture"), token, {});
+}
+
+export function cancelCardCapture(
+  stationId: string,
+  token: string,
+): Promise<CardCaptureProjection> {
+  return postJson(stationPath(stationId, "/card-capture/cancel"), token, {});
+}
+
+export function confirmCardCapture(
+  stationId: string,
+  tagPseudonym: string,
+  token: string,
+): Promise<OwnerTagMutationResult> {
+  return postJson(stationPath(stationId, "/card-capture/confirm"), token, { tagPseudonym });
 }
 
 export interface IdentityAliasResult {

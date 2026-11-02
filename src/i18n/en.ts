@@ -54,8 +54,12 @@ export const en = {
   "cards.field.newPerson": "Someone new…",
   "cards.field.number": "Card number",
   "cards.field.numberHint":
-    "The number printed on or read from the RFID card or key fob. chargeOS stores it on this server only and never shows it again.",
+    "The value the charger reads from the card. It is often not the number printed on it, so tapping the card at the charger is easier. chargeOS keeps it only on this server and never shows it again.",
   "cards.field.reference": "Card reference:",
+  "cards.first.body":
+    "No card can charge here yet: chargeOS refuses every card until you add one. Tap your own card at the charger to add it.",
+  "cards.first.title": "Add your first card",
+
   "cards.keepOne": "A charger always keeps at least one card, so you can never lock yourself out.",
   "cards.lede":
     "Cards that can start charging at {station}. Once a card is on the charger, it also works without internet.",
@@ -88,6 +92,27 @@ export const en = {
   "cards.sync.readyHint": "Send the list so the charger knows exactly these cards.",
   "cards.sync.send": "Send to charger",
   "cards.sync.sending": "Sending…",
+  "cards.tap.add": "Add this card",
+  "cards.tap.again": "Listen again",
+  "cards.tap.captured": "Card found",
+  "cards.tap.capturedBody":
+    "A card was tapped at {time} (reference {reference}). The charger refused it this time, as expected. Add it, and it works here from now on.",
+  "cards.tap.expired":
+    "No card reached chargeOS. Check that the charger is connected and listen again, or type the card number instead.",
+  "cards.tap.intro":
+    "Tap your card at the charger and chargeOS adds it, so you never need to know its number. The charger refuses this one tap; that is expected.",
+  "cards.tap.known": "That card is already one of this charger's cards. Nothing changed.",
+  "cards.tap.listening": "Tap your card at the charger now",
+  "cards.tap.listeningBody":
+    "Hold one card against the charger's card reader. Only this charger is listening, and only for a short while.",
+  "cards.tap.offline":
+    "The charger is offline. chargeOS can only see a tap while the charger is connected.",
+  "cards.tap.several":
+    "More than one different card was tapped, so none was added. Listen again and tap only your card.",
+  "cards.tap.start": "Tap a card at the charger",
+  "cards.tap.typeInstead": "Type the card number instead",
+  "cards.tap.until": "Listening until {time}.",
+
   "cards.title": "RFID cards",
   "cards.unnamed": "Unnamed card",
   "cards.unnamedShort": "Card {id}",

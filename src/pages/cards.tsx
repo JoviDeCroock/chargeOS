@@ -1,12 +1,15 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 
-import type { OwnerSnapshot } from "../../shared/contracts.js";
+import type { CardCaptureProjection, OwnerSnapshot } from "../../shared/contracts.js";
 import { DIRECTORY_NAME_MAX_LENGTH, type OwnerDirectory } from "../../shared/directory.js";
 import { OWNER_TAG_REVOCATION_CONFIRMATION } from "../../shared/owner-tags.js";
-import { t, tn } from "../i18n/index.js";
+import { formatTime, t, tn } from "../i18n/index.js";
 import {
   action,
+  pollSnapshot,
   runAuthorizationSync,
+  runCardCapture,
+  runCardCaptureConfirm,
   runOwnerTagAdd,
   runOwnerTagRevoke,
   runSaveCard,
@@ -16,6 +19,7 @@ import { cardLabel, Dialog, PageHead, PersonSelect, shortPseudonym } from "../ui
 
 type Editing =
   | { readonly kind: "add" }
+  | { readonly kind: "tap" }
   | { readonly kind: "edit"; readonly tagPseudonym: string }
   | { readonly kind: "remove"; readonly tagPseudonym: string };
 
@@ -39,13 +43,23 @@ export function CardsPage({
         title={t("cards.title")}
         lede={t("cards.lede", { station: current.station.label })}
         actions={
-          <button class="button primary" type="button" onClick={() => setEditing({ kind: "add" })}>
+          <button class="button primary" type="button" onClick={() => setEditing({ kind: "tap" })}>
             {t("cards.add")}
           </button>
         }
       />
 
-      <SyncBanner snapshot={current} go={go} />
+      {authorization.tagCount === 0 ? (
+        <section class="panel glass first-card" aria-labelledby="first-card-title">
+          <h2 id="first-card-title">{t("cards.first.title")}</h2>
+          <p>{t("cards.first.body")}</p>
+          <button class="button primary" type="button" onClick={() => setEditing({ kind: "tap" })}>
+            {t("cards.tap.start")}
+          </button>
+        </section>
+      ) : (
+        <SyncBanner snapshot={current} go={go} />
+      )}
 
       {authorization.pendingRevocations.length > 0 && (
         <div class="inline-alert risk" role="alert">
@@ -99,11 +113,21 @@ export function CardsPage({
             );
           })}
         </ul>
-        {authorization.tagCount <= 1 && <p class="fine-print">{t("cards.keepOne")}</p>}
+        {authorization.tagCount === 1 && <p class="fine-print">{t("cards.keepOne")}</p>}
       </section>
 
       <p class="fine-print">{t("cards.privacy")}</p>
 
+      {editing?.kind === "tap" && (
+        <TapCardDialog
+          capture={current.cardCapture}
+          connected={current.station.connected}
+          directory={directory}
+          stationLabel={current.station.label}
+          onClose={() => setEditing(null)}
+          onType={() => setEditing({ kind: "add" })}
+        />
+      )}
       {editing?.kind === "add" && (
         <AddCardDialog
           directory={directory}
@@ -190,6 +214,206 @@ function SyncBanner({
   );
 }
 
+const CAPTURE_POLL_MS = 2_000;
+
+/**
+ * Adds a card by tapping it at the charger. chargeOS listens for one tap, the charger refuses that
+ * tap as usual, and the console offers the card it saw by its reference only.
+ */
+function TapCardDialog({
+  capture: serverCapture,
+  connected,
+  directory,
+  stationLabel,
+  onClose,
+  onType,
+}: {
+  capture: CardCaptureProjection | undefined;
+  connected: boolean;
+  directory: OwnerDirectory | null;
+  stationLabel: string;
+  onClose: () => void;
+  onType: () => void;
+}) {
+  const capture = serverCapture ?? {
+    state: "idle",
+    tagPseudonym: null,
+    tappedAt: null,
+    until: null,
+  };
+  const [profile, setProfile] = useState<CardProfileState>(EMPTY_PROFILE);
+  const listening = capture.state === "listening";
+
+  useEffect(() => {
+    if (!listening) return undefined;
+    const timer = setInterval(() => void pollSnapshot(), CAPTURE_POLL_MS);
+    return () => clearInterval(timer);
+  }, [listening]);
+
+  const close = () => {
+    // Stop listening and let the server forget any tapped card the owner did not add.
+    if (capture.state !== "idle") void runCardCapture(false);
+    onClose();
+  };
+  const start = () => void runCardCapture(true);
+
+  return (
+    <Dialog title={t("cards.addTitle", { station: stationLabel })} onClose={close}>
+      <div class="dialog-form tap-card" aria-live="polite">
+        {capture.state === "idle" && (
+          <>
+            <p>{t("cards.tap.intro")}</p>
+            {!connected && <p class="inline-alert warn">{t("cards.tap.offline")}</p>}
+          </>
+        )}
+        {listening && (
+          <div class="tap-listening" role="status">
+            <span class="charging-pulse" aria-hidden="true" />
+            <div>
+              <strong>{t("cards.tap.listening")}</strong>
+              <p>{t("cards.tap.listeningBody")}</p>
+              {capture.until && (
+                <small>{t("cards.tap.until", { time: formatTime(capture.until) })}</small>
+              )}
+            </div>
+          </div>
+        )}
+        {capture.state === "captured" && capture.tagPseudonym && (
+          <>
+            <div class="inline-alert idle" role="status">
+              <strong>{t("cards.tap.captured")}</strong>
+              <p>
+                {t("cards.tap.capturedBody", {
+                  reference: shortPseudonym(capture.tagPseudonym),
+                  time: capture.tappedAt ? formatTime(capture.tappedAt) : "—",
+                })}
+              </p>
+            </div>
+            <CardProfileFields directory={directory} value={profile} onChange={setProfile} />
+            <p class="field-hint">{t("cards.addHint")}</p>
+          </>
+        )}
+        {capture.state === "known" && (
+          <p class="inline-alert idle" role="status">
+            {t("cards.tap.known")}
+          </p>
+        )}
+        {capture.state === "several" && (
+          <p class="inline-alert warn" role="status">
+            {t("cards.tap.several")}
+          </p>
+        )}
+        {capture.state === "expired" && (
+          <p class="inline-alert warn" role="status">
+            {t("cards.tap.expired")}
+          </p>
+        )}
+        <footer class="dialog-actions">
+          <button class="button ghost" type="button" onClick={onType}>
+            {t("cards.tap.typeInstead")}
+          </button>
+          {capture.state === "captured" && capture.tagPseudonym ? (
+            <button
+              class="button primary"
+              type="button"
+              disabled={action.value !== null}
+              onClick={() =>
+                void runCardCaptureConfirm(
+                  capture.tagPseudonym!,
+                  directory?.writable ? profileInput(profile) : undefined,
+                ).then((added) => added && onClose())
+              }
+            >
+              {action.value === "owner-tag-add" ? t("cards.adding") : t("cards.tap.add")}
+            </button>
+          ) : listening ? (
+            <button class="button secondary" type="button" onClick={close}>
+              {t("common.cancel")}
+            </button>
+          ) : (
+            <button
+              class="button primary"
+              type="button"
+              disabled={!connected || action.value !== null}
+              onClick={start}
+            >
+              {capture.state === "idle" ? t("cards.tap.start") : t("cards.tap.again")}
+            </button>
+          )}
+        </footer>
+      </div>
+    </Dialog>
+  );
+}
+
+interface CardProfileState {
+  readonly holder: string | null;
+  readonly name: string;
+  readonly newPerson: string;
+}
+
+const EMPTY_PROFILE: CardProfileState = { holder: null, name: "", newPerson: "" };
+
+function profileInput(profile: CardProfileState) {
+  const newHolderName = profile.holder === "new" ? profile.newPerson.trim() : "";
+  return {
+    holderPersonId: profile.holder === "new" ? null : profile.holder,
+    name: profile.name.trim() || null,
+    ...(newHolderName ? { newHolderName } : {}),
+  };
+}
+
+/** Optional card name and holder, shared by both ways of adding a card. */
+function CardProfileFields({
+  directory,
+  value,
+  onChange,
+}: {
+  directory: OwnerDirectory | null;
+  value: CardProfileState;
+  onChange: (next: CardProfileState) => void;
+}) {
+  if (!directory?.writable) return null;
+  return (
+    <>
+      <label>
+        {t("cards.field.name")}
+        <input
+          value={value.name}
+          maxLength={DIRECTORY_NAME_MAX_LENGTH}
+          placeholder={t("cards.field.namePlaceholder")}
+          onInput={(event) => onChange({ ...value, name: event.currentTarget.value })}
+        />
+      </label>
+      <label>
+        {t("cards.field.holder")}
+        <select
+          value={value.holder ?? ""}
+          onChange={(event) => onChange({ ...value, holder: event.currentTarget.value || null })}
+        >
+          <option value="">{t("people.nobody")}</option>
+          {directory.people.map((person) => (
+            <option key={person.id} value={person.id}>
+              {person.name}
+            </option>
+          ))}
+          <option value="new">{t("cards.field.newPerson")}</option>
+        </select>
+      </label>
+      {value.holder === "new" && (
+        <label>
+          {t("people.field.name")}
+          <input
+            value={value.newPerson}
+            maxLength={DIRECTORY_NAME_MAX_LENGTH}
+            onInput={(event) => onChange({ ...value, newPerson: event.currentTarget.value })}
+          />
+        </label>
+      )}
+    </>
+  );
+}
+
 function AddCardDialog({
   directory,
   stationLabel,
@@ -200,10 +424,7 @@ function AddCardDialog({
   onClose: () => void;
 }) {
   const [cardNumber, setCardNumber] = useState("");
-  const [name, setName] = useState("");
-  const [holder, setHolder] = useState<string | null>(null);
-  const [newPerson, setNewPerson] = useState("");
-  const canName = Boolean(directory?.writable);
+  const [profile, setProfile] = useState<CardProfileState>(EMPTY_PROFILE);
   const valid =
     cardNumber.length > 0 && cardNumber.length <= 20 && cardNumber.trim() === cardNumber;
   return (
@@ -213,16 +434,9 @@ function AddCardDialog({
         onSubmit={(event) => {
           event.preventDefault();
           void (async () => {
-            const newHolderName = holder === "new" ? newPerson.trim() : "";
             const added = await runOwnerTagAdd(
               { tag: cardNumber },
-              canName
-                ? {
-                    holderPersonId: holder === "new" ? null : holder,
-                    name: name.trim() || null,
-                    ...(newHolderName ? { newHolderName } : {}),
-                  }
-                : undefined,
+              directory?.writable ? profileInput(profile) : undefined,
             );
             // The raw card number never outlives the request in this browser.
             setCardNumber("");
@@ -242,44 +456,7 @@ function AddCardDialog({
           />
         </label>
         <p class="field-hint">{t("cards.field.numberHint")}</p>
-        {canName && directory && (
-          <>
-            <label>
-              {t("cards.field.name")}
-              <input
-                value={name}
-                maxLength={DIRECTORY_NAME_MAX_LENGTH}
-                placeholder={t("cards.field.namePlaceholder")}
-                onInput={(event) => setName(event.currentTarget.value)}
-              />
-            </label>
-            <label>
-              {t("cards.field.holder")}
-              <select
-                value={holder ?? ""}
-                onChange={(event) => setHolder(event.currentTarget.value || null)}
-              >
-                <option value="">{t("people.nobody")}</option>
-                {directory.people.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name}
-                  </option>
-                ))}
-                <option value="new">{t("cards.field.newPerson")}</option>
-              </select>
-            </label>
-            {holder === "new" && (
-              <label>
-                {t("people.field.name")}
-                <input
-                  value={newPerson}
-                  maxLength={DIRECTORY_NAME_MAX_LENGTH}
-                  onInput={(event) => setNewPerson(event.currentTarget.value)}
-                />
-              </label>
-            )}
-          </>
-        )}
+        <CardProfileFields directory={directory} value={profile} onChange={setProfile} />
         <p class="field-hint">{t("cards.addHint")}</p>
         <footer class="dialog-actions">
           <button class="button ghost" type="button" onClick={onClose}>

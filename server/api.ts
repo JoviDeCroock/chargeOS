@@ -482,6 +482,51 @@ async function handleOwnerApi(
     }
     return;
   }
+  if (url.pathname === "/api/v1/card-capture" && request.method === "POST") {
+    try {
+      if (!objectWithExactKeys(await readJsonBody(request), [])) {
+        throw new FreedomTestInputError("request must be an empty JSON object");
+      }
+      sendJson(response, 200, gateway.armCardCapture(config.stationId));
+    } catch (error) {
+      if (error instanceof FreedomTestInputError) {
+        sendError(response, 400, "invalid_request", error.message);
+      } else sendGatewayError(response, error);
+    }
+    return;
+  }
+  if (url.pathname === "/api/v1/card-capture/cancel" && request.method === "POST") {
+    sendJson(response, 200, gateway.cancelCardCapture(config.stationId));
+    return;
+  }
+  if (url.pathname === "/api/v1/card-capture/confirm" && request.method === "POST") {
+    try {
+      const input = objectWithExactKeys(await readJsonBody(request), ["tagPseudonym"]);
+      if (!input || typeof input.tagPseudonym !== "string") {
+        throw new OwnerTagInputError("request must contain only tagPseudonym");
+      }
+      // The raw value moves from gateway memory straight into the registry; it is never sent
+      // back, and an unknown or expired pseudonym adds nothing.
+      const tag = gateway.takeCapturedCard(config.stationId, input.tagPseudonym);
+      if (!tag) {
+        sendError(
+          response,
+          409,
+          "card_capture_unavailable",
+          "That card is no longer waiting to be added; tap it again",
+        );
+        return;
+      }
+      const result = await ownerTags.add(config, evidence, tag);
+      await directory.forgetAddedCard(config, result.tagPseudonym).catch(() => {
+        console.warn("Owner directory could not clear a stale card name");
+      });
+      sendJson(response, 201, result);
+    } catch (error) {
+      if (!sendOwnerTagError(response, error)) throw error;
+    }
+    return;
+  }
   if (url.pathname === "/api/v1/identity-alias" && request.method === "POST") {
     try {
       const input = objectWithExactKeys(await readJsonBody(request), ["presentedIdentity"]);

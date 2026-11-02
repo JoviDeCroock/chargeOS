@@ -11,6 +11,7 @@ import type {
   MigrationObservationInput,
   OwnerSnapshot,
   OwnerTagAddInput,
+  OwnerTagMutationResult,
   OwnerTagRevokeInput,
   ContinuityPreparationInput,
   StationCommandInput,
@@ -26,6 +27,9 @@ import type {
 import { usageReportCsv } from "../shared/usage.js";
 import { t, type MessageKey } from "./i18n/index.js";
 import {
+  armCardCapture,
+  cancelCardCapture,
+  confirmCardCapture,
   acceptIdentityAlias,
   addOwnerTag,
   addPerson,
@@ -80,6 +84,7 @@ export const action = signal<
   | "owner-tag-add"
   | "owner-tag-revoke"
   | "identity-alias"
+  | "card-capture"
   | "station-command"
   | "directory"
   | null
@@ -515,23 +520,40 @@ export async function runAuthorizationSync(): Promise<void> {
   }
 }
 
+type CardProfile = CardProfileInput & { readonly newHolderName?: string };
+
 /**
- * Adds an owner card to the selected charger's desired list, then names it. The raw card value is
- * sent once and never kept in the browser; the name is attached to the returned pseudonym.
- */
-/**
- * Adds a card, then names it. A new holder is created only after the card itself was added, so a
- * refused card never leaves an orphan person behind.
+ * Adds an owner card, then names it. The raw card value is sent once and never kept in the
+ * browser; the name is attached to the returned pseudonym. A new holder is created only after the
+ * card itself was added, so a refused card never leaves an orphan person behind.
  */
 export async function runOwnerTagAdd(
   input: OwnerTagAddInput,
-  profile?: CardProfileInput & { readonly newHolderName?: string },
+  profile?: CardProfile,
+): Promise<boolean> {
+  return addCardThenName((stationId, token) => addOwnerTag(stationId, input, token), profile);
+}
+
+/** Adds the card that was just tapped at the charger; its value never reaches the browser. */
+export async function runCardCaptureConfirm(
+  tagPseudonym: string,
+  profile?: CardProfile,
+): Promise<boolean> {
+  return addCardThenName(
+    (stationId, token) => confirmCardCapture(stationId, tagPseudonym, token),
+    profile,
+  );
+}
+
+async function addCardThenName(
+  add: (stationId: string, token: string) => Promise<OwnerTagMutationResult>,
+  profile?: CardProfile,
 ): Promise<boolean> {
   const current = snapshot.value;
   if (!ownerToken.value || !current) return false;
   action.value = "owner-tag-add";
   try {
-    const result = await addOwnerTag(current.station.id, input, ownerToken.value);
+    const result = await add(current.station.id, ownerToken.value);
     let named = true;
     if (profile) {
       try {
@@ -562,6 +584,26 @@ export async function runOwnerTagAdd(
   } catch (error) {
     handleError(error);
     return false;
+  } finally {
+    action.value = null;
+  }
+}
+
+/** Starts or stops listening for a card tap at the selected charger. */
+export async function runCardCapture(start: boolean): Promise<void> {
+  const current = snapshot.value;
+  if (!ownerToken.value || !current) return;
+  action.value = "card-capture";
+  try {
+    const cardCapture = await (start ? armCardCapture : cancelCardCapture)(
+      current.station.id,
+      ownerToken.value,
+    );
+    if (snapshot.value?.station.id === current.station.id) {
+      snapshot.value = { ...snapshot.value, cardCapture };
+    }
+  } catch (error) {
+    handleError(error);
   } finally {
     action.value = null;
   }

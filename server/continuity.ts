@@ -158,6 +158,11 @@ export async function createContinuityBundle(
       "Encrypted continuity bundles currently require one station per edge; fleet mode must not emit an incomplete recovery artifact",
     );
   }
+  if (config.ownerTags.size === 0) {
+    throw new ContinuityBundleError(
+      "Add an owner card before creating a recovery bundle; a bundle without one cannot restore owner charging",
+    );
+  }
   requireStrongPassphrase(passphrase);
   verifyEvidenceChain(events);
   validateEvidenceArchiveLayout(events, evidenceArchives);

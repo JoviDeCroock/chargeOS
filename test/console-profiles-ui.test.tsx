@@ -97,6 +97,7 @@ function ownerSnapshot(
     transactionId,
   });
   return {
+    cardCapture: { state: "idle", tagPseudonym: null, tappedAt: null, until: null },
     authorization: {
       acknowledgedTagPseudonyms: ["tag_owner"],
       lastAttemptAt: null,

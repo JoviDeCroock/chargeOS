@@ -1,3 +1,4 @@
+import type { CardCaptureProjection } from "./card-capture.js";
 import type { StationCommandRecord } from "./commands.js";
 import type { StationConnectionDiagnostics } from "./connection.js";
 import type { FreedomTestProjection } from "./freedom-test.js";
@@ -58,6 +59,8 @@ export interface EvidenceSummary {
 }
 
 export interface OwnerSnapshot {
+  /** Owner-only tap-to-add state; carries a pseudonym, never a card value. */
+  readonly cardCapture: CardCaptureProjection;
   readonly authorization: {
     readonly acknowledgedTagPseudonyms: readonly string[];
     readonly lastAttemptAt: string | null;
@@ -190,6 +193,11 @@ export type {
   UsageReportSession,
   UsageReportStation,
 } from "./usage.js";
+export type {
+  CardCaptureConfirmInput,
+  CardCaptureProjection,
+  CardCaptureState,
+} from "./card-capture.js";
 export type {
   RefusedConnectionAttempt,
   RefusedConnectionReason,

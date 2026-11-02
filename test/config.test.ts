@@ -15,6 +15,39 @@ describe("loadConfig", () => {
     expect(() => loadConfig({})).toThrow("CHARGEOS_STATION_ID is required");
   });
 
+  it("lets a single charger start without an owner card, but never a fleet station", () => {
+    const base = {
+      CHARGEOS_OWNER_API_TOKEN: "owner-token-at-least-thirty-two-characters",
+      CHARGEOS_STATION_ID: "station",
+      CHARGEOS_STATION_SECRET: "a".repeat(40),
+    };
+    expect(loadConfig(base).ownerTags.size).toBe(0);
+    // An explicitly configured but empty seed is still a mistake, not a request to start empty.
+    expect(() => loadConfig({ ...base, CHARGEOS_OWNER_TAGS: "" })).toThrow(
+      "CHARGEOS_OWNER_TAGS must contain a non-empty secret value",
+    );
+    const directory = mkdtempSync(join(tmpdir(), "chargeos-empty-fleet-"));
+    try {
+      const file = join(directory, "stations.json");
+      writeFileSync(
+        file,
+        JSON.stringify({
+          schemaVersion: 1,
+          stations: [{ id: "A", label: "A", ownerTags: [], secret: "b".repeat(40), site: "S" }],
+        }),
+        { mode: 0o600 },
+      );
+      expect(() =>
+        loadConfig({
+          CHARGEOS_OWNER_API_TOKEN: base.CHARGEOS_OWNER_API_TOKEN,
+          CHARGEOS_STATIONS_FILE: file,
+        }),
+      ).toThrow("Every station must contain at least one owner tag");
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
   it("rejects weak station secrets", () => {
     expect(() =>
       loadConfig({

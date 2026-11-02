@@ -32,6 +32,13 @@ const OWNER_TAG = "test-owner-tag";
 const STATION_SECRET = "synthetic-station-secret-1234";
 
 describe("owner continuity bundle", () => {
+  it("refuses a recovery bundle before the first owner card exists", async () => {
+    const noCard: GatewayConfig = { ...config("unused.ndjson"), ownerTags: new Set() };
+    await expect(createContinuityBundle(noCard, [], PASSPHRASE)).rejects.toThrow(
+      "Add an owner card before creating a recovery bundle",
+    );
+  });
+
   it("refuses to emit an incomplete single-station bundle for a fleet edge", async () => {
     const primary = config("unused.ndjson");
     const fleetConfig: GatewayConfig = {
