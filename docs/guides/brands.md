@@ -26,9 +26,9 @@ These behaviours are tested with simulated chargers that reproduce each differen
 
 One chargeOS edge can show several provisioned chargers belonging to the same owner. The fleet view lets you pick a charger and inspect its own connection, cards, sessions and migration evidence. Chargers may have different brands if each exact device has been independently validated.
 
-An administrator currently provisions this registry in a private stations file using the [fleet operations guide](../owner-edge-operations.md). Each charger needs its own identity, password and desired owner-card list. A company account does not automatically claim a charger; employer membership and physical ownership are separate.
+An administrator can provision chargers in a private stations file using the [fleet operations guide](../owner-edge-operations.md), or you can add them from **Chargers › Add charger** in the console; see [Run company and employee chargers](company-chargers.md). Each charger has its own identity, password and card list. A company account does not automatically claim a charger; employer membership and physical ownership are separate.
 
-The encrypted recovery format currently restores one station at a time. For deployments that need the complete owner-recovery guarantee, use one station per recoverable edge until fleet recovery has been implemented and tested. A fleet screen is not a substitute for a working backup.
+The encrypted recovery format currently restores one station at a time, and it is refused once chargers were added, retired or marked from the console. For deployments that need the complete owner-recovery guarantee, use one station per recoverable edge until fleet recovery has been implemented and tested. A fleet screen is not a substitute for a working backup.
 
 ## If your device is not listed
 

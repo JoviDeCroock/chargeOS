@@ -25,7 +25,7 @@ Your AI provider key is not in the bundle and is not needed to restore charging 
 
 Use the documented create-only restore procedure. It refuses to overwrite an existing ledger. The replacement needs fresh DNS and certificate settings, and its proxy arrangement must be rechecked. Do not point two independently running edges at the same charger during the move.
 
-The current owner-edge encrypted recovery format is single-station. Use one station per recoverable edge when you depend on this guarantee. A complete multi-station bundle remains separate unfinished work.
+The current owner-edge encrypted recovery format is single-station. Use one station per recoverable edge when you depend on this guarantee. A complete multi-station bundle remains separate unfinished work. Once a charger was added, retired or marked company/employee-owned from the console, chargeOS refuses to create a bundle, because the bundle cannot yet carry those console-managed chargers. Current card classifications (company/personal, business/private) are not in recovery bundles either; reclassify cards after a recovery. Reports for past months still use the classifications recorded in the ledger at the time.
 
 Charging during a server outage still depends on the card list already stored in the charger and its tested offline behavior. A recovery file, software test or AI answer does not prove that physical behavior; see [Connect a charging station](connect-a-charger.md).
 

@@ -9,6 +9,7 @@ chargeOS lets you run charging software on infrastructure you control. Start wit
 - [Connect a charging station](connect-a-charger.md): prepare a reversible handover, record the Freedom Test and troubleshoot a connection.
 - [Use your own AI key](ai-help.md): ask about configuration issues and optionally search manufacturer documentation.
 - [Use several chargers or brands](brands.md): check an exact device and understand the current fleet limits.
+- [Run company and employee chargers](company-chargers.md): add chargers, register and classify cards, employee pages, someone leaving and the finance feed.
 - [Add a person](people.md): invite an employee or finance reviewer in the employer workspace.
 - [Share the company workspace](company-hosting.md): IT-managed HTTPS account pilot, approved work emails and current deployment/recovery limits.
 - [Send account emails](account-email.md): use your own mail provider for verification, recovery and invitation links in the local trial.

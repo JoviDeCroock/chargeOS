@@ -13,6 +13,8 @@ The charger must be connected; the bar at the top of the console says **Charger 
 5. Optionally give the card a **Card name** and choose **Who uses it**, then click **Add this card** within five minutes. After that, chargeOS forgets the tapped card and you tap it again.
 6. Continue with step 5 under **Type a card number** below to send the card list to the charger.
 
+With the `company` profile, the window also asks whether the card is a company or personal card and whether its charging is business or private; see [Run company and employee chargers](company-chargers.md#register-a-card-by-tapping-it-and-classify-it).
+
 chargeOS listens only for the charger you chose and only while the window says it is listening. It keeps the tapped card's value in memory until you add it or it expires, and never shows or records it. A tap is still refused at the charger; adding the card is a separate step you confirm.
 
 ## Type a card number

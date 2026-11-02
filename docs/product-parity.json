@@ -224,7 +224,7 @@
         "LMS / ThreeForce": "Documented (L2)",
         "D’Ieteren": "Documented (D3)"
       },
-      "currentEvidence": "Owner RFID registry plus commercial non-secret card/vehicle/employee aliases and dated eligibility. Actual commercial card linking, device claiming and owner-scoped business grants remain incomplete.",
+      "currentEvidence": "Owner RFID registry with tap registration, plus a company-gateway card classification (company/personal ownership, business/private use) per charger card that drives employee card rights and excludes private sessions from the finance feed (server/card-policy.ts). Commercial non-secret card/vehicle/employee aliases and dated eligibility exist separately. Classifications are not in continuity bundles; commercial card linking, device claiming, guest credentials and automatic feed ingestion remain incomplete.",
       "acceptance": "Separate household, employee and guest credentials; reimbursement applies only to eligible sessions and periods."
     },
     {
@@ -479,7 +479,7 @@
         "LMS / ThreeForce": "Documented (L6)",
         "D’Ieteren": "Documented (D2)"
       },
-      "currentEvidence": "Dated cost-center assignments and per-employee financial statements exist. The company-profile owner console reports monthly recorded usage per assigned driver and charger with a CSV export that the reimbursement import accepts (shared/usage.ts, GET /api/v1/usage). Cost-center aggregation, budgets and customer reporting/export acceptance remain unimplemented.",
+      "currentEvidence": "Dated cost-center assignments and per-employee financial statements exist. The company-profile owner console reports monthly recorded usage per assigned driver and charger, including the private part and a card_use CSV column, with a CSV export that the reimbursement import accepts (shared/usage.ts, GET /api/v1/usage). A read-only 90-day finance delegate feed lists business and unclassified sessions per charger by card pseudonym and only counts private ones (GET /api/v1/delegate/reimbursement); the commercial service does not ingest it automatically yet. Cost-center aggregation, budgets and customer reporting/export acceptance remain unimplemented.",
       "acceptance": "Reconcile driver, site, card, cost-center and invoice views to the same ledger; approved totals and exported totals agree."
     },
     {
@@ -509,7 +509,7 @@
         "LMS / ThreeForce": "Documented (L7)",
         "D’Ieteren": "Documented (D1)"
       },
-      "currentEvidence": "Preact owner console with a personal profile that opens on monthly usage and hides engineering modules by default; no driver sign-in or phone-first driver flow.",
+      "currentEvidence": "Preact owner console with a personal profile that opens on monthly usage and hides engineering modules by default. A phone-first employee page (/me) on a 90-day driver delegate link shows the employee's own charger status, sessions and cards and lets them add a personal card by tap or remove one; en/nl/fr. No driver account, money, help or notification flow on that page; it needs the owner edge reachable over HTTPS.",
       "acceptance": "Phone-first home, charger, activity, money and help flows work with loading, empty, offline, pending, error and recovery states."
     },
     {
@@ -704,7 +704,7 @@
         "LMS / ThreeForce": "Package/device dependent (L6)",
         "D’Ieteren": "Package/device dependent (D4)"
       },
-      "currentEvidence": "Owner root, pseudonymized edge audit and expiring read capabilities; separate local account/session and organization isolation with resource-ID audit. Commercial retention/deletion, household grants and support-access audit remain incomplete.",
+      "currentEvidence": "Owner root, pseudonymized edge audit and expiring capabilities: read roles, a driver role bounded to personal cards on one charger and a first-charger-only finance feed, each with owner-visible use audit; separate local account/session and organization isolation with resource-ID audit. Commercial retention/deletion, household grants and support-access audit remain incomplete.",
       "acceptance": "Verify account/tenant/session scopes, retention, access/export/deletion handling and support-access auditing; employer sees only eligible business data."
     },
     {
@@ -809,7 +809,7 @@
         "LMS / ThreeForce": "Package/device dependent (L1)",
         "D’Ieteren": "Package/device dependent (D2)"
       },
-      "currentEvidence": "Offboarding closes future business eligibility and preserves financial snapshots; reviewed unpaid corrections can resolve resulting balance changes. Formal financial-period closing, household grants and physical ownership transfer remain incomplete.",
+      "currentEvidence": "Offboarding closes future business eligibility and preserves financial snapshots; reviewed unpaid corrections can resolve resulting balance changes. The company gateway adds an owner-run leaving plan (company keeps the charger, or the employee takes it with their personal cards) that removes company cards, ends employee links, labels ownership and leads to charger retirement; removed cards work offline until each charger accepts its new list. Formal financial-period closing, household grants and an approved transfer of the software owner root remain incomplete.",
       "acceptance": "Close financial periods, revoke employer rights, preserve household ownership and charging, and explicitly approve any ownership transfer."
     },
     {

@@ -17,6 +17,7 @@ const order = [
   "connect-a-charger",
   "ai-help",
   "brands",
+  "company-chargers",
   "people",
   "account-email",
   "company-hosting",

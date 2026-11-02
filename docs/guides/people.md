@@ -31,6 +31,6 @@ Do not share the owner-console token as an ordinary invitation. Current software
 
 ## When someone leaves
 
-An administrator clicks **Remove access** next to the person under **People**, then reviews their eligibility and outstanding statements. Historical financial records remain available to authorized reviewers; removal does not rewrite them or revoke the household owner's local charging card. Remove a physical card separately only when the owner intends to do so; see [RFID cards](rfid.md).
+An administrator clicks **Remove access** next to the person under **People**, then reviews their eligibility and outstanding statements. Historical financial records remain available to authorized reviewers; removal does not rewrite them or revoke the household owner's local charging card. Remove a physical card separately only when the owner intends to do so; see [RFID cards](rfid.md). If the company's owner console runs that employee's charger, use **Leaves the company** there; see [Run company and employee chargers](company-chargers.md#when-an-employee-leaves).
 
 Operator details: [Commercial service](../commercial-service.md) and [Reimbursement statements](../reimbursement-statements.md).

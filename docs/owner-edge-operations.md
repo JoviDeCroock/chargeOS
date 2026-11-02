@@ -202,6 +202,24 @@ Delegate endpoints require a separately issued bearer token and the named read s
 - `GET /api/v1/delegate/freedom-test` — `freedom-test:read`
 - `GET /api/v1/delegate/migration` — `migration:read`
 
+Company-gateway owner routes (see [Run company and employee chargers](guides/company-chargers.md) and the [architecture](architecture.md#company-gateway)):
+
+- `GET /api/v1/stations-registry`, `POST /api/v1/managed-stations` (`{ "id": null | "...", "label", "site", "driverPersonId": null | "...", "ownership": "company" | "employee", "expected": null | { "vendor", "model", "firmwareVersion" } }`; returns the one-time setup sheet)
+- `POST /api/v1/stations/:stationId/retire` (`{ "confirmation": "RETIRE <stationId>" }`; the first charger cannot be retired)
+- `POST /api/v1/stations/:stationId/reissue-password` (added chargers that never connected and have no card)
+- `POST /api/v1/stations/:stationId/ownership` (`{ "ownership" }`; a planning label only)
+- `POST /api/v1/stations/:stationId/card-capture/register` (`{ "tagPseudonym", "name", "holderPersonId", "ownership", "use" }`)
+- `GET /api/v1/fleet-cards`, `POST /api/v1/fleet-cards/copy` (`{ "card": { "stationId", "tagPseudonym" }, "toStationIds" }`), `POST /api/v1/fleet-cards/remove` (`{ "card", "confirmation" }`), `POST /api/v1/fleet-cards/policy` (`{ "card", "ownership", "use" }`)
+- `POST /api/v1/sync-ready` (full-list synchronization for every connected charger whose readiness passes; each uses the normal preflight)
+
+Company-gateway delegate routes:
+
+- `GET /api/v1/stations/:stationId/delegate/driver` — `driver:read`
+- `POST /api/v1/stations/:stationId/delegate/driver/card-capture`, `.../card-capture/cancel` (`{}`), `.../card-capture/confirm` (`{ "tagPseudonym" }`), `.../sync`, `.../cards/:tagPseudonym/remove` (`{ "confirmation" }`) — `driver:personal-cards`
+- `GET /api/v1/delegate/reimbursement?month=YYYY-MM&timeZone=Area/City` — `reimbursement:read`, first charger only
+
+Console-added chargers, their owner-tag files and card classifications live beside the ledger in `managed-stations.json`, `owner-tags/` and `card-policy.json`. Back them up with the volume. They are not in continuity bundles, and continuity export is refused once the charger registry has any audit.
+
 The preparation route fails closed before mutation unless every required change is explicitly reported writable. Its request must contain the exact phrase `I authorize only the documented owner-continuity settings`; it can only enable the two known-owner local authorization settings and disable unknown-tag offline authorization. It does not synchronize tags or reboot the charger. The synchronization route separately fails closed if the station is offline or any required capability is failed/unknown.
 
 `POST /api/v1/owner-tags` accepts `{ "tag": "..." }` over loopback or the production TLS boundary, persists it, and returns only its pseudonym and state metadata. The revoke route addresses that pseudonym and requires `{ "confirmation": "I understand this tag may remain usable until the charger accepts the replacement owner list" }`. It refuses the last desired credential. Neither response, ledger record, snapshot, nor ordinary log contains the raw tag. After either mutation, explicitly inspect and synchronize the complete list, verify `Accepted`, and export a fresh encrypted continuity bundle.
@@ -574,7 +592,7 @@ The export endpoint is safe for support/evidence sharing but is not sufficient f
 
 ## Known limits
 
-- one configured station and one owner root;
+- one owner root; a fleet (stations file or console-added chargers) cannot yet produce a continuity bundle;
 - OCPP 1.6J only;
 - NDJSON is single-process and hard-capped per active segment; verified rollover preserves a complete segmented chain, while schema-4 replacement compaction reduces edge-resident history only when full bundles remain separately custodied. The retained operational index still grows, custody retention is manual, and neither chain is an independent signature;
 - owner remote start/stop, restart, unlock and make-available exist, but there are no schedules, tariffs, billing, firmware updates, load limits, write-capable delegation, or cloud dependency; employer session reads are observations only;
