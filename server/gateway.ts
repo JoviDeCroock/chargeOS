@@ -33,6 +33,7 @@ import { foldIdTag, pseudonymizeTag } from "./tag.js";
 
 interface OcppPeer {
   readonly identity?: string;
+  readonly session?: { readonly provisionedStationId?: unknown };
   call(method: string, params?: unknown, options?: { callTimeoutMs?: number }): Promise<unknown>;
   close(options?: { code?: number; force?: boolean; reason?: string }): Promise<void>;
   readonly handshake: { readonly request: { readonly socket: Socket } };
@@ -62,6 +63,11 @@ interface StopTransactionRequest {
 }
 
 export interface ChargeGateway {
+  /**
+   * Lets this charger connect under the name it already uses. Allowed only for the name a charger
+   * just presented together with this charger's own password; recorded as evidence first.
+   */
+  acceptIdentityAlias(stationId: string, presentedIdentity: unknown): Promise<IdentityAliasResult>;
   close(): Promise<void>;
   getRuntime(stationId: string): StationRuntime;
   inspectLocalAuthorization(stationId: string): Promise<CapabilityAssessment>;
@@ -89,6 +95,55 @@ export interface AuthorizationSyncResult {
 export interface ChargeGatewayOptions {
   /** Override the charger answer timeout for owner commands (tests only). */
   readonly commandTimeoutMs?: number;
+  /** Accepted charger names from the ledger; see `identityAliasesFromEvents`. */
+  readonly identityAliases?: ReadonlyMap<string, string>;
+}
+
+export interface IdentityAliasResult {
+  readonly alias: string;
+  readonly replacedAlias: string | null;
+  readonly stationId: string;
+}
+
+export const IDENTITY_ALIAS_EVENT = "StationIdentityAliasAccepted";
+/** An observed name must be adopted soon after the charger presented it. */
+export const IDENTITY_ALIAS_OBSERVATION_MAX_AGE_MS = 15 * 60_000;
+
+export class IdentityAliasError extends Error {
+  readonly status: 400 | 409;
+
+  constructor(status: 400 | 409, message: string) {
+    super(message);
+    this.name = "IdentityAliasError";
+    this.status = status;
+  }
+}
+
+/**
+ * The charger name each station currently accepts besides its configured ID, from the ledger. The
+ * latest acceptance per station wins; a name that collides with a configured station ID or with
+ * another station's name is ignored, so a tampered or stale ledger can never redirect a charger.
+ */
+export function identityAliasesFromEvents(
+  config: GatewayConfig,
+  events: readonly EvidenceEvent[],
+): Map<string, string> {
+  const stationIds = new Set(configuredStations(config).map(({ id }) => id));
+  const latest = new Map<string, string>();
+  for (const event of events) {
+    if (event.message !== IDENTITY_ALIAS_EVENT || event.direction !== "system") continue;
+    if (!stationIds.has(event.stationId)) continue;
+    const alias = recordValue(event.payload).alias;
+    if (typeof alias === "string" && displayableIdentity(alias) === alias) {
+      latest.set(event.stationId, alias);
+    }
+  }
+  const owners = new Map<string, string[]>();
+  for (const [stationId, alias] of latest)
+    owners.set(alias, [...(owners.get(alias) ?? []), stationId]);
+  return new Map(
+    [...latest].filter(([, alias]) => !stationIds.has(alias) && owners.get(alias)?.length === 1),
+  );
 }
 
 export function createChargeGateway(
@@ -104,6 +159,11 @@ export function createChargeGateway(
   const connectedAt = new Map<string, string>();
   const pendingConnections = new Map<string, Socket>();
   const stationOperations = new Map<string, Promise<unknown>>();
+  /** station ID -> accepted charger name, and the reverse lookup used at connection time. */
+  const aliasOfStation = new Map(options.identityAliases ?? []);
+  const stationOfAlias = new Map(
+    [...aliasOfStation].map(([stationId, alias]) => [alias, stationId]),
+  );
 
   const server = new RPCServer({
     maxBadMessages: 3,
@@ -147,7 +207,10 @@ export function createChargeGateway(
   };
 
   server.auth((accept, reject, handshake) => {
-    const stationConfig = stationConfigs.get(handshake.identity);
+    const aliasedStation = stationOfAlias.get(handshake.identity);
+    const stationConfig =
+      stationConfigs.get(handshake.identity) ??
+      (aliasedStation ? stationConfigs.get(aliasedStation) : undefined);
     if (!stationConfig) {
       // The password, not the name, decides whose charger this is. A name alone never proves
       // ownership, so the connection is refused either way; only the diagnostic differs.
@@ -201,15 +264,27 @@ export function createChargeGateway(
     accept({ provisionedStationId: stationConfig.stationId }, "ocpp1.6");
   });
 
-  server.on("upgradeAborted", ({ identity, socket }: { identity: string; socket: Socket }) => {
-    if (pendingConnections.get(identity) === socket) pendingConnections.delete(identity);
+  server.on("upgradeAborted", ({ socket }: { socket: Socket }) => {
+    // The reservation is keyed by station, and the name in the URL may be an accepted alias;
+    // release whichever reservation this socket held.
+    for (const [stationId, pending] of pendingConnections) {
+      if (pending === socket) pendingConnections.delete(stationId);
+    }
   });
 
   server.on("client", (untypedPeer: unknown) => {
     const peer = untypedPeer as OcppPeer;
-    const stationId = peer.identity;
+    // The station was resolved and authenticated in the auth callback; the charger-chosen name in
+    // the URL may be its accepted alias, so never re-derive the station from that name.
+    const provisioned = peer.session?.provisionedStationId;
+    const stationId = typeof provisioned === "string" ? provisioned : undefined;
     const stationConfig = stationId ? stationConfigs.get(stationId) : undefined;
-    if (!stationId || !stationConfig) return;
+    if (!stationId || !stationConfig) {
+      void peer
+        .close({ code: 1008, force: true, reason: "Unknown charge point" })
+        .catch(() => undefined);
+      return;
+    }
 
     if (pendingConnections.get(stationId) === peer.handshake.request.socket) {
       pendingConnections.delete(stationId);
@@ -589,7 +664,52 @@ export function createChargeGateway(
     return (await inspectState(stationId)).assessment;
   }
 
+  async function acceptIdentityAlias(
+    stationId: string,
+    presentedIdentity: unknown,
+  ): Promise<IdentityAliasResult> {
+    const stationConfig = configForStation(config, stationId);
+    if (typeof presentedIdentity !== "string" || displayableIdentity(presentedIdentity) === null) {
+      throw new IdentityAliasError(400, "presentedIdentity must be the name the charger presented");
+    }
+    const observed = lastRefused.get(stationId);
+    if (
+      !observed ||
+      observed.reason !== "identity-mismatch" ||
+      observed.presentedIdentity !== presentedIdentity ||
+      Date.now() - Date.parse(observed.at) > IDENTITY_ALIAS_OBSERVATION_MAX_AGE_MS
+    ) {
+      throw new IdentityAliasError(
+        409,
+        "That name was not just presented with this charger's password; let the charger try to connect again",
+      );
+    }
+    if (stationConfigs.has(presentedIdentity)) {
+      throw new IdentityAliasError(409, "That name belongs to another configured charger");
+    }
+    const holder = stationOfAlias.get(presentedIdentity);
+    if (holder && holder !== stationId) {
+      throw new IdentityAliasError(409, "Another charger already connects under that name");
+    }
+    const replacedAlias = aliasOfStation.get(stationId) ?? null;
+    if (replacedAlias === presentedIdentity) {
+      lastRefused.delete(stationId);
+      return { alias: presentedIdentity, replacedAlias: null, stationId };
+    }
+    // Durable evidence first: if this append fails, the charger name is not accepted.
+    await record(evidence, stationConfig, stationId, "system", IDENTITY_ALIAS_EVENT, {
+      alias: presentedIdentity,
+      replacedAlias,
+    });
+    if (replacedAlias) stationOfAlias.delete(replacedAlias);
+    aliasOfStation.set(stationId, presentedIdentity);
+    stationOfAlias.set(presentedIdentity, stationId);
+    lastRefused.delete(stationId);
+    return { alias: presentedIdentity, replacedAlias, stationId };
+  }
+
   const gateway: ChargeGateway = {
+    acceptIdentityAlias,
     async close() {
       await server.close({ awaitPending: true });
     },
@@ -598,6 +718,7 @@ export function createChargeGateway(
         connected: peers.has(stationId),
         connectedAt: connectedAt.get(stationId) ?? null,
         connection: {
+          acceptedAlias: aliasOfStation.get(stationId) ?? null,
           endpointBase: config.ocppPublicUrl ?? null,
           lastRefused: lastRefused.get(stationId) ?? null,
           lastUnmatchedAt: unmatched.lastAt,
@@ -758,6 +879,8 @@ export function createChargeGateway(
 
   return {
     ...gateway,
+    acceptIdentityAlias: (stationId, presentedIdentity) =>
+      serialized(stationId, () => gateway.acceptIdentityAlias(stationId, presentedIdentity)),
     inspectLocalAuthorization: (stationId) =>
       serialized(stationId, () => gateway.inspectLocalAuthorization(stationId)),
     prepareOwnerContinuity: (stationId, input) =>

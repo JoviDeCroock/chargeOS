@@ -26,6 +26,7 @@ import type {
 import { usageReportCsv } from "../shared/usage.js";
 import { t, type MessageKey } from "./i18n/index.js";
 import {
+  acceptIdentityAlias,
   addOwnerTag,
   addPerson,
   fetchDirectory,
@@ -78,6 +79,7 @@ export const action = signal<
   | "migration-export"
   | "owner-tag-add"
   | "owner-tag-revoke"
+  | "identity-alias"
   | "station-command"
   | "directory"
   | null
@@ -256,6 +258,22 @@ export async function pollSnapshot(): Promise<void> {
     if (selectedStationId.value === stationId) snapshot.value = next;
   } catch (error) {
     if (error instanceof OwnerApiError && error.status === 401) handleError(error);
+  }
+}
+
+/** Lets the selected charger connect under the name it just presented with its own password. */
+export async function runAcceptIdentityAlias(presentedIdentity: string): Promise<void> {
+  const current = snapshot.value;
+  if (!ownerToken.value || !current) return;
+  action.value = "identity-alias";
+  try {
+    await acceptIdentityAlias(current.station.id, presentedIdentity, ownerToken.value);
+    notice.value = { kind: "success", message: t("notice.identityAliasAccepted") };
+    await refreshSnapshot(false);
+  } catch (error) {
+    handleError(error);
+  } finally {
+    action.value = null;
   }
 }
 

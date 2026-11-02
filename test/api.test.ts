@@ -64,6 +64,7 @@ describe("owner API", () => {
     const config = withOwnerTagRegistry(bootstrapConfig, ownerTags);
     const gateway: ChargeGateway = {
       async close() {},
+      acceptIdentityAlias: () => Promise.reject(new Error("unused")),
       getRuntime: () => ({ connected: false, connectedAt: null }),
       async inspectLocalAuthorization() {
         throw new Error("not used");
@@ -537,6 +538,7 @@ describe("owner API", () => {
     ]);
     const gateway: ChargeGateway = {
       async close() {},
+      acceptIdentityAlias: () => Promise.reject(new Error("unused")),
       getRuntime: (stationId) => ({
         connected: stationId === "OFFICE_1",
         connectedAt: stationId === "OFFICE_1" ? "2026-08-15T08:00:00.000Z" : null,
@@ -660,6 +662,7 @@ describe("owner usage report API", () => {
     };
     const gateway: ChargeGateway = {
       async close() {},
+      acceptIdentityAlias: () => Promise.reject(new Error("unused")),
       getRuntime: () => ({ connected: false, connectedAt: null }),
       inspectLocalAuthorization: unused,
       listen() {

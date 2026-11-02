@@ -6,7 +6,7 @@ import type {
   StationConnectionDiagnostics,
 } from "../../shared/contracts.js";
 import { formatTime, t, tn, type MessageKey } from "../i18n/index.js";
-import { pollSnapshot } from "../model.js";
+import { action, pollSnapshot, runAcceptIdentityAlias } from "../model.js";
 import { Fact } from "../ui.js";
 
 const POLL_MS = 5_000;
@@ -15,6 +15,7 @@ const POLL_MS = 5_000;
 function diagnosticsOf(current: OwnerSnapshot): StationConnectionDiagnostics {
   return (
     current.station.connection ?? {
+      acceptedAlias: null,
       endpointBase: null,
       lastRefused: null,
       lastUnmatchedAt: null,
@@ -76,7 +77,18 @@ export function ConnectChargerPanel({ snapshot: current }: { snapshot: OwnerSnap
               value={address ?? t("connect.addressUnknown")}
               mono={address !== null}
             />
-            <Fact label={t("connect.identity")} value={station.id} mono />
+            <Fact
+              label={t("connect.identity")}
+              value={
+                diagnostics.acceptedAlias
+                  ? t("connect.identityWithAlias", {
+                      alias: diagnostics.acceptedAlias,
+                      id: station.id,
+                    })
+                  : station.id
+              }
+              mono
+            />
             <Fact label={t("connect.password")} value={t("connect.passwordWhere")} />
             <Fact label={t("connect.protocol")} value={t("connect.protocolValue")} />
             <Fact label={t("connect.security")} value={t("connect.securityValue")} />
@@ -145,6 +157,21 @@ function RefusalExplanation({
             : null}
       </p>
       <p>{t(text.fix, { expected })}</p>
+      {attempt.reason === "identity-mismatch" && attempt.presentedIdentity && (
+        <div class="alias-offer">
+          <p>{t("connect.alias.offer", { presented: attempt.presentedIdentity })}</p>
+          <button
+            class="button secondary compact"
+            type="button"
+            disabled={action.value !== null}
+            onClick={() => void runAcceptIdentityAlias(attempt.presentedIdentity!)}
+          >
+            {action.value === "identity-alias"
+              ? t("connect.alias.accepting")
+              : t("connect.alias.accept", { presented: attempt.presentedIdentity })}
+          </button>
+        </div>
+      )}
       {UNPROVEN_SOURCE.has(attempt.reason) && (
         <p class="fine-print">{t("connect.refused.anyDevice")}</p>
       )}

@@ -109,6 +109,15 @@ Connection diagnostics are an online-path explanation only. When the gateway ref
 - **Permanent company loss:** no change. Diagnostics are deliberately not recovery state; a replacement edge starts with none.
 - **One week disconnected:** no change. Counters are bounded and cleared by restart.
 
+An accepted charger name (identity alias) lets a charger keep the name it already uses instead of being renamed in its configuration tool, which keeps rollback to a single URL and password change. The owner can accept a name only within 15 minutes of a refused attempt that carried that charger's own unique password under that name. The acceptance is a `StationIdentityAliasAccepted` system evidence event written before the gateway honours it, so restart, rollover, compaction and continuity restore rebuild it from the ledger. The alias still requires that charger's password, never resolves to another charger, cannot equal a configured station ID or another station's alias, and shares the single-connection reservation of its station. It changes no authorization decision, local list, configuration or charger command. Here is the effect on each failure row:
+
+- **Hosted, WAN/DNS or local-edge loss:** no change. The alias only affects which name an online connection may use; the charger falls back to its acknowledged local list.
+- **Isolated restart:** no change.
+- **Permanent company loss:** the alias travels in the ledger inside the continuity bundle, so a replacement edge accepts the same charger name. A ledger in which two stations claim one name accepts it for neither, failing closed to a 401 that the panel explains.
+- **One week disconnected:** no change.
+
+The migration dossier still binds the configured station ID in its endpoint path. A charger that connects under an accepted alias therefore cannot satisfy a dossier-bound endpoint authorization yet; configure the station ID to the charger's own name for that workflow.
+
 ## Effect of local observation and the product preview
 
 The `/observe` browser-only import/calculation workspace and fictional `/preview` product workspace have no charger-facing connection or command path. Browser/network/tool failure removes analysis or preview access only; it cannot change desired or acknowledged RFID state, a charger endpoint, power limits or essential local charging. Imported observations never enter the canonical charger ledger through this tool. Neither a successful draft calculation nor a preview interaction satisfies a physical Freedom Test.

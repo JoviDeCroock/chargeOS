@@ -57,6 +57,7 @@ import {
 import type { EvidenceStore } from "./events.js";
 import { createFieldEvidencePack } from "./field-pack.js";
 import {
+  IdentityAliasError,
   OwnerContinuityBlockedError,
   OwnerContinuityPreparationBlockedError,
   OwnerContinuityPreparationInputError,
@@ -478,6 +479,24 @@ async function handleOwnerApi(
       sendJson(response, 200, result);
     } catch (error) {
       if (!sendOwnerTagError(response, error)) throw error;
+    }
+    return;
+  }
+  if (url.pathname === "/api/v1/identity-alias" && request.method === "POST") {
+    try {
+      const input = objectWithExactKeys(await readJsonBody(request), ["presentedIdentity"]);
+      if (!input) throw new IdentityAliasError(400, "request must contain only presentedIdentity");
+      sendJson(
+        response,
+        200,
+        await gateway.acceptIdentityAlias(config.stationId, input.presentedIdentity),
+      );
+    } catch (error) {
+      if (error instanceof IdentityAliasError) {
+        sendError(response, error.status, "identity_alias_refused", error.message);
+      } else if (error instanceof FreedomTestInputError) {
+        sendError(response, 400, "invalid_request", error.message);
+      } else throw error;
     }
     return;
   }

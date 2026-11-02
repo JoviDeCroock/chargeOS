@@ -121,11 +121,18 @@ export const en = {
   "connect.address": "Charger address",
   "connect.addressUnknown":
     "The charger address from your setup (START-HERE.txt), followed by the charger name",
+  "connect.alias.accept": "Use {presented}",
+  "connect.alias.accepting": "Saving…",
+  "connect.alias.offer":
+    "Or keep the charger as it is: chargeOS can accept {presented} as this charger's name, because the charger proved it knows this charger's password. The charger then connects on its next try.",
+
   "connect.awaitingBootBody":
     "The charger is connected. Waiting for its first start-up message, which tells chargeOS the model and firmware. This usually takes less than a minute.",
   "connect.identity": "Charger name (identity)",
   "connect.identityHint":
     "Copy the charger name exactly, including capital letters. Some charger tools ask for the address and the name separately; then the address ends with a slash.",
+  "connect.identityWithAlias": "{id}, or {alias} (the name your charger already uses)",
+
   "connect.installerNote":
     "Your installer enters these settings in the charger's own configuration tool. chargeOS never changes the charger's settings itself.",
   "connect.intro":
@@ -262,6 +269,9 @@ export const en = {
   "notice.delegateRevoked": "Access revoked. Your own cards and charging are not affected.",
   "notice.evidenceExported": "Record downloaded. Secrets and card numbers are left out.",
   "notice.failed": "That did not work. Try again.",
+  "notice.identityAliasAccepted":
+    "Name accepted. The charger connects on its next try; this page updates on its own.",
+
   "notice.inspectBlocked":
     "The charger is missing at least one setting needed for offline charging.",
   "notice.inspectReady":

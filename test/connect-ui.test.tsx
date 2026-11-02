@@ -17,6 +17,7 @@ function snapshotWith(
       connected: false,
       connectedAt: null,
       connection: {
+        acceptedAlias: null,
         endpointBase: "wss://ocpp.example.test/",
         lastRefused: null,
         lastUnmatchedAt: null,

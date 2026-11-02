@@ -252,6 +252,7 @@ describe("BYOK troubleshooting boundary", () => {
     });
     const command = vi.fn();
     const gateway: ChargeGateway = {
+      acceptIdentityAlias: () => Promise.reject(new Error("unused")),
       getRuntime: () => ({ connected: false, connectedAt: null }),
       close: command,
       listen: command,

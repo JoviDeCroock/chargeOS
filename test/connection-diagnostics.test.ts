@@ -1,11 +1,18 @@
 import { connect, type AddressInfo } from "node:net";
 
 import { RPCClient } from "ocpp-rpc";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { GatewayConfig } from "../server/config.js";
 import type { EvidenceEvent, EvidenceStore } from "../server/events.js";
-import { createChargeGateway, type ChargeGateway } from "../server/gateway.js";
+import {
+  createChargeGateway,
+  IDENTITY_ALIAS_EVENT,
+  IdentityAliasError,
+  identityAliasesFromEvents,
+  type ChargeGateway,
+} from "../server/gateway.js";
+import { evidenceEvent } from "../server/events.js";
 import { buildDelegateStationStatus, buildOwnerSnapshot } from "../server/projections.js";
 
 const STATION_SECRET = "0123456789abcdef0123456789abcdef01234567";
@@ -13,6 +20,7 @@ const OTHER_SECRET = "fedcba9876543210fedcba9876543210fedcba98";
 
 class MemoryEvidenceStore implements EvidenceStore {
   readonly events: EvidenceEvent[] = [];
+  failAppends = false;
   async allocateAuthorizationRevision(_stationId: string, minimum: number): Promise<number> {
     return minimum;
   }
@@ -25,6 +33,7 @@ class MemoryEvidenceStore implements EvidenceStore {
     return { replayed: false, transactionId: 1 };
   }
   async append(event: EvidenceEvent): Promise<void> {
+    if (this.failAppends) throw new Error("evidence unavailable");
     this.events.push(event);
   }
   async readEvents(): Promise<readonly EvidenceEvent[]> {
@@ -118,9 +127,10 @@ describe("charger connection diagnostics", () => {
     await gateway?.close();
   });
 
-  async function start() {
-    const evidence = new MemoryEvidenceStore();
-    gateway = createChargeGateway(config, evidence);
+  async function start(evidence = new MemoryEvidenceStore()) {
+    gateway = createChargeGateway(config, evidence, {
+      identityAliases: identityAliasesFromEvents(config, evidence.events),
+    });
     const httpServer = await gateway.listen(0, "127.0.0.1");
     return { evidence, port: (httpServer.address() as AddressInfo).port };
   }
@@ -238,5 +248,142 @@ describe("charger connection diagnostics", () => {
     expect(JSON.stringify(delegate)).not.toContain("ACE0123456");
     expect(JSON.stringify(delegate)).not.toContain("lastRefused");
     expect(JSON.stringify(owner)).not.toContain(STATION_SECRET);
+  });
+
+  function chargerClient(port: number, identity: string, password: string): RPCClient {
+    return new RPCClient({
+      endpoint: `ws://127.0.0.1:${port}`,
+      identity,
+      password,
+      protocols: ["ocpp1.6"],
+      reconnect: false,
+      strictMode: true,
+    } as ConstructorParameters<typeof RPCClient>[0]);
+  }
+
+  it("lets the owner adopt the name a charger proved with its own password", async () => {
+    const { evidence, port } = await start();
+    await expect(gateway!.acceptIdentityAlias("HOME-2", "ACE0123456")).rejects.toMatchObject({
+      status: 409,
+    });
+    await rawUpgrade(port, "ACE0123456", { Authorization: basic("ACE0123456", OTHER_SECRET) });
+    // Only the exact name that was just presented, for the charger whose password it carried.
+    await expect(gateway!.acceptIdentityAlias("HOME-2", "ACE9999999")).rejects.toBeInstanceOf(
+      IdentityAliasError,
+    );
+    await expect(gateway!.acceptIdentityAlias("HOME-1", "ACE0123456")).rejects.toMatchObject({
+      status: 409,
+    });
+    await expect(gateway!.acceptIdentityAlias("HOME-2", { name: "x" })).rejects.toMatchObject({
+      status: 400,
+    });
+
+    await expect(gateway!.acceptIdentityAlias("HOME-2", "ACE0123456")).resolves.toEqual({
+      alias: "ACE0123456",
+      replacedAlias: null,
+      stationId: "HOME-2",
+    });
+    expect(evidence.events.at(-1)).toMatchObject({
+      direction: "system",
+      message: IDENTITY_ALIAS_EVENT,
+      payload: { alias: "ACE0123456", replacedAlias: null },
+      stationId: "HOME-2",
+    });
+    expect(gateway!.getRuntime("HOME-2").connection).toMatchObject({
+      acceptedAlias: "ACE0123456",
+      lastRefused: null,
+    });
+
+    // The alias still needs this charger's password, and never reaches the sibling charger.
+    await expect(
+      rawUpgrade(port, "ACE0123456", { Authorization: basic("ACE0123456", STATION_SECRET) }),
+    ).resolves.toMatch(/^HTTP\/1\.1 401 /);
+    expect(gateway!.getRuntime("HOME-2").connection?.lastRefused?.reason).toBe("password-wrong");
+
+    client = chargerClient(port, "ACE0123456", OTHER_SECRET);
+    await client.connect();
+    await client.call("BootNotification", { chargePointModel: "Eve", chargePointVendor: "Alfen" });
+    expect(gateway!.getRuntime("HOME-2").connected).toBe(true);
+    expect(gateway!.getRuntime("HOME-1").connected).toBe(false);
+    const boots = evidence.events.filter(({ message }) => message === "BootNotification");
+    expect(boots.map(({ stationId }) => stationId)).toEqual(["HOME-2"]);
+
+    // Still one connection per charger, whichever of its names is used.
+    await expect(
+      rawUpgrade(port, "HOME-2", { Authorization: basic("HOME-2", OTHER_SECRET) }),
+    ).resolves.toMatch(/^HTTP\/1\.1 409 /);
+  });
+
+  it("refuses a stale observation and a name another charger already uses", async () => {
+    const { port } = await start();
+    vi.useFakeTimers({ now: Date.now(), toFake: ["Date"] });
+    try {
+      await rawUpgrade(port, "ACE0123456", { Authorization: basic("ACE0123456", OTHER_SECRET) });
+      vi.setSystemTime(Date.now() + 16 * 60_000);
+      await expect(gateway!.acceptIdentityAlias("HOME-2", "ACE0123456")).rejects.toMatchObject({
+        status: 409,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    await rawUpgrade(port, "SHARED", { Authorization: basic("SHARED", OTHER_SECRET) });
+    await gateway!.acceptIdentityAlias("HOME-2", "SHARED");
+    await rawUpgrade(port, "SHARED", { Authorization: basic("SHARED", STATION_SECRET) });
+    // The name now belongs to HOME-2, so HOME-1's password under it is a wrong password for
+    // HOME-2, never an adoptable observation for HOME-1.
+    expect(gateway!.getRuntime("HOME-1").connection?.lastRefused).toBeNull();
+    await expect(gateway!.acceptIdentityAlias("HOME-1", "SHARED")).rejects.toMatchObject({
+      status: 409,
+    });
+  });
+
+  it("does not accept a name when its evidence cannot be written", async () => {
+    const evidence = new MemoryEvidenceStore();
+    const { port } = await start(evidence);
+    await rawUpgrade(port, "ACE0123456", { Authorization: basic("ACE0123456", OTHER_SECRET) });
+    evidence.failAppends = true;
+    await expect(gateway!.acceptIdentityAlias("HOME-2", "ACE0123456")).rejects.toThrow(
+      "evidence unavailable",
+    );
+    expect(gateway!.getRuntime("HOME-2").connection?.acceptedAlias).toBeNull();
+    await expect(
+      rawUpgrade(port, "ACE0123456", { Authorization: basic("ACE0123456", OTHER_SECRET) }),
+    ).resolves.toMatch(/^HTTP\/1\.1 401 /);
+  });
+
+  it("restores accepted names from the ledger after a restart or recovery", async () => {
+    const evidence = new MemoryEvidenceStore();
+    const event = (stationId: string, alias: unknown, direction: EvidenceEvent["direction"]) =>
+      evidenceEvent(stationId, direction, IDENTITY_ALIAS_EVENT, { alias, replacedAlias: null });
+    evidence.events.push(
+      event("HOME-2", "OLD-NAME", "system"),
+      event("HOME-2", "ACE0123456", "system"),
+      // Charger-originated, unknown-station, unusable and colliding records are all ignored.
+      event("HOME-1", "FROM-CHARGER", "station-to-csms"),
+      event("ELSEWHERE", "GHOST", "system"),
+      event("HOME-1", "bad/name", "system"),
+      event("HOME-1", "HOME-2", "system"),
+    );
+    expect([...identityAliasesFromEvents(config, evidence.events)]).toEqual([
+      ["HOME-2", "ACE0123456"],
+    ]);
+    expect(
+      [
+        ...identityAliasesFromEvents(config, [
+          ...evidence.events,
+          event("HOME-1", "ACE0123456", "system"),
+        ]),
+      ],
+      "a name claimed by two chargers is ignored for both",
+    ).toEqual([]);
+
+    const { port } = await start(evidence);
+    await expect(
+      rawUpgrade(port, "OLD-NAME", { Authorization: basic("OLD-NAME", OTHER_SECRET) }),
+    ).resolves.toMatch(/^HTTP\/1\.1 401 /);
+    client = chargerClient(port, "ACE0123456", OTHER_SECRET);
+    await client.connect();
+    expect(gateway!.getRuntime("HOME-2").connected).toBe(true);
   });
 });

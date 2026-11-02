@@ -158,6 +158,20 @@ export async function addOwnerTag(
   });
 }
 
+export interface IdentityAliasResult {
+  readonly alias: string;
+  readonly replacedAlias: string | null;
+  readonly stationId: string;
+}
+
+export async function acceptIdentityAlias(
+  stationId: string,
+  presentedIdentity: string,
+  token: string,
+): Promise<IdentityAliasResult> {
+  return postJson(stationPath(stationId, "/identity-alias"), token, { presentedIdentity });
+}
+
 export async function revokeOwnerTag(
   stationId: string,
   tagPseudonym: string,

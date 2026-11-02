@@ -120,11 +120,18 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "connect.address": "Adresse pour la borne",
   "connect.addressUnknown":
     "L’adresse de la borne indiquée lors de l’installation (START-HERE.txt), suivie du nom de la borne",
+  "connect.alias.accept": "Utiliser {presented}",
+  "connect.alias.accepting": "Enregistrement…",
+  "connect.alias.offer":
+    "Ou laissez la borne telle quelle : chargeOS peut accepter {presented} comme nom de cette borne, car la borne a prouvé qu’elle connaît le mot de passe de cette borne. Elle se connectera alors à sa prochaine tentative.",
+
   "connect.awaitingBootBody":
     "La borne est connectée. En attente de son premier message de démarrage, qui indique à chargeOS le modèle et le micrologiciel. Cela prend généralement moins d’une minute.",
   "connect.identity": "Nom de la borne (identité)",
   "connect.identityHint":
     "Recopiez le nom de la borne exactement, majuscules comprises. Certains outils de configuration demandent l’adresse et le nom séparément ; l’adresse se termine alors par une barre oblique.",
+  "connect.identityWithAlias": "{id}, ou {alias} (le nom que votre borne utilise déjà)",
+
   "connect.installerNote":
     "Votre installateur saisit ces réglages dans l’outil de configuration de la borne elle-même. chargeOS ne modifie jamais lui-même les réglages de la borne.",
   "connect.intro":
@@ -265,6 +272,9 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "notice.evidenceExported":
     "Enregistrement téléchargé. Les secrets et les numéros de badge sont exclus.",
   "notice.failed": "Cela n’a pas fonctionné. Réessayez.",
+  "notice.identityAliasAccepted":
+    "Nom accepté. La borne se connectera à sa prochaine tentative ; cette page se met à jour d’elle-même.",
+
   "notice.inspectBlocked":
     "Il manque à la borne au moins un réglage nécessaire à la recharge hors ligne.",
   "notice.inspectReady":

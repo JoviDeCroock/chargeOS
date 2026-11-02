@@ -466,6 +466,7 @@ describe("owner directory API", () => {
     };
     const gateway: ChargeGateway = {
       async close() {},
+      acceptIdentityAlias: () => Promise.reject(new Error("unused")),
       getRuntime: () => ({ connected: false, connectedAt: null }),
       inspectLocalAuthorization: unused,
       listen() {
@@ -664,6 +665,7 @@ describe("owner directory API", () => {
       config,
       {
         async close() {},
+        acceptIdentityAlias: () => Promise.reject(new Error("unused")),
         getRuntime: () => ({ connected: false, connectedAt: null }),
         inspectLocalAuthorization: unused,
         listen() {

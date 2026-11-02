@@ -121,11 +121,18 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "connect.address": "Adres voor de laadpaal",
   "connect.addressUnknown":
     "Het laadpaaladres uit je installatie (START-HERE.txt), gevolgd door de naam van de laadpaal",
+  "connect.alias.accept": "{presented} gebruiken",
+  "connect.alias.accepting": "Bewaren…",
+  "connect.alias.offer":
+    "Of laat de laadpaal zoals ze is: chargeOS kan {presented} aanvaarden als naam van deze laadpaal, omdat de laadpaal bewees dat ze het wachtwoord van deze laadpaal kent. De laadpaal maakt dan bij de volgende poging verbinding.",
+
   "connect.awaitingBootBody":
     "De laadpaal is verbonden. Wachten op het eerste opstartbericht, waarmee chargeOS het model en de firmware leert kennen. Dat duurt meestal minder dan een minuut.",
   "connect.identity": "Naam van de laadpaal (identiteit)",
   "connect.identityHint":
     "Neem de naam van de laadpaal exact over, ook hoofdletters. Sommige configuratietools vragen het adres en de naam apart; dan eindigt het adres met een schuine streep.",
+  "connect.identityWithAlias": "{id}, of {alias} (de naam die je laadpaal al gebruikt)",
+
   "connect.installerNote":
     "Je installateur vult deze instellingen in via de configuratietool van de laadpaal zelf. chargeOS wijzigt zelf nooit instellingen van de laadpaal.",
   "connect.intro":
@@ -264,6 +271,9 @@ export const nl: Readonly<Record<MessageKey, string>> = {
     "Toegang ingetrokken. Je eigen laadpassen en laden worden niet beïnvloed.",
   "notice.evidenceExported": "Registratie gedownload. Geheimen en pasnummers zijn weggelaten.",
   "notice.failed": "Dat is niet gelukt. Probeer het opnieuw.",
+  "notice.identityAliasAccepted":
+    "Naam aanvaard. De laadpaal maakt bij de volgende poging verbinding; deze pagina werkt zichzelf bij.",
+
   "notice.inspectBlocked":
     "De laadpaal mist minstens één instelling die nodig is om offline te laden.",
   "notice.inspectReady":

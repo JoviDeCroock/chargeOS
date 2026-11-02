@@ -170,6 +170,7 @@ function ownerSnapshot(
       connected: true,
       connectedAt: NOW.toISOString(),
       connection: {
+        acceptedAlias: null,
         endpointBase: null,
         lastRefused: null,
         lastUnmatchedAt: null,

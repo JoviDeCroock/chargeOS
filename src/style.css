@@ -3672,3 +3672,10 @@ body {
 .connect-panel .connect-facts dd.mono {
   overflow-wrap: anywhere;
 }
+
+.alias-offer {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  margin-top: 8px;
+}

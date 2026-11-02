@@ -38,6 +38,11 @@ export interface RefusedConnectionAttempt {
 
 export interface StationConnectionDiagnostics {
   /**
+   * A second charger name this charger may connect with, adopted by the owner after the charger
+   * presented it with this charger's own password. Recorded as evidence; `null` when none.
+   */
+  readonly acceptedAlias: string | null;
+  /**
    * The charger address to type into the charger tool, ending in a slash, when the deployment
    * declared it. The charger name follows the slash.
    */

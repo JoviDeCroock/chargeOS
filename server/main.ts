@@ -4,7 +4,7 @@ import { createOwnerApi } from "./api.js";
 import { configForStation, loadConfig, stationSecretInteroperabilityAdvisories } from "./config.js";
 import { NdjsonEvidenceStore } from "./events.js";
 import { OwnerDirectoryStore } from "./directory.js";
-import { createChargeGateway } from "./gateway.js";
+import { createChargeGateway, identityAliasesFromEvents } from "./gateway.js";
 import { openOwnerTagRegistries, withOwnerTagRegistries } from "./owner-tags.js";
 
 try {
@@ -24,7 +24,9 @@ const config = withOwnerTagRegistries(bootstrapConfig, ownerTags);
 for (const [stationId, registry] of ownerTags) {
   await registry.reconcile(configForStation(config, stationId), evidence);
 }
-const gateway = createChargeGateway(config, evidence);
+const gateway = createChargeGateway(config, evidence, {
+  identityAliases: identityAliasesFromEvents(config, await evidence.readEvents()),
+});
 const directory = await OwnerDirectoryStore.open(config);
 const api = createOwnerApi(config, gateway, evidence, ownerTags, fetch, directory);
 
