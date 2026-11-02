@@ -13,6 +13,8 @@ overrides:
   undici: 8.12.3
   source-map-js: 1.2.2
   "@esbuild-kit/core-utils>esbuild": 0.28.2
+  "concurrently>shell-quote": 1.11.0
+  "oxfmt>tinypool": 2.1.2
 patchedDependencies:
   ocpp-rpc@2.2.1: patches/ocpp-rpc@2.2.1.patch
 verifyDepsBeforeRun: false
