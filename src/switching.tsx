@@ -19,6 +19,7 @@ import type {
 import { FREEDOM_TEST_RUN_CONFIRMATION_PHRASE } from "../shared/freedom-test.js";
 import { MIGRATION_AUTHORIZATION_PHRASE } from "../shared/migration.js";
 import { formatDate } from "./i18n/index.js";
+import { EmptyEvidenceFileError, sha256File } from "./sha256.js";
 import {
   action,
   runFieldPackExport,
@@ -30,6 +31,69 @@ import {
   runMigrationCheckpointSave,
   runMigrationReportExport,
 } from "./model.js";
+
+/**
+ * Computes an evidence file's SHA-256 in this browser so the owner does not need a terminal. The
+ * file is read locally and never uploaded; only the digest is handed to the input next to it.
+ */
+export function EvidenceFileDigest({
+  label,
+  onDigest,
+}: {
+  label: string;
+  onDigest(value: string): void;
+}) {
+  const [state, setState] = useState<
+    | { readonly kind: "idle" }
+    | { readonly kind: "hashing"; readonly percent: number }
+    | { readonly kind: "done"; readonly name: string }
+    | { readonly kind: "error"; readonly message: string }
+  >({ kind: "idle" });
+  return (
+    <span class="file-digest">
+      <label class="button secondary compact file-digest-button">
+        {state.kind === "hashing" ? `Reading file… ${state.percent}%` : "Choose evidence file"}
+        <input
+          type="file"
+          class="visually-hidden"
+          aria-label={`Choose the evidence file for ${label}; it stays on this computer`}
+          disabled={state.kind === "hashing"}
+          onChange={(event) => {
+            const input = event.currentTarget;
+            const file = input.files?.[0];
+            // Clear the selection so choosing the same file again re-reads it.
+            input.value = "";
+            if (!file) return;
+            setState({ kind: "hashing", percent: 0 });
+            void sha256File(file, (fraction) =>
+              setState({ kind: "hashing", percent: Math.floor(fraction * 100) }),
+            ).then(
+              (digest) => {
+                onDigest(digest);
+                setState({ kind: "done", name: file.name });
+              },
+              (error: unknown) =>
+                setState({
+                  kind: "error",
+                  message:
+                    error instanceof EmptyEvidenceFileError
+                      ? "That file is empty. Choose the evidence file itself."
+                      : "The file could not be read. Choose it again.",
+                }),
+            );
+          }}
+        />
+      </label>
+      <small class="file-digest-note" role="status">
+        {state.kind === "done"
+          ? `Fingerprint of ${state.name} filled in. The file was not uploaded.`
+          : state.kind === "error"
+            ? state.message
+            : "Stays on this computer; only its fingerprint is used."}
+      </small>
+    </span>
+  );
+}
 
 export function CompactedHistoryNotice({ snapshot: current }: { snapshot: OwnerSnapshot }) {
   return (
@@ -423,6 +487,7 @@ function MigrationStep({
               onInput={(event) => onDigest(event.currentTarget.value.trim())}
             />
           </label>
+          <EvidenceFileDigest label={step.label} onDigest={onDigest} />
           <button
             class="button secondary compact"
             type="button"
@@ -744,6 +809,12 @@ export function FreedomTestPanel({ test }: { test: FreedomTestProjection }) {
                 }
               />
             </label>
+            <div class="full-field">
+              <EvidenceFileDigest
+                label="the device inventory"
+                onDigest={(value) => setDevice({ ...device, evidenceSha256: value })}
+              />
+            </div>
           </div>
           <button
             class="button secondary"
@@ -819,6 +890,7 @@ function FreedomStep({
               onInput={(event) => onDigest(event.currentTarget.value.trim())}
             />
           </label>
+          <EvidenceFileDigest label={step.label} onDigest={onDigest} />
           <button
             class="button secondary compact"
             type="button"

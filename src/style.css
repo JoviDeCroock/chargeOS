@@ -3642,3 +3642,25 @@ body {
     white-space: nowrap;
   }
 }
+
+.file-digest {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.file-digest-button {
+  cursor: pointer;
+  position: relative;
+}
+
+.file-digest-button:focus-within {
+  outline: 3px solid color-mix(in srgb, var(--current) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.file-digest-note {
+  color: var(--ink-3);
+  font-size: 0.78rem;
+}

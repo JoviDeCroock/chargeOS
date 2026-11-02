@@ -285,7 +285,7 @@ Changing any prerequisite record invalidates the authorization. A Boot counts on
 
 In the dashboard, record the exact article number and hardware revision from the device label, country, connectivity path, prior operator, exact supported endpoint-configuration path, and expected OCPP vendor/model/firmware from supported pre-switch evidence. The first Boot in the authorized window must match those three strings exactly; missing or mismatched Boot data prevents evidence completeness.
 
-Three steps are derived automatically from the ledger: accepted owner authorization synchronization, an online start/meter/stop sequence with positive energy, and online unknown-tag rejection. Every other step is a witnessed physical observation. Hash the separately held evidence before recording pass or failure:
+Three steps are derived automatically from the ledger: accepted owner authorization synchronization, an online start/meter/stop sequence with positive energy, and online unknown-tag rejection. Every other step is a witnessed physical observation. Hash the separately held evidence before recording pass or failure. **Choose evidence file** beside each digest field streams the file through a SHA-256 implementation in the browser (`src/sha256.ts`, checked against `node:crypto` in `test/sha256.test.ts`) and fills in the digest; the file is not uploaded and empty files are refused. A terminal digest works as well:
 
 ```sh
 shasum -a 256 field-evidence-file
