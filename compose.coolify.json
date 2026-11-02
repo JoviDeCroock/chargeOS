@@ -40,6 +40,9 @@
       "cap_add": ["NET_BIND_SERVICE"],
       "cap_drop": ["ALL"],
       "depends_on": {
+        "caddy-volumes": {
+          "condition": "service_completed_successfully"
+        },
         "chargeos": {
           "condition": "service_started"
         },
@@ -81,7 +84,24 @@
         "traefik.http.routers.chargeos-${CHARGEOS_INSTALL_ID}-ocpp.tls.certresolver=letsencrypt",
         "traefik.http.routers.chargeos-${CHARGEOS_INSTALL_ID}-ocpp.service=chargeos-${CHARGEOS_INSTALL_ID}-ocpp",
         "traefik.http.services.chargeos-${CHARGEOS_INSTALL_ID}-ocpp.loadbalancer.server.port=8081"
-      ]
+      ],
+      "user": "1000:1000"
+    },
+    "caddy-volumes": {
+      "image": "caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+      "cap_add": ["CHOWN", "DAC_READ_SEARCH", "FOWNER"],
+      "cap_drop": ["ALL"],
+      "entrypoint": [
+        "/bin/sh",
+        "-c",
+        "chown -R 1000:1000 /data /config && chmod 0700 /data /config"
+      ],
+      "network_mode": "none",
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"],
+      "user": "0:0",
+      "volumes": ["caddy-config:/config", "caddy-data:/data"]
     },
     "credentials": {
       "image": "${CHARGEOS_IMAGE}",

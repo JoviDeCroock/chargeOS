@@ -224,7 +224,10 @@ export async function prepareDeployment(input, parent = join(repositoryRoot, ".c
         image: caddyImage,
         cap_add: ["NET_BIND_SERVICE"],
         cap_drop: ["ALL"],
-        depends_on: ["chargeos"],
+        depends_on: {
+          "caddy-volumes": { condition: "service_completed_successfully" },
+          chargeos: { condition: "service_started" },
+        },
         environment: {
           CHARGEOS_ACME_EMAIL: input.email,
           CHARGEOS_OCPP_DOMAIN: input.ocppDomain,
@@ -237,12 +240,14 @@ export async function prepareDeployment(input, parent = join(repositoryRoot, ".c
         restart: "unless-stopped",
         security_opt: ["no-new-privileges:true"],
         tmpfs: ["/tmp:size=16m,mode=1777"],
+        user: "1000:1000",
         volumes: [
           "./Caddyfile:/etc/caddy/Caddyfile:ro",
           "caddy-config:/config",
           "caddy-data:/data",
         ],
       },
+      "caddy-volumes": caddyVolumeOwnership(caddyImage),
     },
     networks: { "chargeos-edge": {}, "chargeos-internal": { internal: true } },
     secrets: {
@@ -295,6 +300,22 @@ export async function prepareDeployment(input, parent = join(repositoryRoot, ".c
     `chargeOS setup: ${input.name}\n\nConsole: ${receipt.consoleUrl}\nCharger endpoint: ${receipt.ocppUrl}\nPrivate credentials: credentials.json\n\nThis folder is private; keep it off shared drives and out of support messages.\nPoint both DNS names at your server. Docker: ports 80/443 must be reachable.\nManaged: Coolify supplies TLS and routes console to Caddy port 8080, OCPP to 8081.\nDeployment starts software; it never changes an existing charger's endpoint.\nFollow docs/guides/connect-a-charger.md before a charger migration.\nCreate and drill a separate encrypted continuity bundle after provisioning.\nDo not delete this deployment's data volume or create a second edge for the same live charger.\n\n${input.target === "docker" ? `Docker resume (from this folder): ${dockerComposeCommand(model.name, input.dockerContext)} up --detach --wait\nDocker stop (keeps data): ${dockerComposeCommand(model.name, input.dockerContext)} stop\n` : "Cloud: inspect the existing service in Coolify and its saved receipts before retrying any uncertain submission. Never run this cloud setup as a second local edge.\n"}`,
   );
   return { directory, model, receipt };
+}
+
+/** One-shot, network-less step giving the unprivileged Caddy user its certificate volumes. */
+export function caddyVolumeOwnership(image) {
+  return {
+    image,
+    cap_add: ["CHOWN", "DAC_READ_SEARCH", "FOWNER"],
+    cap_drop: ["ALL"],
+    entrypoint: ["/bin/sh", "-c", "chown -R 1000:1000 /data /config && chmod 0700 /data /config"],
+    network_mode: "none",
+    read_only: true,
+    restart: "no",
+    security_opt: ["no-new-privileges:true"],
+    user: "0:0",
+    volumes: ["caddy-config:/config", "caddy-data:/data"],
+  };
 }
 
 export function cloudEnvironment(input, receipt) {

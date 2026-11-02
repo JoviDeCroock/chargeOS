@@ -126,6 +126,7 @@ assert(
   caddy.environment?.CHARGEOS_OCPP_DOMAIN !== caddy.environment?.CHARGEOS_OWNER_DOMAIN,
   "OCPP and owner TLS hostnames must be distinct",
 );
+assertUnprivilegedCaddy(model, "production");
 
 const fleetModel = JSON.parse(
   execFileSync(
@@ -192,7 +193,57 @@ assert(
   "fleet chargeos network must be internal",
 );
 
+assertUnprivilegedCaddy(fleetModel, "fleet");
+assertUnprivilegedCaddy(
+  JSON.parse(readFileSync(join(root, "compose.coolify.json"), "utf8")),
+  "managed",
+);
+
 console.log("Production deployment trust boundary is valid");
+
+// Caddy runs as an unprivileged user. Only a one-shot, network-less, read-only step with the
+// minimum file-ownership capabilities may run as root, and Caddy must wait for it to succeed.
+function assertUnprivilegedCaddy(composeModel, label) {
+  const proxy = composeModel.services?.caddy;
+  const init = composeModel.services?.["caddy-volumes"];
+  assert(proxy?.user === "1000:1000", `${label} Caddy must run as the unprivileged 1000:1000 user`);
+  assert(init, `${label} model must prepare Caddy volume ownership`);
+  assert(
+    proxy.depends_on?.["caddy-volumes"]?.condition === "service_completed_successfully",
+    `${label} Caddy must wait for its volume ownership step`,
+  );
+  assert(init.image === proxy.image, `${label} volume ownership must use the pinned Caddy image`);
+  assert(init.network_mode === "none", `${label} volume ownership step must have no network`);
+  assert(init.read_only === true, `${label} volume ownership root filesystem must be read-only`);
+  assert(init.restart === "no", `${label} volume ownership step must not restart`);
+  assert(
+    init.security_opt?.includes("no-new-privileges:true"),
+    `${label} volume ownership step must disable privilege escalation`,
+  );
+  assert(init.cap_drop?.includes("ALL"), `${label} volume ownership step must drop capabilities`);
+  assertSameMembers(
+    init.cap_add,
+    ["CHOWN", "DAC_READ_SEARCH", "FOWNER"],
+    `${label} volume ownership capabilities`,
+  );
+  assert(
+    JSON.stringify(init.entrypoint) ===
+      JSON.stringify([
+        "/bin/sh",
+        "-c",
+        "chown -R 1000:1000 /data /config && chmod 0700 /data /config",
+      ]),
+    `${label} volume ownership step may only change Caddy volume ownership`,
+  );
+  const targets = (init.volumes ?? []).map((volume) =>
+    typeof volume === "string" ? volume.split(":")[1] : volume.target,
+  );
+  assertSameMembers(targets, ["/config", "/data"], `${label} volume ownership mounts`);
+  assert(
+    !init.ports && !init.secrets,
+    `${label} volume ownership step must not publish or read secrets`,
+  );
+}
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);

@@ -136,6 +136,8 @@ try {
     "--publish",
     "127.0.0.1::443",
     "--read-only",
+    "--user",
+    rendered.services.caddy.user,
     "--cap-drop",
     "ALL",
     "--cap-add",
@@ -145,9 +147,9 @@ try {
     "--tmpfs",
     "/tmp:rw,noexec,nosuid,size=16m",
     "--tmpfs",
-    "/data:rw,noexec,nosuid,size=32m",
+    "/data:rw,noexec,nosuid,size=32m,uid=1000,gid=1000,mode=0700",
     "--tmpfs",
-    "/config:rw,noexec,nosuid,size=8m",
+    "/config:rw,noexec,nosuid,size=8m,uid=1000,gid=1000,mode=0700",
     "--env",
     "CHARGEOS_ACME_EMAIL=owner@example.net",
     "--env",
@@ -981,6 +983,13 @@ function verifyCaddyContainer() {
   const inspect = JSON.parse(run("docker", ["inspect", caddyName]))[0];
   assert(inspect.HostConfig?.ReadonlyRootfs === true, "Caddy root filesystem is writable");
   assert(inspect.HostConfig?.Privileged === false, "Caddy container is privileged");
+  assert(inspect.Config?.User === "1000:1000", "Caddy does not run as the unprivileged user");
+  const status = run("docker", ["exec", caddyName, "cat", "/proc/1/status"]);
+  assert(/^Uid:\s+1000\s/mu.test(status), "Caddy process is not running as uid 1000");
+  assert(
+    /^CapEff:\s+0000000000000400$/mu.test(status),
+    "Caddy process holds capabilities beyond NET_BIND_SERVICE",
+  );
   assert(
     inspect.HostConfig?.SecurityOpt?.includes("no-new-privileges:true"),
     "Caddy privilege escalation is enabled",

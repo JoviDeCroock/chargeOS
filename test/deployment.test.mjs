@@ -3,7 +3,12 @@ import { mkdtemp, readFile, lstat, rm, mkdir, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
-import { deploymentInput, prepareDeployment, deployToCoolify } from "../scripts/deployment.mjs";
+import {
+  caddyVolumeOwnership,
+  deploymentInput,
+  prepareDeployment,
+  deployToCoolify,
+} from "../scripts/deployment.mjs";
 import { createSetupServer } from "../scripts/deploy.mjs";
 
 const raw = (extra = {}) => ({
@@ -82,6 +87,8 @@ it("creates private non-overwriting Docker files with unique credentials, file-s
   expect(receipt.stationSecret).toMatch(/^[0-9a-f]{40}$/);
   expect(model.services.chargeos.networks).toEqual(["chargeos-internal"]);
   expect(model.services.chargeos.ports).toBeUndefined();
+  expect(model.services.caddy.user).toBe("1000:1000");
+  expect(model.services["caddy-volumes"]).toEqual(caddyVolumeOwnership(model.services.caddy.image));
   expect(model.networks["chargeos-internal"].internal).toBe(true);
   expect(model.services.chargeos.environment.CHARGEOS_OWNER_API_TOKEN).toBeUndefined();
   expect(model.services.chargeos.environment.CHARGEOS_OWNER_API_TOKEN_FILE).toBe(
@@ -195,6 +202,13 @@ it("builds a managed template with immutable images, read-only credential files,
   );
   expect(prepared.model.services.chargeos.networks).toEqual(["chargeos-internal"]);
   expect(prepared.model.services.caddy.networks).toEqual(["coolify", "chargeos-internal"]);
+  expect(prepared.model.services.caddy.user).toBe("1000:1000");
+  expect(prepared.model.services["caddy-volumes"]).toEqual(
+    caddyVolumeOwnership(prepared.model.services.caddy.image),
+  );
+  expect(prepared.model.services.caddy.depends_on["caddy-volumes"]).toEqual({
+    condition: "service_completed_successfully",
+  });
   const fetcher = vi.fn(async (_url, init) => {
     if (init.method === "POST") return Response.json({ uuid: "cloud-service-1" }, { status: 201 });
     if (_url.includes("/applications/cloud-service-1") && init.method === "GET")

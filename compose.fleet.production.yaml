@@ -40,7 +40,10 @@ services:
     cap_drop:
       - ALL
     depends_on:
-      - chargeos
+      caddy-volumes:
+        condition: service_completed_successfully
+      chargeos:
+        condition: service_started
     environment:
       CHARGEOS_ACME_EMAIL: ${CHARGEOS_ACME_EMAIL:?Set CHARGEOS_ACME_EMAIL in .env.fleet.production}
       CHARGEOS_OCPP_MAX_CONNECTIONS: ${CHARGEOS_OCPP_MAX_CONNECTIONS:-16}
@@ -59,8 +62,31 @@ services:
       - no-new-privileges:true
     tmpfs:
       - /tmp:size=16m,mode=1777
+    # Unprivileged runtime: the pinned binary's file capability supplies only NET_BIND_SERVICE.
+    user: "1000:1000"
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-config:/config
+      - caddy-data:/data
+
+  # One-shot, network-less ownership step so Caddy can run unprivileged on new and existing
+  # (previously root-owned) certificate volumes. It only changes owner/mode, then exits.
+  caddy-volumes:
+    image: ${CADDY_IMAGE:-caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648}
+    cap_add:
+      - CHOWN
+      - DAC_READ_SEARCH
+      - FOWNER
+    cap_drop:
+      - ALL
+    entrypoint: ["/bin/sh", "-c", "chown -R 1000:1000 /data /config && chmod 0700 /data /config"]
+    network_mode: none
+    read_only: true
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+    user: "0:0"
+    volumes:
       - caddy-config:/config
       - caddy-data:/data
 

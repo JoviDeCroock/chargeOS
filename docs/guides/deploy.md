@@ -15,6 +15,8 @@ This guide deploys the **owner edge** through the wizard, with separate console 
 7. Tick the box confirming that you control this server and these addresses, then click **Deploy chargeOS**. Keep the terminal open while Docker builds and starts the containers.
 8. When you have finished, press Ctrl+C in the terminal to stop the setup tool. This does not stop chargeOS.
 
+Each start first runs a short `caddy-volumes` step, which lets the HTTPS proxy run without administrator rights. It then exits; seeing it as "exited" is normal. If the proxy does not start after an update, look at that step's log with `docker compose logs caddy-volumes`. Your certificates are kept.
+
 You can instead click **Prepare files only**. This creates the private deployment folder without starting a container or contacting a cloud account.
 
 ## Find your console and credentials
