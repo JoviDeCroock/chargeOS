@@ -153,7 +153,7 @@ The deployment applies the same accepted-connection ceiling at Caddy and Node, c
 
 ## Guarded operating sequence
 
-1. Confirm the configured station connects and sends the expected model/firmware in `BootNotification`.
+1. Confirm the configured station connects and sends the expected model/firmware in `BootNotification`. A charger that only reconnects often sends no Boot; 30 seconds after such a connection chargeOS sends one `TriggerMessage` for `BootNotification` and records the request and the answer. A Boot that follows that request reports identity only: it never clears a pending `RebootRequired`, never shows an owner restart as observed, and never counts as the authorized post-switch Boot in the migration dossier, although one that reports a different device still stops it. Restart the charger inside the authorized window with its supported procedure.
 2. In the owner console, run **Inspect offline capabilities**.
 3. Read every observed check. Missing or unsafe evidence leaves readiness unknown or blocked.
 4. If the three required settings are unsafe but all are explicitly reported writable, type the displayed confirmation phrase and run **Prepare owner continuity**. The edge performs a complete preflight, changes only those unsafe settings in the safe direction, and re-inspects. Missing, read-only, malformed, or ambiguous keys require the supported device/configuration path instead; do not bypass the block.

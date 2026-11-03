@@ -14,6 +14,7 @@ import {
   type MigrationStepId,
   type MigrationStepResult,
 } from "../shared/migration.js";
+import { isUnrequestedBoot } from "./boot-evidence.js";
 import type { GatewayConfig } from "./config.js";
 import { buildDeviceIdentity, latestDeviceInventoryEvent } from "./device.js";
 import { evidenceEvent, type EvidenceEvent, type EvidenceStore } from "./events.js";
@@ -291,26 +292,34 @@ function postSwitchStep(
   if (!authorizationEvent || !authorization) return result(definition, "pending", [], null);
   const authorizationIndex = events.indexOf(authorizationEvent);
   const expiry = Date.parse(authorization.expiresAt);
+  const inWindowBoot = (event: EvidenceEvent, index: number) =>
+    index > authorizationIndex &&
+    event.message === "BootNotification" &&
+    Date.parse(event.at) <= expiry;
+  // Only a Boot the charger sent on its own proves the switch: one chargeOS asked for on an
+  // existing connection reports identity but not a new connection inside the authorized window.
   const bootIndex = events.findIndex(
-    (event, index) =>
-      index > authorizationIndex &&
-      event.message === "BootNotification" &&
-      Date.parse(event.at) <= expiry,
+    (event, index) => inWindowBoot(event, index) && isUnrequestedBoot(events, event, index),
   );
-  if (bootIndex < 0) return result(definition, "pending", [], null);
-  const boot = events[bootIndex]!;
   if (definition.id === "authorized-boot-observed") {
     const inventory = events.findLast(
       (event, index) => index < authorizationIndex && event.message === "FreedomTestDeviceRecorded",
     );
-    const device = buildDeviceIdentity(events.slice(0, bootIndex + 1), boot);
-    return result(
-      definition,
-      device?.identityMatch === "match" ? "pass" : "fail",
-      inventory ? [inventory, boot] : [boot],
-      null,
-    );
+    const evidenceFor = (boot: EvidenceEvent) => (inventory ? [inventory, boot] : [boot]);
+    // Any Boot in the window, requested or not, that reports another device is a stop condition.
+    const lastConsidered = bootIndex < 0 ? events.length - 1 : bootIndex;
+    for (let index = authorizationIndex + 1; index <= lastConsidered; index += 1) {
+      const candidate = events[index]!;
+      if (!inWindowBoot(candidate, index)) continue;
+      const device = buildDeviceIdentity(events.slice(0, index + 1), candidate);
+      if (device?.identityMatch !== "match") {
+        return result(definition, "fail", evidenceFor(candidate), null);
+      }
+    }
+    if (bootIndex < 0) return result(definition, "pending", [], null);
+    return result(definition, "pass", evidenceFor(events[bootIndex]!), null);
   }
+  if (bootIndex < 0) return result(definition, "pending", [], null);
   if (definition.id === "authorized-status-observed") {
     const status = events.find(
       (event, index) => index > bootIndex && event.message === "StatusNotification",

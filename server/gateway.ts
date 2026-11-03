@@ -41,6 +41,7 @@ import {
   UnknownStationError,
   type GatewayConfig,
 } from "./config.js";
+import { BOOT_TRIGGER_MESSAGE, isUnrequestedBoot } from "./boot-evidence.js";
 import { evidenceEvent, type EvidenceEvent, type EvidenceStore } from "./events.js";
 import { foldIdTag, pseudonymizeTag } from "./tag.js";
 
@@ -118,6 +119,11 @@ export interface AuthorizationSyncResult {
 }
 
 export interface ChargeGatewayOptions {
+  /**
+   * How long a connected charger may stay silent about its identity before chargeOS asks for a
+   * BootNotification with TriggerMessage; `null` disables the request (tests only).
+   */
+  readonly bootRequestDelayMs?: number | null;
   /** Override the charger answer timeout for owner commands (tests only). */
   readonly commandTimeoutMs?: number;
   /** Accepted charger names from the ledger; see `identityAliasesFromEvents`. */
@@ -131,6 +137,12 @@ export interface IdentityAliasResult {
 }
 
 export const IDENTITY_ALIAS_EVENT = "StationIdentityAliasAccepted";
+/**
+ * Many chargers send BootNotification only after starting up, not when they merely reconnect, so a
+ * charger that switched back office without restarting never tells chargeOS what it is. After this
+ * delay without a Boot on a connection, chargeOS asks once (OCPP 1.6 TriggerMessage).
+ */
+export const BOOT_REQUEST_DELAY_MS = 30_000;
 /** An observed name must be adopted soon after the charger presented it. */
 export const IDENTITY_ALIAS_OBSERVATION_MAX_AGE_MS = 15 * 60_000;
 
@@ -177,6 +189,16 @@ export function createChargeGateway(
   options: ChargeGatewayOptions = {},
 ): ChargeGateway {
   const commandTimeoutMs = options.commandTimeoutMs ?? STATION_COMMAND_TIMEOUT_MS;
+  const bootRequestDelayMs =
+    options.bootRequestDelayMs === undefined ? BOOT_REQUEST_DELAY_MS : options.bootRequestDelayMs;
+  if (
+    bootRequestDelayMs !== null &&
+    !(Number.isSafeInteger(bootRequestDelayMs) && bootRequestDelayMs >= 0)
+  ) {
+    throw new Error(
+      "bootRequestDelayMs must be a non-negative whole number of milliseconds or null",
+    );
+  }
   // Resolved on every use: chargers added or retired from the console take effect immediately.
   const stationConfigs = {
     get(stationId: string): GatewayConfig | undefined {
@@ -444,10 +466,32 @@ export function createChargeGateway(
     connectedAt.set(stationId, new Date().toISOString());
     lastRefused.delete(stationId);
     aliasCandidates.delete(stationId);
-    void record(evidence, stationConfig, stationId, "system", "Connected", {}).catch(
-      () => undefined,
-    );
+    // Ask once for the charger's identity if it connects without announcing it. The request is
+    // queued behind any other chargeOS exchange with this charger and records its intent first.
+    let bootReceived = false;
+    let bootRequest: ReturnType<typeof setTimeout> | null = null;
+    const cancelBootRequest = () => {
+      if (bootRequest) clearTimeout(bootRequest);
+      bootRequest = null;
+    };
+    const connectedRecorded = record(evidence, stationConfig, stationId, "system", "Connected", {});
+    void connectedRecorded.catch(() => undefined);
+    if (bootRequestDelayMs !== null) {
+      bootRequest = setTimeout(() => {
+        bootRequest = null;
+        if (bootReceived || peers.get(stationId) !== peer) return;
+        void connectedRecorded
+          .then(() =>
+            serialized(stationId, () =>
+              requestBootNotification(stationId, peer, () => bootReceived),
+            ),
+          )
+          .catch(() => undefined);
+      }, bootRequestDelayMs);
+      bootRequest.unref?.();
+    }
     peer.once("disconnect", () => {
+      cancelBootRequest();
       if (peers.get(stationId) === peer) {
         peers.delete(stationId);
         connectedAt.delete(stationId);
@@ -505,6 +549,8 @@ export function createChargeGateway(
     };
 
     handle("BootNotification", async ({ params }) => {
+      bootReceived = true;
+      cancelBootRequest();
       await record(
         evidence,
         stationConfig,
@@ -815,6 +861,54 @@ export function createChargeGateway(
     ).find((candidate) => candidate.commandId === commandId);
     if (!command) throw new Error("Station command evidence could not be projected");
     return command;
+  }
+
+  /**
+   * Ask a connected charger, once, to send its BootNotification. Records the request before
+   * sending it and the charger's answer (or why there was none) afterwards. A Boot that follows is
+   * an identity report only; see `isRequestedBoot`.
+   */
+  async function requestBootNotification(
+    stationId: string,
+    peer: OcppPeer,
+    bootReceived: () => boolean,
+  ): Promise<void> {
+    const stationConfig = stationConfigs.get(stationId);
+    if (!stationConfig || bootReceived() || peers.get(stationId) !== peer) return;
+    const params = { requestedMessage: "BootNotification" };
+    await record(
+      evidence,
+      stationConfig,
+      stationId,
+      "csms-to-station",
+      BOOT_TRIGGER_MESSAGE,
+      params,
+    );
+    // The charger may have announced itself while the request was being recorded; that Boot is
+    // now counted as requested (fail closed), so there is no reason to send the request.
+    if (bootReceived() || peers.get(stationId) !== peer) {
+      await record(evidence, stationConfig, stationId, "system", "TriggerMessageFailed", {
+        reason: "not-sent",
+      });
+      return;
+    }
+    let outcome: { readonly reason: string } | { readonly status: string };
+    try {
+      outcome = {
+        status: readStatus(
+          await peer.call(BOOT_TRIGGER_MESSAGE, params, { callTimeoutMs: commandTimeoutMs }),
+        ),
+      };
+    } catch (error) {
+      outcome = { reason: commandFailureReason(error) };
+    }
+    if ("status" in outcome) {
+      await record(evidence, stationConfig, stationId, "station-to-csms", "TriggerMessageResult", {
+        status: outcome.status,
+      });
+    } else {
+      await record(evidence, stationConfig, stationId, "system", "TriggerMessageFailed", outcome);
+    }
   }
 
   async function inspect(stationId: string): Promise<CapabilityAssessment> {
@@ -1177,8 +1271,9 @@ function applyPendingRestart(
   events: readonly EvidenceEvent[],
   stationId: string,
 ): CapabilityAssessment {
+  // A Boot chargeOS asked for is not a restart, so it never clears a pending RebootRequired.
   const lastBootIndex = events.findLastIndex(
-    (event) => event.stationId === stationId && event.message === "BootNotification",
+    (event, index) => event.stationId === stationId && isUnrequestedBoot(events, event, index),
   );
   const lastRestartRequiredIndex = events.findLastIndex(
     (event) =>
@@ -1194,7 +1289,7 @@ function applyPendingRestart(
       {
         id: "continuity-restart",
         label: "Required configuration restart observed",
-        observed: "awaiting a new BootNotification",
+        observed: "awaiting a restart (a BootNotification the charger sends on its own)",
         state: "fail",
       },
     ],

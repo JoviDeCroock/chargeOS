@@ -240,7 +240,7 @@ function onlineAction(step: MigrationStepDefinition): GenesisAction {
       execution: "observe",
       id: "observe-authorized-boot",
       instruction:
-        "Wait for the first authenticated BootNotification inside the owner-authorized window. Any vendor, model, or firmware mismatch is a stop condition.",
+        "Wait for the first authenticated BootNotification the charger sends on its own inside the owner-authorized window. A Boot chargeOS requested after a plain reconnect reports identity but does not count; restart the charger inside the window with its supported procedure. Any vendor, model, or firmware mismatch is a stop condition.",
       migrationStepId: step.id,
       safety: "ordinary",
     };

@@ -75,6 +75,13 @@ export const PROFILES = Object.freeze({
     ),
     readonlyKeys: [],
   },
+  "trigger-unsupported": {
+    description:
+      "Answers TriggerMessage with NotImplemented, so it reports its identity only after a restart.",
+    configuration: SAFE_CONFIGURATION,
+    readonlyKeys: [],
+    triggerUnsupported: true,
+  },
   "local-list-unsupported": {
     description:
       "Has no local authorization list. chargeOS must report the gap and keep synchronization blocked.",
@@ -205,6 +212,19 @@ export function createSimulatedCharger(options) {
   client.handle("UnlockConnector", async ({ params }) => {
     log(`<- UnlockConnector ${params.connectorId} -> Unlocked`);
     return { status: "Unlocked" };
+  });
+
+  client.handle("TriggerMessage", async ({ params }) => {
+    const supported = !profile.triggerUnsupported && params.requestedMessage === "BootNotification";
+    log(
+      `<- TriggerMessage ${params.requestedMessage} -> ${supported ? "Accepted" : "NotImplemented"}`,
+    );
+    if (!supported) return { status: "NotImplemented" };
+    // OCPP 1.6: answer first, then send the requested message on the same connection.
+    setTimeout(() => {
+      void boot().catch((error) => log(`requested BootNotification failed: ${error.message}`));
+    }, 50);
+    return { status: "Accepted" };
   });
 
   client.handle("ChangeAvailability", async ({ params }) => {
@@ -390,6 +410,8 @@ Options:
   --tag-file <path>       File holding the card to present (default: first $CHARGEOS_OWNER_TAGS)
   --energy-wh <n>         Energy delivered by --session (default: 7400)
   --vendor/--model/--firmware <text>  BootNotification identity
+  --no-boot               Connect without sending BootNotification, like a charger that only
+                          reconnected; chargeOS asks for it with TriggerMessage after a short wait
   --exit                  Disconnect after boot (and the session) instead of staying online
   --list-profiles         Show the available profiles
   --help                  Show this help
@@ -408,6 +430,7 @@ async function main() {
       help: { type: "boolean", default: false },
       identity: { type: "string" },
       "list-profiles": { type: "boolean", default: false },
+      "no-boot": { type: "boolean", default: false },
       model: { type: "string" },
       "password-file": { type: "string" },
       profile: { type: "string", default: "conformant" },
@@ -463,7 +486,7 @@ async function main() {
     profile: values.profile,
   });
   await charger.connect();
-  await charger.boot();
+  if (!values["no-boot"]) await charger.boot();
 
   if (values.session) {
     const tag = values["tag-file"]

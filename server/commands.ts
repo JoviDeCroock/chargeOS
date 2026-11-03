@@ -6,6 +6,7 @@ import {
   type StationCommandState,
   type StationCommandType,
 } from "../shared/commands.js";
+import { isUnrequestedBoot } from "./boot-evidence.js";
 import type { EvidenceEvent } from "./events.js";
 
 /** How long chargeOS waits for a charger answer before the outcome becomes uncertain. */
@@ -300,12 +301,13 @@ function observedOutcome(
         ? `Session #${command.transactionId} stopped`
         : null;
     case "Reset": {
-      // A restart shows up as the connection dropping and a new BootNotification.
+      // A restart shows up as the connection dropping and a new BootNotification the charger sent
+      // on its own; one chargeOS asked for after a plain reconnect proves no restart.
       const disconnect = inWindow.findIndex((event) => event.message === "Disconnected");
-      const boot =
-        disconnect < 0
-          ? undefined
-          : inWindow.slice(disconnect + 1).find((event) => event.message === "BootNotification");
+      const afterDisconnect = disconnect < 0 ? [] : inWindow.slice(disconnect + 1);
+      const boot = afterDisconnect.find((event, index) =>
+        isUnrequestedBoot(afterDisconnect, event, index),
+      );
       return boot ? `Charger restarted and reconnected at ${boot.at}` : null;
     }
     case "UnlockConnector":

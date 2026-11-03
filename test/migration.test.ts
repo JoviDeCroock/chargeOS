@@ -172,6 +172,61 @@ describe("migration dossier", () => {
       "pending",
     );
 
+    // A Boot chargeOS asked for on an existing connection reports identity but proves no switch.
+    const requestedBoot = [
+      ...evidence.events,
+      at(evidenceEvent("STATION_1", "system", "Connected", {}), "2026-08-14T11:59:00.000Z"),
+      at(
+        evidenceEvent("STATION_1", "csms-to-station", "TriggerMessage", {
+          requestedMessage: "BootNotification",
+        }),
+        "2026-08-14T12:06:00.000Z",
+      ),
+      at(
+        evidenceEvent("STATION_1", "station-to-csms", "BootNotification", {
+          chargePointModel: "Eve Single S-line",
+          chargePointVendor: "Alfen",
+          firmwareVersion: "7.1.0",
+        }),
+        "2026-08-14T12:06:01.000Z",
+      ),
+    ];
+    const requested = buildMigrationProjection(requestedBoot, new Date("2026-08-14T12:07:00.000Z"));
+    expect(requested.steps.find((step) => step.id === "authorized-boot-observed")?.state).toBe(
+      "pending",
+    );
+    // The charger's own Boot after a new connection still counts.
+    const afterRequested = buildMigrationProjection(
+      [
+        ...requestedBoot,
+        at(evidenceEvent("STATION_1", "system", "Connected", {}), "2026-08-14T12:08:00.000Z"),
+        at(
+          evidenceEvent("STATION_1", "station-to-csms", "BootNotification", {
+            chargePointModel: "Eve Single S-line",
+            chargePointVendor: "Alfen",
+            firmwareVersion: "7.1.0",
+          }),
+          "2026-08-14T12:08:01.000Z",
+        ),
+      ],
+      new Date("2026-08-14T12:09:00.000Z"),
+    );
+    expect(afterRequested.steps.find((step) => step.id === "authorized-boot-observed")?.state).toBe(
+      "pass",
+    );
+    // A requested Boot reporting another device is still a stop condition.
+    const requestedMismatch = buildMigrationProjection(
+      requestedBoot.map((event, index) =>
+        index === requestedBoot.length - 1
+          ? { ...event, payload: { ...(event.payload as object), firmwareVersion: "6.0.0" } }
+          : event,
+      ),
+      new Date("2026-08-14T12:07:00.000Z"),
+    );
+    expect(
+      requestedMismatch.steps.find((step) => step.id === "authorized-boot-observed")?.state,
+    ).toBe("fail");
+
     evidence.events.push(
       at(
         evidenceEvent("STATION_1", "station-to-csms", "BootNotification", {
