@@ -245,7 +245,10 @@ export function App() {
             {consolePage ? (
               <FleetStatusPill fleet={fleetSnapshot} />
             ) : (
-              <StatusPill connected={current.station.connected} />
+              <StatusPill
+                connected={current.station.connected}
+                awaitingConnection={!current.station.boot}
+              />
             )}
             <span class="stage-updated">
               {t("app.updated")}{" "}

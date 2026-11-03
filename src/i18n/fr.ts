@@ -79,12 +79,11 @@ export const fr: Readonly<Record<MessageKey, string>> = {
     "Avant l’envoi, vérifiez que la borne dispose des réglages nécessaires pour recharger sans internet.",
   "cards.sync.confirm": "Remplacer la liste des badges sur la borne par les badges affichés ici ?",
   "cards.sync.current": "Tous les badges sont sur la borne",
-  "cards.sync.currentLong":
-    "Tous les badges sont sur la borne. Ils fonctionnent même sans internet.",
+  "cards.sync.currentLong": "La borne a accepté la liste actuelle",
   "cards.sync.never": "Badges pas encore envoyés",
-  "cards.sync.neverLong": "Ces badges n’ont pas encore été envoyés à la borne",
+  "cards.sync.neverLong": "La borne n’a pas confirmé la réception d’une liste de badges.",
   "cards.sync.offline":
-    "La borne est hors ligne. Les badges déjà présents continuent de fonctionner ; envoyez la liste dès son retour.",
+    "La borne est déconnectée. Vous pourrez envoyer la liste quand elle se reconnectera.",
   "cards.sync.openOffline": "Vérifier la recharge hors ligne",
   "cards.sync.pending": "Modifications en attente pour la borne",
   "cards.sync.pendingLong.one": "{count} modification attend d’être envoyée à la borne",
@@ -349,20 +348,48 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "offline.readyTitle": "Prête",
   "offline.sendLocked": "Disponible dès que toutes les vérifications sont OK.",
   "offline.sendText":
-    "Remplace la liste des badges sur la borne par les badges de cette console. Ensuite, ces badges fonctionnent sans internet.",
+    "Remplace la liste de la borne par les badges de cette console. Une liste acceptée confirme la réception. Faites un test à la borne pour vérifier son fonctionnement hors ligne.",
   "offline.sendTitle": "Envoyer les badges à la borne",
   "offline.unanswered": "En attente de la réponse de la borne",
   "offline.unknownText":
     "Vérifiez si la borne peut accepter vos badges lorsque internet est coupé. La vérification ne fait que lire les réglages.",
   "offline.unknownTitle": "Pas encore vérifiée",
 
-  "overview.chargingNow": "Recharge en cours",
-  "overview.chargingOn": "En charge sur la prise {connector} depuis {time}",
-  "overview.lastSession": "Dernière session {date}",
-  "overview.noSessions": "Aucune session de recharge pour l’instant.",
-  "overview.notCharging": "Pas de recharge en cours",
-  "overview.offlineCardsWork":
-    "La borne est hors ligne. Les badges présents sur la borne y fonctionnent toujours.",
+  "overview.cardDetails": "Voir les badges",
+  "overview.cardListWaiting": "La borne n’a pas encore répondu à une mise à jour de la liste.",
+  "overview.cardsOnCharger": "Badges sur la borne",
+  "overview.cardsRegistered.one": "{count} badge enregistré dans chargeOS",
+  "overview.cardsRegistered.other": "{count} badges enregistrés dans chargeOS",
+  "overview.chargingNow": "Recharge en ce moment",
+  "overview.chargingOn": "La prise {connector} signale une recharge",
+  "overview.chargingUnknown": "Inconnue",
+  "overview.connectFirst":
+    "chargeOS attend que la borne se connecte. Si vous changez de fournisseur, gardez votre service actuel connecté pendant que vous vérifiez le modèle et le firmware exacts avec votre installateur, sauvegardez les réglages et préparez le retour à l’ancienne configuration.",
+  "overview.connectionGuide": "Ouvrir le guide de connexion",
+  "overview.fieldFailed": "Un échec a été enregistré lors du test sur place",
+  "overview.fieldReview": "Résultats du test sur place enregistrés. Examen en attente.",
+  "overview.fieldStale": "Les résultats du test précédent ne sont plus à jour",
+  "overview.fieldUnverified": "Non vérifiée",
+  "overview.installerSettings": "Paramètres de connexion pour votre installateur",
+  "overview.lastCardList": "Dernière liste acceptée : {date}",
+  "overview.lastChargingReport": "État signalé par la borne le {date}",
+  "overview.listAccepted": "La borne a accepté la liste actuelle",
+  "overview.noCardList": "La borne n’a pas confirmé la réception d’une liste de badges.",
+  "overview.noCards": "Aucun badge enregistré dans chargeOS",
+  "overview.notCharging": "La borne ne signale aucune recharge",
+  "overview.notConnected": "Non connectée",
+  "overview.offlineDetails": "Voir les réglages de recharge hors ligne",
+  "overview.reconnect":
+    "chargeOS a perdu la connexion avec la borne. Vérifiez la connexion avant de modifier les réglages.",
+  "overview.settingsBlocked": "La vérification des réglages a détecté un problème.",
+  "overview.settingsPassed":
+    "Les réglages ont passé la vérification. Seul un test à la borne permet de voir ce qui se passe hors ligne.",
+  "overview.settingsUnchecked":
+    "Vérifiez les réglages après la connexion, puis suivez le guide du test sur place.",
+  "overview.statusTitle": "Ce que chargeOS sait",
+  "overview.statusUnavailable":
+    "La console n’a pas pu s’actualiser. L’état de recharge en direct est indisponible.",
+  "overview.waitingForStatus": "Aucun état en direct de la borne.",
   "overview.stop": "Arrêter la recharge",
   "overview.stopBody":
     "Une étape du changement de fournisseur a enregistré un problème. Laissez tout en l’état et résolvez-le avant de continuer.",

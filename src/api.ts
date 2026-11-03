@@ -143,8 +143,16 @@ export function postJson<T>(path: string, token: string, body: unknown): Promise
   });
 }
 
-export async function fetchSnapshot(stationId: string, token: string): Promise<OwnerSnapshot> {
-  return requestJson<OwnerSnapshot>(stationPath(stationId, "/snapshot"), token);
+export async function fetchSnapshot(
+  stationId: string,
+  token: string,
+  signal?: AbortSignal,
+): Promise<OwnerSnapshot> {
+  return requestJson<OwnerSnapshot>(
+    stationPath(stationId, "/snapshot"),
+    token,
+    signal ? { signal } : undefined,
+  );
 }
 
 export async function addOwnerTag(

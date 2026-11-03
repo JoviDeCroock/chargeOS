@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 
 import type { OwnerSnapshot, SetupStep, SetupStepId } from "../../shared/contracts.js";
 import { DIRECTORY_NAME_MAX_LENGTH, type OwnerDirectory } from "../../shared/directory.js";
@@ -18,7 +18,6 @@ import { formatDate, t, type MessageKey } from "../i18n/index.js";
 import {
   action,
   fleet,
-  pollSnapshot,
   refreshSnapshot,
   runAuthorizationSync,
   runInspection,
@@ -282,7 +281,6 @@ const DETAIL_TEXT: Readonly<Record<NonNullable<SetupStep["detail"]>, MessageKey>
   "sync-rejected": "fleet.detail.sync-rejected",
 };
 
-const SETUP_POLL_MS = 5_000;
 const SETUP_DONE_VISIBLE_MS = 24 * 60 * 60 * 1_000;
 
 export function SetupChecklist({
@@ -295,13 +293,6 @@ export function SetupChecklist({
   onRegisterCard: () => void;
 }) {
   const setup = current.setup;
-  const inProgress = Boolean(setup && setup.state !== "active");
-  // Setup advances on the charger's own messages, so the checklist refreshes itself while it waits.
-  useEffect(() => {
-    if (!inProgress) return undefined;
-    const timer = setInterval(() => void pollSnapshot(), SETUP_POLL_MS);
-    return () => clearInterval(timer);
-  }, [inProgress, current.station.id]);
   if (!setup) return null;
   const station = current.station;
   if (setup.state === "active") {
@@ -320,6 +311,65 @@ export function SetupChecklist({
     );
   }
   const done = setup.steps.filter(({ state }) => state === "done").length;
+  const steps = (
+    <ol class="setup-steps">
+      {setup.steps.map((step) => (
+        <li key={step.id} class={`setup-step ${step.state}`}>
+          <span class="setup-node" aria-hidden="true" />
+          <div class="setup-copy">
+            <strong>{t(STEP_TEXT[step.id].title)}</strong>
+            {step.state !== "done" && <p>{t(STEP_TEXT[step.id].body)}</p>}
+            {step.id === "identity" && station.boot && (
+              <p class="setup-identity">
+                {t("fleet.setup.reported", {
+                  firmware: station.boot.firmwareVersion ?? "—",
+                  model: station.boot.model,
+                  vendor: station.boot.vendor,
+                })}
+                {station.expected && (
+                  <>
+                    <br />
+                    {t("fleet.setup.expected", {
+                      firmware: station.expected.firmwareVersion ?? t("fleet.setup.anyFirmware"),
+                      model: station.expected.model,
+                      vendor: station.expected.vendor,
+                    })}
+                  </>
+                )}
+              </p>
+            )}
+            {step.detail && step.state !== "done" && (
+              <p class={step.state === "stopped" ? "setup-stop" : "setup-detail"}>
+                {t(DETAIL_TEXT[step.detail])}
+              </p>
+            )}
+            {step.detail === "identity-unchecked" && step.state === "done" && (
+              <p class="setup-detail">{t(DETAIL_TEXT[step.detail])}</p>
+            )}
+            {step.state === "current" && (
+              <StepAction
+                step={step.id}
+                snapshot={current}
+                go={go}
+                onRegisterCard={onRegisterCard}
+              />
+            )}
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+  if (!station.connected && !station.boot && setup.state === "waiting-for-charger") {
+    return (
+      <details class="panel glass overview-setup">
+        <summary>
+          <strong>{t("fleet.setup.title")}</strong>
+          <span>{t("fleet.setup.progress", { done, total: setup.steps.length })}</span>
+        </summary>
+        {steps}
+      </details>
+    );
+  }
   return (
     <section class="panel glass setup-panel" aria-labelledby="setup-title">
       <header class="panel-head">
@@ -333,52 +383,7 @@ export function SetupChecklist({
           {t(`fleet.setup.state.${setup.state}` as MessageKey)}
         </span>
       </header>
-      <ol class="setup-steps">
-        {setup.steps.map((step) => (
-          <li key={step.id} class={`setup-step ${step.state}`}>
-            <span class="setup-node" aria-hidden="true" />
-            <div class="setup-copy">
-              <strong>{t(STEP_TEXT[step.id].title)}</strong>
-              {step.state !== "done" && <p>{t(STEP_TEXT[step.id].body)}</p>}
-              {step.id === "identity" && station.boot && (
-                <p class="setup-identity">
-                  {t("fleet.setup.reported", {
-                    firmware: station.boot.firmwareVersion ?? "—",
-                    model: station.boot.model,
-                    vendor: station.boot.vendor,
-                  })}
-                  {station.expected && (
-                    <>
-                      <br />
-                      {t("fleet.setup.expected", {
-                        firmware: station.expected.firmwareVersion ?? t("fleet.setup.anyFirmware"),
-                        model: station.expected.model,
-                        vendor: station.expected.vendor,
-                      })}
-                    </>
-                  )}
-                </p>
-              )}
-              {step.detail && step.state !== "done" && (
-                <p class={step.state === "stopped" ? "setup-stop" : "setup-detail"}>
-                  {t(DETAIL_TEXT[step.detail])}
-                </p>
-              )}
-              {step.detail === "identity-unchecked" && step.state === "done" && (
-                <p class="setup-detail">{t(DETAIL_TEXT[step.detail])}</p>
-              )}
-              {step.state === "current" && (
-                <StepAction
-                  step={step.id}
-                  snapshot={current}
-                  go={go}
-                  onRegisterCard={onRegisterCard}
-                />
-              )}
-            </div>
-          </li>
-        ))}
-      </ol>
+      {steps}
     </section>
   );
 }

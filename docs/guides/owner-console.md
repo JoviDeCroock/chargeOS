@@ -18,7 +18,7 @@ If the console reports that the token is not valid, paste it again without extra
 
 The sidebar has the same everyday pages for everyone:
 
-- **Overview**: the selected charger at a glance. It shows whether the charger is charging now, **Your charging** (kWh per month), **Charging without internet** and a short status summary.
+- **Overview**: the selected charger at a glance. Start with **What chargeOS knows**. It shows the charger’s latest charging report, whether the charger accepted the card list, and whether offline charging has been checked in a field test. **Your charging** shows recorded energy in kWh per month.
 - **Chargers**: every charger as a card, with its name, location, person, cards, recorded energy and anything that needs attention. Click **Open** to work on one charger, or **Edit names** to rename it.
 - **People** (**Employees** with the company profile): everyone who charges, with their charger and cards. See [Name chargers, people and cards](owner-console.md#name-chargers-people-and-cards).
 - **RFID cards**: the cards that may start charging at the selected charger. See [Add or remove an RFID card](rfid.md).
@@ -32,6 +32,12 @@ With one charger, the console opens on **Overview**. With several, it opens on *
 Several chargers on one installation need a private stations file. The setup wizard does not create it. Your administrator copies `config/stations.example.json`, gives every charger a unique identity, password and owner-card list, and points `CHARGEOS_STATIONS_FILE` at it; see the [fleet configuration](../owner-edge-operations.md). The current encrypted recovery bundle covers one charger only, so use one charger per installation where recovery matters. See [Several chargers and brands](brands.md).
 
 Each page has its own address, so the browser's back button and bookmarks work.
+
+### Read the charger status
+
+- **Charging right now**: the console uses connector reports from the current connection. It shows **Unknown** when the charger is disconnected, a current report is missing, or the console can’t refresh. An open session in the records can outlast a connection.
+- **Cards on the charger**: registering a card adds it to chargeOS. The charger confirms delivery separately by accepting the list. Until it accepts the updated list, removed cards may still work at the charger.
+- **Charging without internet**: a settings check can tell you what the charger reports. It does not prove offline charging. Test at the charger using the [field test guide](connect-a-charger.md#check-charging-after-the-move). Recorded field results still need review, and results from an outdated test do not carry forward.
 
 ## Name chargers, people and cards
 

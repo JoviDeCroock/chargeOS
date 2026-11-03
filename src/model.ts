@@ -251,18 +251,40 @@ export async function refreshSnapshot(clearNotice = true): Promise<void> {
 }
 
 /**
- * Quietly refreshes the selected charger while a page waits for it (for example while the charger
- * is being connected). It never shows a loading state; only a rejected token surfaces.
+ * Quiet refresh for views waiting on charger events. Discard replies superseded by
+ * another refresh, a mutation, a different charger, or the end of this view.
  */
-export async function pollSnapshot(): Promise<void> {
+export async function pollSnapshot(
+  lifetime?: AbortSignal,
+): Promise<{ unavailableFor: OwnerSnapshot | null } | undefined> {
   const stationId = selectedStationId.value;
-  if (!ownerToken.value || !stationId || loading.value || action.value !== null) return;
+  const token = ownerToken.value;
+  const before = snapshot.value;
+  const stillCurrent = () =>
+    !lifetime?.aborted &&
+    selectedStationId.value === stationId &&
+    ownerToken.value === token &&
+    snapshot.value === before &&
+    !loading.value &&
+    action.value === null;
+  if (!token || !stationId || !stillCurrent()) return;
+  const timeout = AbortSignal.timeout(4_000);
   try {
-    const next = await fetchSnapshot(stationId, ownerToken.value);
-    // Ignore an answer for a charger the owner has since navigated away from.
-    if (selectedStationId.value === stationId) snapshot.value = next;
+    const next = await fetchSnapshot(
+      stationId,
+      token,
+      lifetime ? AbortSignal.any([lifetime, timeout]) : timeout,
+    );
+    if (!stillCurrent()) return;
+    snapshot.value = next;
+    return { unavailableFor: null };
   } catch (error) {
-    if (error instanceof OwnerApiError && error.status === 401) handleError(error);
+    if (!stillCurrent()) return;
+    if (error instanceof OwnerApiError && error.status === 401) {
+      handleError(error);
+      return;
+    }
+    return { unavailableFor: before };
   }
 }
 

@@ -24,11 +24,23 @@ export function Fact({
   );
 }
 
-export function StatusPill({ connected }: { connected: boolean }) {
+export function StatusPill({
+  connected,
+  awaitingConnection = false,
+}: {
+  connected: boolean;
+  awaitingConnection?: boolean;
+}) {
   return (
     <span class={`status-pill ${connected ? "connected" : "offline"}`}>
       <span class="signal-dot" aria-hidden="true" />
-      {t(connected ? "status.connected" : "status.offline")}
+      {t(
+        connected
+          ? "status.connected"
+          : awaitingConnection
+            ? "overview.notConnected"
+            : "status.offline",
+      )}
     </span>
   );
 }

@@ -32,6 +32,8 @@ One narrow exception is sourced from the specification. OCPP 1.6 edition 2, sect
 | Company/domain disappears permanently | Charging plus owner-held recovery procedure | Hosted features                    | Continuity bundle deploys a replacement endpoint   |
 | One week disconnected                 | Existing owner tags                         | New tags, revocations, tariffs     | Measured device buffer capacity and reconciliation |
 
+The owner overview displays live connector reports, card-list acknowledgement, and witnessed field results separately. It issues no automatic charger commands and changes no evidence or authorization. For every failure row above, the pre-authorized owner path is unchanged; missing live data is shown as unknown, and retained card or settings reports do not count as new offline proof.
+
 ## Effect of the owner-edge MVP
 
 Optional BYOK AI troubleshooting is an owner-console convenience. Provider, search, relay, backend, WAN/DNS, edge, or permanent-company loss removes advice only and cannot change an acknowledged local list or essential settings. An isolated charge-point restart and week-long buffering still need exact-device evidence; AI output supplies none. Recovery does not contain provider keys or depend on an AI account. See [AI troubleshooting](ai-troubleshooting.md).

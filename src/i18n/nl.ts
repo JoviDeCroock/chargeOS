@@ -80,11 +80,11 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "cards.sync.confirm":
     "De lijst met laadpassen op de laadpaal vervangen door de laadpassen die hier staan?",
   "cards.sync.current": "Alle laadpassen staan op de laadpaal",
-  "cards.sync.currentLong": "Alle laadpassen staan op de laadpaal. Ze werken ook zonder internet.",
+  "cards.sync.currentLong": "De laadpaal heeft de huidige lijst aanvaard",
   "cards.sync.never": "Laadpassen nog niet verstuurd",
-  "cards.sync.neverLong": "Deze laadpassen zijn nog niet naar de laadpaal verstuurd",
+  "cards.sync.neverLong": "De laadpaal heeft de ontvangst van een passenlijst nog niet bevestigd.",
   "cards.sync.offline":
-    "De laadpaal is offline. Laadpassen die er al op staan blijven werken; stuur de lijst zodra hij terug is.",
+    "De laadpaal is niet verbonden. Je kunt de lijst versturen zodra de verbinding terug is.",
   "cards.sync.openOffline": "Offline laden controleren",
   "cards.sync.pending": "Wijzigingen wachten op de laadpaal",
   "cards.sync.pendingLong.one": "{count} wijziging wacht om naar de laadpaal verstuurd te worden",
@@ -348,20 +348,49 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "offline.readyTitle": "Klaar",
   "offline.sendLocked": "Beschikbaar zodra alle controles in orde zijn.",
   "offline.sendText":
-    "Vervangt de lijst met laadpassen op de laadpaal door de laadpassen in deze console. Daarna werken die laadpassen zonder internet.",
+    "Vervangt de passenlijst op de laadpaal door de passen in deze console. Een aanvaarde lijst bevestigt de ontvangst. Test aan de laadpaal hoe die offline werkt.",
   "offline.sendTitle": "Laadpassen naar de laadpaal sturen",
   "offline.unanswered": "Wachten op antwoord van de laadpaal",
   "offline.unknownText":
     "Controleer of de laadpaal je laadpassen kan aanvaarden als het internet wegvalt. Controleren leest alleen instellingen.",
   "offline.unknownTitle": "Nog niet gecontroleerd",
 
-  "overview.chargingNow": "Nu aan het laden",
-  "overview.chargingOn": "Aan het laden op aansluiting {connector} sinds {time}",
-  "overview.lastSession": "Laatste sessie {date}",
-  "overview.noSessions": "Nog geen laadsessies.",
-  "overview.notCharging": "Niet aan het laden",
-  "overview.offlineCardsWork":
-    "De laadpaal is offline. Laadpassen die op de laadpaal staan werken daar nog.",
+  "overview.cardDetails": "Bekijk laadpassen",
+  "overview.cardListWaiting":
+    "De laadpaal heeft nog niet geantwoord op een update van de passenlijst.",
+  "overview.cardsOnCharger": "Passen op de laadpaal",
+  "overview.cardsRegistered.one": "{count} pas geregistreerd in chargeOS",
+  "overview.cardsRegistered.other": "{count} passen geregistreerd in chargeOS",
+  "overview.chargingNow": "Laden op dit moment",
+  "overview.chargingOn": "Aansluiting {connector} meldt dat er geladen wordt",
+  "overview.chargingUnknown": "Onbekend",
+  "overview.connectFirst":
+    "chargeOS wacht op een verbinding met de laadpaal. Stap je over naar een andere aanbieder? Laat je huidige dienst aangesloten terwijl jij en je installateur het exacte model en de firmware controleren, de instellingen opslaan en voorbereiden hoe je terug kunt.",
+  "overview.connectionGuide": "Open de verbindingsgids",
+  "overview.fieldFailed": "De praktijktest bevat een mislukte controle",
+  "overview.fieldReview": "Resultaten van de praktijktest vastgelegd. Beoordeling volgt.",
+  "overview.fieldStale": "Eerdere resultaten van de praktijktest zijn niet meer geldig",
+  "overview.fieldUnverified": "Niet geverifieerd",
+  "overview.installerSettings": "Verbindingsinstellingen voor je installateur",
+  "overview.lastCardList": "Laatst aanvaarde lijst: {date}",
+  "overview.lastChargingReport": "Laadpaalstatus gemeld op {date}",
+  "overview.listAccepted": "De laadpaal heeft de huidige lijst aanvaard",
+  "overview.noCardList": "De laadpaal heeft de ontvangst van een passenlijst nog niet bevestigd.",
+  "overview.noCards": "Geen passen geregistreerd in chargeOS",
+  "overview.notCharging": "De laadpaal meldt geen actieve laadsessie",
+  "overview.notConnected": "Niet verbonden",
+  "overview.offlineDetails": "Bekijk de instellingen voor offline laden",
+  "overview.reconnect":
+    "chargeOS is de verbinding met de laadpaal kwijt. Controleer de verbinding voordat je instellingen wijzigt.",
+  "overview.settingsBlocked": "De controle van de instellingen heeft een probleem gevonden.",
+  "overview.settingsPassed":
+    "De instellingen zijn gecontroleerd. Alleen een test aan de laadpaal toont wat er offline gebeurt.",
+  "overview.settingsUnchecked":
+    "Controleer de instellingen na de verbinding en volg daarna de gids voor de praktijktest.",
+  "overview.statusTitle": "Wat chargeOS weet",
+  "overview.statusUnavailable":
+    "De console kon niet vernieuwen. De actuele laadstatus is niet beschikbaar.",
+  "overview.waitingForStatus": "Geen actuele status van de laadpaal.",
   "overview.stop": "Laden stoppen",
   "overview.stopBody":
     "Bij een overstapstap werd een probleem geregistreerd. Laat alles zoals het is en los het op voor je verdergaat.",

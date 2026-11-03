@@ -270,6 +270,7 @@ describe("owner console", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("opens a multi-charger overview of chargers before drilling into one", async () => {
@@ -382,7 +383,89 @@ describe("owner console", () => {
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "Driveway", level: 1 })).toBeTruthy(),
     );
-    expect(screen.getByRole("heading", { name: "Ready" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "What chargeOS knows" })).toBeTruthy();
+  });
+
+  it("keeps stale charging reports, acknowledged cards and field review independent", async () => {
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    const earlier = "2026-08-14T11:58:00.000Z";
+    const connectedAt = "2026-08-14T11:59:00.000Z";
+    const liveAt = "2026-08-14T11:59:30.000Z";
+    const openSession = {
+      ...OWNER_SNAPSHOT.sessions[0]!,
+      status: "active",
+      stoppedAt: null,
+    } as const;
+    const cached: OwnerSnapshot = {
+      ...OWNER_SNAPSHOT,
+      sessions: [openSession],
+      station: {
+        ...OWNER_SNAPSHOT.station,
+        connectedAt,
+        connectors: [
+          { connectorId: 1, errorCode: "NoError", status: "Charging", updatedAt: earlier },
+        ],
+      },
+    };
+    let response = cached;
+    let unavailable = false;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (path) => {
+        if (path === "/api/v1/fleet") return json(SINGLE_FLEET);
+        if (path === "/api/v1/directory") return json(EMPTY_DIRECTORY);
+        if (unavailable) throw new TypeError("Connection refused");
+        return json(response);
+      }),
+    );
+
+    render(<App />);
+    signIn();
+    const status = within(await screen.findByRole("region", { name: "What chargeOS knows" }));
+    expect(status.getByText("Unknown")).toBeTruthy();
+    expect(status.queryByRole("button", { name: "Stop charging" })).toBeNull();
+    expect(status.getByText("1 removed card may still work at the charger")).toBeTruthy();
+    expect(status.getByText("Not verified")).toBeTruthy();
+
+    response = {
+      ...cached,
+      sessions: [{ ...openSession, startedAt: liveAt }],
+      station: {
+        ...cached.station,
+        connectors: [
+          { connectorId: 1, errorCode: "NoError", status: "Charging", updatedAt: liveAt },
+        ],
+      },
+    };
+    await waitFor(() => {
+      fireEvent(document, new Event("visibilitychange"));
+      expect(status.getByText("Connector 1 reports charging")).toBeTruthy();
+    });
+    expect(status.getByRole("button", { name: "Stop charging" })).toBeTruthy();
+
+    unavailable = true;
+    await waitFor(() => {
+      fireEvent(document, new Event("visibilitychange"));
+      expect(status.getByText(/The console couldn’t refresh/)).toBeTruthy();
+    });
+    expect(status.getByText("Unknown")).toBeTruthy();
+    expect(status.queryByRole("button", { name: "Stop charging" })).toBeNull();
+    expect(status.getByText("Changes waiting for the charger")).toBeTruthy();
+    expect(status.getByText("Not verified")).toBeTruthy();
+
+    unavailable = false;
+    response = {
+      ...response,
+      station: { ...response.station, connected: false, connectedAt: null },
+    };
+    await waitFor(() => {
+      fireEvent(document, new Event("visibilitychange"));
+      expect(status.getByText("No live status from the charger.")).toBeTruthy();
+    });
+    expect(status.getByText("Unknown")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Open the connection guide" }).getAttribute("href"),
+    ).toBe("/help?guide=connect-a-charger");
   });
 
   it("keeps everyday tasks simple and technical tools in station settings", async () => {
@@ -458,14 +541,14 @@ describe("owner console", () => {
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "Home charger", level: 1 })).toBeTruthy(),
     );
-    expect(screen.getByRole("heading", { name: "Ready" })).toBeTruthy();
-    // Software checks are never presented as a physical test.
-    expect(screen.getByText(/Still do a real test once/)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "What chargeOS knows" })).toBeTruthy();
+    expect(screen.getByText("Not verified")).toBeTruthy();
+    expect(screen.getByText(/Only a test at the charger/)).toBeTruthy();
     expect(screen.getByText("Changes waiting for the charger")).toBeTruthy();
     // The company profile leaves switching and the Freedom Test out of the overview.
     expect(screen.queryByText("Field test not started")).toBeNull();
     expect(screen.getByText("Nobody else has access")).toBeTruthy();
-    expect(screen.getByText("Not charging")).toBeTruthy();
+    expect(screen.getByText("Unknown")).toBeTruthy();
 
     // Cards: pending removals stay visible and the raw identifier is never rendered.
     openSection("RFID cards");

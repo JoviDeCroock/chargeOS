@@ -1639,43 +1639,107 @@ body {
 /* Charging                                                            */
 /* ------------------------------------------------------------------ */
 
-.charging-summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px 32px;
-  padding: 22px 26px;
-  border-radius: var(--r-lg);
+.overview-connect,
+.overview-status {
+  padding: clamp(20px, 3vw, 34px);
 }
 
-.charging-now {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.overview-connect .panel-head h2 {
+  font-size: clamp(1.5rem, 3.2vw, 2.4rem);
+  letter-spacing: -0.035em;
 }
 
-.charging-now strong {
-  display: block;
-  font-size: 1.1rem;
+.overview-connect .overview-connect-copy {
+  max-width: 64ch;
+  margin: 14px 0 20px;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.overview-connect a.button {
+  display: inline-flex;
+  text-decoration: none;
+}
+
+.overview-disclosure {
+  margin-top: 24px;
+  border-top: 1px solid var(--line-strong);
+  padding-top: 14px;
+}
+
+.overview-disclosure summary,
+.overview-setup summary {
+  width: fit-content;
+  cursor: pointer;
+  padding-block: 8px;
   font-weight: 650;
 }
 
-.charging-now small {
+.overview-setup summary span {
+  margin-inline-start: 12px;
+  color: var(--ink-2);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.overview-status h2 {
+  margin: 0 0 12px;
+}
+
+.overview-status dl,
+.overview-status dd {
+  margin: 0;
+}
+
+.overview-status-row {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) minmax(0, 2fr);
+  gap: 6px 24px;
+  border-top: 1px solid var(--line-strong);
+  padding-block: 14px;
+}
+
+.overview-status-row dt {
+  font-weight: 650;
+}
+
+.overview-status-row dd p {
+  margin: 4px 0 0;
   color: var(--ink-2);
 }
 
-.charging-pulse {
-  position: relative;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--idle);
+.overview-status-row dd .risk-text {
+  color: var(--risk);
 }
 
-.charging-now.live .charging-pulse {
-  background: var(--live);
-  box-shadow: 0 0 0 6px var(--live-soft);
+.overview-status-row dd .text-link {
+  display: inline-block;
+  margin-top: 8px;
+}
+
+.overview-live {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.overview-live li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.overview-live strong {
+  color: var(--live);
+}
+
+@media (max-width: 550px) {
+  .overview-status-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .command-grid {
@@ -3410,10 +3474,6 @@ body {
 
 .usage-card-name {
   font-weight: 550;
-}
-
-.charging-now .button {
-  margin-left: auto;
 }
 
 /* Language picker: in the rail footer, on the sign-in card and in Preferences. */

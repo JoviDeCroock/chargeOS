@@ -1,12 +1,13 @@
+import { useEffect, useState } from "preact/hooks";
+
 import type { CapabilityAssessment, OwnerSnapshot } from "../../shared/contracts.js";
 import type { OwnerDirectory } from "../../shared/directory.js";
-import { formatDate, formatTime, t, tn } from "../i18n/index.js";
-import { action, runInspection, runStationCommand } from "../model.js";
+import { formatDate, t, tn } from "../i18n/index.js";
+import { action, pollSnapshot, runStationCommand } from "../model.js";
 import type { Route } from "../routes.js";
 import { freedomStatusLabel, migrationStatusLabel } from "../switching.js";
 import { UsagePanel } from "../usage.js";
 import { ConnectChargerPanel, needsConnectionHelp } from "./connect.js";
-import { useState } from "preact/hooks";
 import { TapCardDialog } from "./cards.js";
 import { SetupChecklist } from "./fleet-setup.js";
 import {
@@ -33,6 +34,11 @@ export function OverviewPage({
 }) {
   const station = current.station;
   const [registering, setRegistering] = useState(false);
+  const unavailable = useOverviewRefresh(station.id) === current;
+  const awaitingFirstConnection =
+    !station.connected && !station.boot && !current.sessions.length && !current.readiness;
+  const connectionHelp = needsConnectionHelp(current);
+  const showStatusBoard = ["sharing", "switching", "freedom"].some((tab) => visibleTabs.has(tab));
   return (
     <div class="section-stack">
       <PageHead
@@ -63,9 +69,11 @@ export function OverviewPage({
         </div>
       )}
 
-      <SetupChecklist snapshot={current} go={go} onRegisterCard={() => setRegistering(true)} />
+      {connectionHelp && <ConnectChargerPanel key={station.id} snapshot={current} overview />}
 
-      {needsConnectionHelp(current) && <ConnectChargerPanel snapshot={current} />}
+      <OverviewStatus snapshot={current} directory={directory} go={go} unavailable={unavailable} />
+
+      <SetupChecklist snapshot={current} go={go} onRegisterCard={() => setRegistering(true)} />
 
       {/* The setup checklist already asks for the first card on a charger added here. */}
       {current.authorization.tagCount === 0 && !current.setup && (
@@ -98,146 +106,238 @@ export function OverviewPage({
         />
       )}
 
-      <ChargingNow snapshot={current} directory={directory} />
-
-      <UsagePanel sessions={current.sessions} stationId={station.id} directory={directory} />
-
-      <OfflineHero snapshot={current} go={go} />
-
-      <div class="overview-grid">
-        <StatusBoard snapshot={current} go={go} visibleTabs={visibleTabs} />
-        <StationPanel snapshot={current} />
-      </div>
+      {!awaitingFirstConnection && (
+        <>
+          <UsagePanel sessions={current.sessions} stationId={station.id} directory={directory} />
+          <div class="overview-grid">
+            {showStatusBoard && (
+              <StatusBoard snapshot={current} go={go} visibleTabs={visibleTabs} />
+            )}
+            <StationPanel snapshot={current} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-function ChargingNow({
+function useOverviewRefresh(stationId: string) {
+  const [unavailableFor, setUnavailableFor] = useState<OwnerSnapshot | null>(null);
+  useEffect(() => {
+    const lifetime = new AbortController();
+    let pending = false;
+    const refresh = async () => {
+      if (pending || document.visibilityState === "hidden") return;
+      pending = true;
+      const result = await pollSnapshot(lifetime.signal);
+      pending = false;
+      if (!lifetime.signal.aborted && result) setUnavailableFor(result.unavailableFor);
+    };
+    const timer = setInterval(() => void refresh(), 5_000);
+    const onVisibility = () => void refresh();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      lifetime.abort();
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [stationId]);
+  return unavailableFor;
+}
+
+function OverviewStatus({
   snapshot: current,
   directory,
+  go,
+  unavailable,
 }: {
   snapshot: OwnerSnapshot;
   directory: OwnerDirectory | null;
+  go: (next: Route) => void;
+  unavailable: boolean;
 }) {
-  const active = current.sessions.filter(({ status }) => status === "active");
-  const last = current.sessions[0];
-  const offline = !current.station.connected;
+  const { authorization, readiness, freedomTest } = current;
+  const fieldState =
+    freedomTest.status === "baseline-stale"
+      ? "overview.fieldStale"
+      : freedomTest.run?.state === "active" && freedomTest.status === "evidence-complete-unreviewed"
+        ? "overview.fieldReview"
+        : freedomTest.run?.state === "active" && freedomTest.status === "failed"
+          ? "overview.fieldFailed"
+          : "overview.fieldUnverified";
   return (
-    <section class="charging-summary glass" aria-label={t("overview.chargingNow")}>
-      {active.length ? (
-        active.map((session) => {
-          const card = cardLabel(directory, current.station.id, session.tagPseudonym);
-          return (
-            <div class="charging-now live" key={session.transactionId}>
-              <span class="charging-pulse" aria-hidden="true" />
-              <div>
-                <strong>
-                  {t("overview.chargingOn", {
-                    connector: session.connectorId,
-                    time: formatTime(session.startedAt),
-                  })}
-                </strong>
-                <small>{card.holder ? `${card.name} · ${card.holder}` : card.name}</small>
-              </div>
-              <button
-                class="button secondary"
-                type="button"
-                disabled={offline || action.value !== null}
-                onClick={() =>
-                  void runStationCommand({
-                    transactionId: session.transactionId,
-                    type: "RemoteStopTransaction",
-                  })
-                }
-              >
-                {t("overview.stop")}
-              </button>
-            </div>
-          );
-        })
-      ) : (
-        <div class="charging-now idle">
-          <span class="charging-pulse" aria-hidden="true" />
-          <div>
-            <strong>{t("overview.notCharging")}</strong>
-            <small>
-              {offline
-                ? t("overview.offlineCardsWork")
-                : last
-                  ? t("overview.lastSession", { date: formatDate(last.startedAt) })
-                  : t("overview.noSessions")}
-            </small>
-          </div>
+    <section class="panel glass overview-status" aria-labelledby="overview-status-title">
+      <h2 id="overview-status-title">{t("overview.statusTitle")}</h2>
+      <dl>
+        <div class="overview-status-row">
+          <dt>{t("overview.chargingNow")}</dt>
+          <dd>
+            <ChargingStatus snapshot={current} directory={directory} unavailable={unavailable} />
+          </dd>
         </div>
-      )}
+        <div class="overview-status-row">
+          <dt>{t("overview.cardsOnCharger")}</dt>
+          <dd>
+            <strong>
+              {authorization.syncState === "current"
+                ? t("overview.listAccepted")
+                : authorization.syncState === "pending"
+                  ? t("cards.sync.pending")
+                  : authorization.tagCount
+                    ? tn("overview.cardsRegistered", authorization.tagCount)
+                    : t("overview.noCards")}
+            </strong>
+            {authorization.lastSyncAt ? (
+              <p>{t("overview.lastCardList", { date: formatDate(authorization.lastSyncAt) })}</p>
+            ) : (
+              <p>{t("overview.noCardList")}</p>
+            )}
+            {authorization.pendingRevision !== null && <p>{t("overview.cardListWaiting")}</p>}
+            {authorization.pendingRevocations.length > 0 && (
+              <p class="risk-text">
+                {tn("cards.staleTitle", authorization.pendingRevocations.length)}
+              </p>
+            )}
+            {(current.station.boot || authorization.syncState !== "never-synced") && (
+              <a
+                class="text-link"
+                href="#/cards"
+                onClick={(event) => {
+                  event.preventDefault();
+                  go({ page: "cards" });
+                }}
+              >
+                {t("overview.cardDetails")}
+              </a>
+            )}
+          </dd>
+        </div>
+        <div class="overview-status-row">
+          <dt>{t("offline.kicker")}</dt>
+          <dd>
+            <strong>{t(fieldState)}</strong>
+            <p>
+              {t(
+                readiness?.restartRequired || readiness?.state === "blocked"
+                  ? "overview.settingsBlocked"
+                  : readiness?.state === "ready"
+                    ? "overview.settingsPassed"
+                    : "overview.settingsUnchecked",
+              )}
+            </p>
+            {readiness && (
+              <p>{t("offline.lastChecked", { date: formatDate(readiness.checkedAt) })}</p>
+            )}
+            {(current.station.boot || readiness) && (
+              <a
+                class="text-link"
+                href="#/advanced/offline"
+                onClick={(event) => {
+                  event.preventDefault();
+                  go({ page: "advanced", tab: "offline" });
+                }}
+              >
+                {t("overview.offlineDetails")}
+              </a>
+            )}
+          </dd>
+        </div>
+      </dl>
     </section>
   );
 }
 
-function OfflineHero({
+const NON_CHARGING_STATUSES = new Set([
+  "Available",
+  "Preparing",
+  "SuspendedEVSE",
+  "SuspendedEV",
+  "Finishing",
+  "Reserved",
+  "Unavailable",
+  "Faulted",
+]);
+
+function ChargingStatus({
   snapshot: current,
-  go,
+  directory,
+  unavailable,
 }: {
   snapshot: OwnerSnapshot;
-  go: (next: Route) => void;
+  directory: OwnerDirectory | null;
+  unavailable: boolean;
 }) {
-  const readiness = current.readiness;
-  const state = readiness?.state ?? "unknown";
+  const { station, sessions } = current;
+  const connectedAt = station.connectedAt ? Date.parse(station.connectedAt) : Number.NaN;
+  const connectors = station.connectors.filter(({ connectorId }) => connectorId > 0);
+  const isCurrent = ({ updatedAt }: { updatedAt: string }) => Date.parse(updatedAt) >= connectedAt;
+  const charging =
+    !unavailable && station.connected
+      ? connectors.filter((connector) => connector.status === "Charging" && isCurrent(connector))
+      : [];
+  if (charging.length) {
+    return (
+      <ul class="overview-live">
+        {charging.map((connector) => {
+          const active = sessions.filter(
+            ({ status, connectorId }) =>
+              status === "active" && connectorId === connector.connectorId,
+          );
+          // A carried/replayed open session is not enough to target a current stop.
+          const session =
+            active.length === 1 && Date.parse(active[0]!.startedAt) >= connectedAt
+              ? active[0]
+              : null;
+          const card = session ? cardLabel(directory, station.id, session.tagPseudonym) : null;
+          return (
+            <li key={connector.connectorId}>
+              <div>
+                <strong>{t("overview.chargingOn", { connector: connector.connectorId })}</strong>
+                <p>{t("overview.lastChargingReport", { date: formatDate(connector.updatedAt) })}</p>
+                {card && <p>{card.holder ? `${card.name} · ${card.holder}` : card.name}</p>}
+              </div>
+              {session && (
+                <button
+                  class="button secondary"
+                  type="button"
+                  disabled={action.value !== null}
+                  onClick={() =>
+                    void runStationCommand({
+                      transactionId: session.transactionId,
+                      type: "RemoteStopTransaction",
+                    })
+                  }
+                >
+                  {t("overview.stop")}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
+  const reportsIdle =
+    !unavailable &&
+    station.connected &&
+    connectors.length > 0 &&
+    connectors.every(
+      (connector) => isCurrent(connector) && NON_CHARGING_STATUSES.has(connector.status),
+    );
+  const oldestReport = reportsIdle
+    ? connectors.reduce((oldest, connector) =>
+        oldest.updatedAt < connector.updatedAt ? oldest : connector,
+      )
+    : null;
   return (
-    <section class={`hero glass readiness-${state}`} aria-labelledby="readiness-title">
-      <Halo readiness={readiness} connected={current.station.connected} />
-      <div class="hero-body">
-        <p class="hero-kicker">{t("offline.kicker")}</p>
-        <h2 id="readiness-title" class="hero-title">
-          {t(
-            state === "ready"
-              ? "offline.readyTitle"
-              : state === "blocked"
-                ? "offline.blockedTitle"
-                : "offline.unknownTitle",
-          )}
-        </h2>
-        <p class="hero-text">
-          {state === "ready"
-            ? t("offline.readyText")
-            : state === "blocked"
-              ? t("offline.blockedText")
-              : current.station.connected
-                ? t("offline.unknownText")
-                : t("offline.connectFirst")}
-        </p>
-        {state === "ready" && <p class="physical-gate">{t("offline.physicalTest")}</p>}
-        <div class="hero-actions">
-          <button
-            class="button primary"
-            type="button"
-            disabled={!current.station.connected || action.value !== null}
-            onClick={() => void runInspection()}
-          >
-            {action.value === "inspect"
-              ? t("offline.checking")
-              : readiness
-                ? t("offline.checkAgain")
-                : t("offline.check")}
-          </button>
-          <a
-            class="text-link"
-            href="#/advanced/offline"
-            onClick={(event) => {
-              event.preventDefault();
-              go({ page: "advanced", tab: "offline" });
-            }}
-          >
-            {t("offline.details")}
-          </a>
-          {readiness && (
-            <span class="hero-meta">
-              {t("offline.lastChecked", { date: formatDate(readiness.checkedAt) })}
-            </span>
-          )}
-        </div>
-      </div>
-    </section>
+    <>
+      <strong>{t(reportsIdle ? "overview.notCharging" : "overview.chargingUnknown")}</strong>
+      <p>
+        {oldestReport
+          ? t("overview.lastChargingReport", { date: formatDate(oldestReport.updatedAt) })
+          : t(unavailable ? "overview.statusUnavailable" : "overview.waitingForStatus")}
+      </p>
+    </>
   );
 }
 
@@ -300,7 +400,6 @@ function StatusBoard({
   visibleTabs: ReadonlySet<string>;
 }) {
   const activeGrants = current.delegations.filter(({ status }) => status === "active").length;
-  const sync = current.authorization.syncState;
   const rows: {
     key: string;
     route: Route;
@@ -311,22 +410,6 @@ function StatusBoard({
     detail: string;
     visible: boolean;
   }[] = [
-    {
-      detail: tn("cards.count", current.authorization.tagCount),
-      href: "#/cards",
-      key: "cards",
-      name: t("nav.cards"),
-      route: { page: "cards" },
-      tone: sync === "current" ? "ok" : "warn",
-      value: t(
-        sync === "current"
-          ? "cards.sync.current"
-          : sync === "never-synced"
-            ? "cards.sync.never"
-            : "cards.sync.pending",
-      ),
-      visible: true,
-    },
     {
       detail: t("board.sharingDetail"),
       href: "#/advanced/sharing",

@@ -26,10 +26,10 @@ function diagnosticsOf(current: OwnerSnapshot): StationConnectionDiagnostics {
   );
 }
 
-/** The overview shows the connection guide until the charger has connected and introduced itself. */
+/** The overview shows connection help until the charger is online and identified. */
 export function needsConnectionHelp(current: OwnerSnapshot): boolean {
   const diagnostics = diagnosticsOf(current);
-  return !current.station.boot || diagnostics.lastRefused !== null;
+  return !current.station.connected || !current.station.boot || diagnostics.lastRefused !== null;
 }
 
 /**
@@ -37,34 +37,84 @@ export function needsConnectionHelp(current: OwnerSnapshot): boolean {
  * refused the last attempt. It refreshes itself while it waits, so the owner can watch it turn
  * green while the installer types the settings in.
  */
-export function ConnectChargerPanel({ snapshot: current }: { snapshot: OwnerSnapshot }) {
+export function ConnectChargerPanel({
+  snapshot: current,
+  overview = false,
+}: {
+  snapshot: OwnerSnapshot;
+  overview?: boolean;
+}) {
   const station = current.station;
   const diagnostics = diagnosticsOf(current);
   const refused = diagnostics.lastRefused;
   const waiting = !station.connected || !station.boot;
 
   useEffect(() => {
-    if (!waiting && !refused) return undefined;
+    if (overview || (!waiting && !refused)) return undefined;
     const timer = setInterval(() => void pollSnapshot(), POLL_MS);
     return () => clearInterval(timer);
-  }, [waiting, refused !== null, station.id]);
+  }, [overview, waiting, refused !== null, station.id]);
 
   const address = diagnostics.endpointBase ? `${diagnostics.endpointBase}${station.id}` : null;
 
+  const installerSettings = (
+    <>
+      <dl class="facts connect-facts">
+        <Fact
+          label={t("connect.address")}
+          value={address ?? t("connect.addressUnknown")}
+          mono={address !== null}
+        />
+        <Fact
+          label={t("connect.identity")}
+          value={
+            diagnostics.acceptedAlias
+              ? t("connect.identityWithAlias", {
+                  alias: diagnostics.acceptedAlias,
+                  id: station.id,
+                })
+              : station.id
+          }
+          mono
+        />
+        <Fact
+          label={t("connect.password")}
+          value={t(station.managed ? "fleet.connect.passwordSheet" : "connect.passwordWhere")}
+        />
+        <Fact label={t("connect.protocol")} value={t("connect.protocolValue")} />
+        <Fact label={t("connect.security")} value={t("connect.securityValue")} />
+      </dl>
+      <p class="fine-print">{t("connect.identityHint")}</p>
+      {diagnostics.unmatchedSinceStart > 0 && (
+        <p class="fine-print">
+          {tn("connect.unmatched", diagnostics.unmatchedSinceStart, {
+            time: diagnostics.lastUnmatchedAt ? formatTime(diagnostics.lastUnmatchedAt) : "—",
+          })}
+        </p>
+      )}
+    </>
+  );
   return (
-    <section class="panel glass connect-panel" aria-labelledby="connect-title">
+    <section
+      class={`panel glass connect-panel${overview ? " overview-connect" : ""}`}
+      aria-labelledby="connect-title"
+    >
       <header class="panel-head">
         <h2 id="connect-title">{t("connect.title")}</h2>
-        <span
-          class={`state-chip ${station.connected && station.boot ? "ok" : refused ? "warn" : "idle"}`}
-          role="status"
-        >
-          {station.connected
-            ? station.boot
-              ? t("connect.state.connected")
-              : t("connect.state.awaitingBoot")
-            : t("connect.state.waiting")}
-        </span>
+        {(!overview || station.connected) && (
+          <span
+            class={`state-chip ${station.connected && station.boot ? "ok" : refused ? "warn" : "idle"}`}
+            role="status"
+          >
+            {t(
+              station.connected
+                ? station.boot
+                  ? "connect.state.connected"
+                  : "connect.state.awaitingBoot"
+                : "connect.state.waiting",
+            )}
+          </span>
+        )}
       </header>
 
       {refused && <RefusalExplanation attempt={refused} expected={station.id} />}
@@ -72,46 +122,30 @@ export function ConnectChargerPanel({ snapshot: current }: { snapshot: OwnerSnap
         <AliasOffer presented={diagnostics.aliasCandidate.presentedIdentity} />
       )}
 
-      {!station.connected && (
+      {!station.connected && overview && (
+        <>
+          <p class="overview-connect-copy">
+            {t(station.boot ? "overview.reconnect" : "overview.connectFirst")}
+          </p>
+          <a class="button primary" href="/help?guide=connect-a-charger">
+            {t("overview.connectionGuide")}
+          </a>
+          <details class="overview-disclosure">
+            <summary>{t("overview.installerSettings")}</summary>
+            <p>{t("connect.intro")}</p>
+            {installerSettings}
+            <p class="fine-print">{t("connect.installerNote")}</p>
+          </details>
+        </>
+      )}
+      {!station.connected && !overview && (
         <>
           <p>{t("connect.intro")}</p>
-          <dl class="facts connect-facts">
-            <Fact
-              label={t("connect.address")}
-              value={address ?? t("connect.addressUnknown")}
-              mono={address !== null}
-            />
-            <Fact
-              label={t("connect.identity")}
-              value={
-                diagnostics.acceptedAlias
-                  ? t("connect.identityWithAlias", {
-                      alias: diagnostics.acceptedAlias,
-                      id: station.id,
-                    })
-                  : station.id
-              }
-              mono
-            />
-            <Fact
-              label={t("connect.password")}
-              value={t(station.managed ? "fleet.connect.passwordSheet" : "connect.passwordWhere")}
-            />
-            <Fact label={t("connect.protocol")} value={t("connect.protocolValue")} />
-            <Fact label={t("connect.security")} value={t("connect.securityValue")} />
-          </dl>
-          <p class="fine-print">{t("connect.identityHint")}</p>
-          {diagnostics.unmatchedSinceStart > 0 && (
-            <p class="fine-print">
-              {tn("connect.unmatched", diagnostics.unmatchedSinceStart, {
-                time: diagnostics.lastUnmatchedAt ? formatTime(diagnostics.lastUnmatchedAt) : "—",
-              })}
-            </p>
-          )}
+          {installerSettings}
         </>
       )}
       {station.connected && !station.boot && <p>{t("connect.awaitingBootBody")}</p>}
-      <p class="fine-print">{t("connect.installerNote")}</p>
+      {(!overview || station.connected) && <p class="fine-print">{t("connect.installerNote")}</p>}
     </section>
   );
 }
