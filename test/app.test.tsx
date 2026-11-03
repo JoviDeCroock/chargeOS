@@ -438,7 +438,7 @@ describe("owner console", () => {
       },
     };
     await waitFor(() => {
-      fireEvent(document, new Event("visibilitychange"));
+      fireEvent.click(status.getByRole("button", { name: "Refresh status" }));
       expect(status.getByText("Connector 1 reports charging")).toBeTruthy();
     });
     expect(status.getByRole("button", { name: "Stop charging" })).toBeTruthy();

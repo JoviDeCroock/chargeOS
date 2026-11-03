@@ -377,6 +377,8 @@ export const en = {
   "overview.offlineDetails": "View offline charging settings",
   "overview.reconnect":
     "chargeOS has lost its connection to the charger. Check the connection before changing any settings.",
+  "overview.refresh": "Refresh status",
+  "overview.refreshing": "Refreshing…",
   "overview.settingsBlocked": "The settings check found a problem.",
   "overview.settingsPassed":
     "The settings check passed. Only a test at the charger can show what happens offline.",

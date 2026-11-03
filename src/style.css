@@ -1682,8 +1682,10 @@ body {
   font-weight: 400;
 }
 
-.overview-status h2 {
-  margin: 0 0 12px;
+.overview-status .panel-head {
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
 }
 
 .overview-status dl,

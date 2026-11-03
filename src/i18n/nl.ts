@@ -382,6 +382,8 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "overview.offlineDetails": "Bekijk de instellingen voor offline laden",
   "overview.reconnect":
     "chargeOS is de verbinding met de laadpaal kwijt. Controleer de verbinding voordat je instellingen wijzigt.",
+  "overview.refresh": "Vernieuw status",
+  "overview.refreshing": "Vernieuwen…",
   "overview.settingsBlocked": "De controle van de instellingen heeft een probleem gevonden.",
   "overview.settingsPassed":
     "De instellingen zijn gecontroleerd. Alleen een test aan de laadpaal toont wat er offline gebeurt.",

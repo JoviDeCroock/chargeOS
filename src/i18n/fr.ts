@@ -381,6 +381,8 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "overview.offlineDetails": "Voir les réglages de recharge hors ligne",
   "overview.reconnect":
     "chargeOS a perdu la connexion avec la borne. Vérifiez la connexion avant de modifier les réglages.",
+  "overview.refresh": "Actualiser l’état",
+  "overview.refreshing": "Actualisation…",
   "overview.settingsBlocked": "La vérification des réglages a détecté un problème.",
   "overview.settingsPassed":
     "Les réglages ont passé la vérification. Seul un test à la borne permet de voir ce qui se passe hors ligne.",

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 import type { CapabilityAssessment, OwnerSnapshot } from "../../shared/contracts.js";
 import type { OwnerDirectory } from "../../shared/directory.js";
@@ -34,7 +34,12 @@ export function OverviewPage({
 }) {
   const station = current.station;
   const [registering, setRegistering] = useState(false);
-  const unavailable = useOverviewRefresh(station.id) === current;
+  // A snapshot replays the station's evidence. Keep periodic reads to setup, where
+  // they already drive progress; owners can refresh an established charger on demand.
+  const waitingForSetup =
+    !station.boot || Boolean(current.setup && current.setup.state !== "active");
+  const { refresh, refreshing, unavailableFor } = useOverviewRefresh(station.id, waitingForSetup);
+  const unavailable = unavailableFor === current;
   const awaitingFirstConnection =
     !station.connected && !station.boot && !current.sessions.length && !current.readiness;
   const connectionHelp = needsConnectionHelp(current);
@@ -71,7 +76,14 @@ export function OverviewPage({
 
       {connectionHelp && <ConnectChargerPanel key={station.id} snapshot={current} overview />}
 
-      <OverviewStatus snapshot={current} directory={directory} go={go} unavailable={unavailable} />
+      <OverviewStatus
+        snapshot={current}
+        directory={directory}
+        go={go}
+        unavailable={unavailable}
+        onRefresh={station.boot || unavailable ? refresh : null}
+        refreshing={refreshing}
+      />
 
       <SetupChecklist snapshot={current} go={go} onRegisterCard={() => setRegistering(true)} />
 
@@ -121,28 +133,36 @@ export function OverviewPage({
   );
 }
 
-function useOverviewRefresh(stationId: string) {
+function useOverviewRefresh(stationId: string, automatic: boolean) {
   const [unavailableFor, setUnavailableFor] = useState<OwnerSnapshot | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const request = useRef<(() => Promise<void>) | null>(null);
   useEffect(() => {
     const lifetime = new AbortController();
     let pending = false;
     const refresh = async () => {
       if (pending || document.visibilityState === "hidden") return;
       pending = true;
+      setRefreshing(true);
       const result = await pollSnapshot(lifetime.signal);
       pending = false;
-      if (!lifetime.signal.aborted && result) setUnavailableFor(result.unavailableFor);
+      if (lifetime.signal.aborted) return;
+      setRefreshing(false);
+      if (result) setUnavailableFor(result.unavailableFor);
     };
-    const timer = setInterval(() => void refresh(), 5_000);
+    request.current = refresh;
+    setRefreshing(false);
+    const timer = automatic ? setInterval(() => void refresh(), 5_000) : undefined;
     const onVisibility = () => void refresh();
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       lifetime.abort();
+      request.current = null;
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [stationId]);
-  return unavailableFor;
+  }, [stationId, automatic]);
+  return { refresh: () => void request.current?.(), refreshing, unavailableFor };
 }
 
 function OverviewStatus({
@@ -150,11 +170,15 @@ function OverviewStatus({
   directory,
   go,
   unavailable,
+  onRefresh,
+  refreshing,
 }: {
   snapshot: OwnerSnapshot;
   directory: OwnerDirectory | null;
   go: (next: Route) => void;
   unavailable: boolean;
+  onRefresh: (() => void) | null;
+  refreshing: boolean;
 }) {
   const { authorization, readiness, freedomTest } = current;
   const fieldState =
@@ -167,7 +191,19 @@ function OverviewStatus({
           : "overview.fieldUnverified";
   return (
     <section class="panel glass overview-status" aria-labelledby="overview-status-title">
-      <h2 id="overview-status-title">{t("overview.statusTitle")}</h2>
+      <header class="panel-head">
+        <h2 id="overview-status-title">{t("overview.statusTitle")}</h2>
+        {onRefresh && (
+          <button
+            class="button secondary compact"
+            type="button"
+            disabled={refreshing}
+            onClick={onRefresh}
+          >
+            {t(refreshing ? "overview.refreshing" : "overview.refresh")}
+          </button>
+        )}
+      </header>
       <dl>
         <div class="overview-status-row">
           <dt>{t("overview.chargingNow")}</dt>
