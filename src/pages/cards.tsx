@@ -41,10 +41,12 @@ export function CardsPage({
   snapshot: current,
   directory,
   go,
+  company = false,
 }: {
   snapshot: OwnerSnapshot;
   directory: OwnerDirectory | null;
   go: (next: Route) => void;
+  company?: boolean;
 }) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const authorization = current.authorization;
@@ -103,10 +105,12 @@ export function CardsPage({
               <li key={tag} class="card-row">
                 <span class="rfid-chip" aria-hidden="true" />
                 <div class="card-main">
-                  <strong>{card.name}</strong>
+                  <strong>{card.named ? card.name : t("cards.unnamed")}</strong>
                   <small>
-                    {card.holder ?? <span class="muted">{t("people.nobody")}</span>}
-                    {card.named && <code class="card-ref">{shortPseudonym(tag)}</code>}
+                    {card.holder ?? <span class="muted">{t("cards.noPerson")}</span>}
+                    <span class="card-ref">
+                      {t("cards.reference", { id: shortPseudonym(tag) })}
+                    </span>
                   </small>
                   {elsewhere.map((member) => (
                     <small key={member.stationId} class="card-also">
@@ -129,9 +133,9 @@ export function CardsPage({
                       </span>
                     </>
                   ) : (
-                    current.cardPolicies && (
-                      <span class="label-chip unset">{t("fleet.card.unclassified")}</span>
-                    )
+                    // Classification only matters for employee and finance reports.
+                    current.cardPolicies &&
+                    company && <span class="label-chip unset">{t("fleet.card.unclassified")}</span>
                   )}
                 </span>
                 <span class={`state-chip ${onCharger ? "ok" : "warn"}`}>
@@ -144,7 +148,7 @@ export function CardsPage({
                       type="button"
                       onClick={() => setEditing({ kind: "edit", tagPseudonym: tag })}
                     >
-                      {t("common.edit")}
+                      {t(card.named ? "common.edit" : "cards.addName")}
                     </button>
                   )}
                   {current.cardPolicies ? (

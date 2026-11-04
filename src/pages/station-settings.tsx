@@ -66,7 +66,7 @@ export function StationSettingsPage({
 }) {
   return (
     <div class={`section-stack${tab === "controls" ? " remote-settings" : ""}`}>
-      {tab !== "controls" && <PageHead title={t("nav.advanced")} lede={t("advanced.lede")} />}
+      <PageHead title={t("nav.advanced")} lede={t("advanced.lede")} />
       <nav class="tab-strip" aria-label={t("advanced.tabs")}>
         {ADVANCED_TABS.filter((id) => visibleTabs.has(id)).map((id) => {
           const tone = tabTones[id];
@@ -218,95 +218,119 @@ function OfflineTab({ snapshot: current }: { snapshot: OwnerSnapshot }) {
         )}
       </section>
 
-      <div class="cards-layout">
-        <section class="panel glass" aria-labelledby="send-title">
+      {!readiness ? (
+        <section class="panel glass offline-steps" aria-labelledby="offline-steps-title">
           <header class="panel-head">
-            <h2 id="send-title">{t("offline.sendTitle")}</h2>
+            <h2 id="offline-steps-title">{t("offline.steps.title")}</h2>
           </header>
-          <p>{t("offline.sendText")}</p>
-          <button
-            class="button primary"
-            type="button"
-            disabled={!connected || state !== "ready" || action.value !== null}
-            onClick={() => {
-              if (window.confirm(t("cards.sync.confirm"))) void runAuthorizationSync();
-            }}
-          >
-            {action.value === "sync" ? t("cards.sync.sending") : t("cards.sync.send")}
-          </button>
-          {state !== "ready" && <p class="fine-print">{t("offline.sendLocked")}</p>}
-          {authorization.syncState === "current" && <p>{t("overview.listAccepted")}</p>}
-          {authorization.pendingRevocations.length > 0 && (
-            <p class="risk-text">
-              {tn("cards.staleTitle", authorization.pendingRevocations.length)}
-            </p>
-          )}
-          <dl class="facts compact">
-            <Fact
-              label={t("offline.lastRevision")}
-              value={
-                authorization.lastSyncRevision === null
-                  ? "—"
-                  : String(authorization.lastSyncRevision)
-              }
-            />
-            <Fact label={t("offline.lastSync")} value={formatDate(authorization.lastSyncAt)} />
-            <Fact
-              label={t("offline.lastAttempt")}
-              value={
-                authorization.lastAttemptRevision === null
-                  ? "—"
-                  : `r${authorization.lastAttemptRevision} ${authorization.lastAttemptStatus ?? "?"}`
-              }
-            />
-            {authorization.pendingRevision !== null && (
-              <Fact label={t("offline.unanswered")} value={`r${authorization.pendingRevision}`} />
-            )}
-          </dl>
+          <ol>
+            <li class="current">{t("offline.steps.check")}</li>
+            <li>{t("offline.steps.prepare")}</li>
+            <li>{t("offline.steps.send")}</li>
+            <li>{t("offline.steps.test")}</li>
+          </ol>
+          <p class="fine-print">{t("offline.physicalWork")}</p>
         </section>
-
-        {state !== "ready" && (
-          <form
-            class="panel glass continuity-preparation"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void runContinuityPreparation({ confirmation });
-            }}
-          >
+      ) : (
+        <div class="cards-layout">
+          <section class="panel glass" aria-labelledby="send-title">
             <header class="panel-head">
-              <h2>{t("offline.prepareTitle")}</h2>
+              <h2 id="send-title">{t("offline.sendTitle")}</h2>
             </header>
-            <p>{t("offline.prepareText")}</p>
-            <p class="fine-print">
-              <code>LocalAuthListEnabled=true</code>, <code>LocalAuthorizeOffline=true</code>,{" "}
-              <code>AllowOfflineTxForUnknownId=false</code>
-            </p>
-            <label class="confirmation-field">
-              {t("common.typePhrase")}
-              <span class="phrase" lang="en">
-                {CONTINUITY_PREPARATION_PHRASE}
-              </span>
-              <input
-                value={confirmation}
-                autocomplete="off"
-                onInput={(event) => setConfirmation(event.currentTarget.value)}
-              />
-            </label>
+            <p>{t("offline.sendText")}</p>
             <button
-              class="button danger"
-              type="submit"
-              disabled={
-                !connected ||
-                confirmation !== CONTINUITY_PREPARATION_PHRASE ||
-                action.value !== null
-              }
+              class="button primary"
+              type="button"
+              disabled={!connected || state !== "ready" || action.value !== null}
+              onClick={() => {
+                if (window.confirm(t("cards.sync.confirm"))) void runAuthorizationSync();
+              }}
             >
-              {action.value === "prepare" ? t("offline.preparing") : t("offline.prepare")}
+              {action.value === "sync" ? t("cards.sync.sending") : t("cards.sync.send")}
             </button>
-            <p class="fine-print">{t("offline.physicalWork")}</p>
-          </form>
-        )}
-      </div>
+            {state !== "ready" && <p class="fine-print">{t("offline.sendLocked")}</p>}
+            {authorization.syncState === "current" && <p>{t("overview.listAccepted")}</p>}
+            {authorization.pendingRevocations.length > 0 && (
+              <p class="risk-text">
+                {tn("cards.staleTitle", authorization.pendingRevocations.length)}
+              </p>
+            )}
+            {(authorization.lastAttemptRevision !== null ||
+              authorization.pendingRevision !== null) && (
+              <dl class="facts compact">
+                <Fact
+                  label={t("offline.lastRevision")}
+                  value={
+                    authorization.lastSyncRevision === null
+                      ? "—"
+                      : String(authorization.lastSyncRevision)
+                  }
+                />
+                <Fact label={t("offline.lastSync")} value={formatDate(authorization.lastSyncAt)} />
+                <Fact
+                  label={t("offline.lastAttempt")}
+                  value={
+                    authorization.lastAttemptRevision === null
+                      ? "—"
+                      : `r${authorization.lastAttemptRevision} ${authorization.lastAttemptStatus ?? "?"}`
+                  }
+                />
+                {authorization.pendingRevision !== null && (
+                  <Fact
+                    label={t("offline.unanswered")}
+                    value={`r${authorization.pendingRevision}`}
+                  />
+                )}
+              </dl>
+            )}
+          </section>
+
+          {state !== "ready" && (
+            <form
+              class="panel glass continuity-preparation"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void runContinuityPreparation({ confirmation });
+              }}
+            >
+              <header class="panel-head">
+                <h2>{t("offline.prepareTitle")}</h2>
+              </header>
+              <p>{t("offline.prepareText")}</p>
+              <details class="tech-details">
+                <summary>{t("offline.techDetails")}</summary>
+                <p>
+                  <code>LocalAuthListEnabled=true</code>, <code>LocalAuthorizeOffline=true</code>,{" "}
+                  <code>AllowOfflineTxForUnknownId=false</code>
+                </p>
+              </details>
+              <label class="confirmation-field">
+                {t("common.typePhrase")}
+                <span class="phrase neutral" lang="en">
+                  {CONTINUITY_PREPARATION_PHRASE}
+                </span>
+                <input
+                  value={confirmation}
+                  autocomplete="off"
+                  onInput={(event) => setConfirmation(event.currentTarget.value)}
+                />
+              </label>
+              <button
+                class="button primary"
+                type="submit"
+                disabled={
+                  !connected ||
+                  confirmation !== CONTINUITY_PREPARATION_PHRASE ||
+                  action.value !== null
+                }
+              >
+                {action.value === "prepare" ? t("offline.preparing") : t("offline.prepare")}
+              </button>
+              <p class="fine-print">{t("offline.physicalWork")}</p>
+            </form>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -343,7 +367,7 @@ function ControlsTab({
   return (
     <section class="panel glass command-panel" aria-labelledby="commands-title">
       <header class="panel-head">
-        <h1 id="commands-title">{t("controls.title")}</h1>
+        <h2 id="commands-title">{t("controls.title")}</h2>
       </header>
       <p class="panel-intro">{t("controls.target", { name })}</p>
       {offline && <p class="inline-alert warn">{t("controls.offline")}</p>}
@@ -649,7 +673,9 @@ function DetailsTab({
               <span class={`connector-dot ${connectorTone(connector.status)}`} aria-hidden="true" />
               <span>{t("station.connector", { id: connector.connectorId })}</span>
               <strong>{connectorStatusLabel(connector.status)}</strong>
-              <small class="mono">{connector.status}</small>
+              {connectorStatusLabel(connector.status) !== connector.status && (
+                <small class="mono">{connector.status}</small>
+              )}
               {connector.errorCode && connector.errorCode !== "NoError" && (
                 <small>{connector.errorCode}</small>
               )}

@@ -147,7 +147,7 @@ export const fleetNl: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.detail.identity-mismatch":
     "Stop: de laadpaal die verbond is niet het merk, model of de firmware die je verwachtte. Overleg met de installateur voor je verdergaat.",
   "fleet.detail.identity-unchecked":
-    "Er werd geen verwachte identiteit ingevuld, dus er werd niets vergeleken.",
+    "Niet vergeleken: er werd geen verwacht model ingevuld toen deze laadpaal werd toegevoegd.",
   "fleet.detail.readiness-blocked":
     "De laadpaal kan in deze instelling geen laadpassen bewaren voor offline gebruik. Open offline laden voor details.",
   "fleet.detail.restart-required": "De laadpaal moet herstarten voor de controle verder kan.",
@@ -292,8 +292,7 @@ export const fleetNl: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.step.cards-on-charger.body":
     "Stuur de laadpaslijst, zodat de laadpassen ook zonder internet werken.",
   "fleet.step.cards-on-charger.title": "Laadpassen op de laadpaal",
-  "fleet.step.cards.body":
-    "Bied de laadpas van de werknemer aan de laadpaal aan om hem te registreren.",
+  "fleet.step.cards.body": "Houd de laadpas tegen de laadpaal om hem te registreren.",
   "fleet.step.cards.title": "Laadpas geregistreerd",
   "fleet.step.connected.body":
     "Wacht tot de laadpaal verbindt met haar installatieblad. Dat kan enkele minuten duren nadat de installateur de instellingen bewaart.",
@@ -305,7 +304,7 @@ export const fleetNl: Readonly<Record<keyof typeof fleetEn, string>> = {
     "Kijk na, en bereid zo nodig voor, dat de laadpaal laadpassen bewaart voor offline gebruik.",
   "fleet.step.offline-ready.title": "Offline instellingen gecontroleerd",
   "fleet.step.test-charge.body":
-    "Laad één keer met de geregistreerde laadpas. De installatie is klaar zodra die lading aanvaard is.",
+    "Laad één keer met een geregistreerde laadpas zodra de laadpassen op de laadpaal staan. Eerdere laadbeurten tellen niet mee.",
   "fleet.step.test-charge.title": "Eerste lading",
   "usage.privatePart": "waarvan privé: {energy}",
 };

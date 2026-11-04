@@ -263,6 +263,31 @@
   background: var(--risk-soft);
 }
 
+/* Done, but without a comparison: a neutral mark rather than a green tick. */
+.setup-step.uncompared .setup-node {
+  border-color: var(--idle);
+  background: var(--glass-strong);
+}
+
+.setup-step.uncompared .setup-node::after {
+  top: 8px;
+  left: 4px;
+  width: 10px;
+  height: 0;
+  border-right: 0;
+  border-bottom: 2px solid var(--idle);
+  transform: none;
+}
+
+/* The one step that needs the owner now sits on a quiet tinted ground. */
+.setup-step.current .setup-copy {
+  flex: 1;
+  margin: -10px 0 0;
+  padding: 10px 14px 14px;
+  border-radius: var(--r-md);
+  background: var(--current-soft);
+}
+
 .setup-copy {
   display: grid;
   gap: 4px;

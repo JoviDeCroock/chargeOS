@@ -45,15 +45,19 @@ export function OverviewPage({
     !station.connected && !station.boot && !current.sessions.length && !current.readiness;
   const connectionHelp = needsConnectionHelp(current);
   const showStatusBoard = ["sharing", "switching", "freedom"].some((tab) => visibleTabs.has(tab));
+  // A charger nobody has named yet only has its technical ID; lead with a plain title instead.
+  const unnamed = station.label === station.id;
   return (
     <div class="section-stack">
       <PageHead
-        title={station.label}
-        lede={[station.site, station.driver].filter(Boolean).join(" · ")}
+        title={unnamed ? t("overview.unnamedTitle") : station.label}
+        lede={[unnamed ? station.id : null, station.site, station.driver]
+          .filter(Boolean)
+          .join(" · ")}
         actions={
           onEdit && (
             <button class="button secondary" type="button" onClick={onEdit}>
-              {t("stations.edit")}
+              {t(unnamed ? "stations.nameIt" : "stations.edit")}
             </button>
           )
         }
@@ -77,6 +81,8 @@ export function OverviewPage({
 
       {connectionHelp && <ConnectChargerPanel key={station.id} snapshot={current} overview />}
 
+      <SetupChecklist snapshot={current} go={go} onRegisterCard={() => setRegistering(true)} />
+
       <OverviewStatus
         snapshot={current}
         directory={directory}
@@ -85,8 +91,6 @@ export function OverviewPage({
         onRefresh={station.boot || unavailable ? refresh : null}
         refreshing={refreshing}
       />
-
-      <SetupChecklist snapshot={current} go={go} onRegisterCard={() => setRegistering(true)} />
 
       {/* The setup checklist already asks for the first card on a charger added here. */}
       {current.authorization.tagCount === 0 && !current.setup && (
@@ -122,12 +126,7 @@ export function OverviewPage({
       {!awaitingFirstConnection && (
         <>
           <UsagePanel sessions={current.sessions} stationId={station.id} directory={directory} />
-          <div class="overview-grid">
-            {showStatusBoard && (
-              <StatusBoard snapshot={current} go={go} visibleTabs={visibleTabs} />
-            )}
-            <StationPanel snapshot={current} />
-          </div>
+          {showStatusBoard && <StatusBoard snapshot={current} go={go} visibleTabs={visibleTabs} />}
         </>
       )}
     </div>
@@ -195,6 +194,20 @@ function OverviewStatus({
 }) {
   const { authorization, readiness, freedomTest } = current;
   const fieldState = offlineFieldState(freedomTest);
+  const report = unavailable ? null : currentChargingReport(current.station);
+  const chargingTone: Tone = report?.status === "charging" ? "live" : "idle";
+  const cardsTone: Tone =
+    authorization.pendingRevocations.length > 0
+      ? "risk"
+      : authorization.syncState === "current"
+        ? "ok"
+        : "warn";
+  const offlineTone: Tone =
+    fieldState === "overview.fieldFailed"
+      ? "risk"
+      : readiness?.state === "blocked" || fieldState !== "overview.fieldUnverified"
+        ? "warn"
+        : "idle";
   return (
     <section class="panel glass overview-status" aria-labelledby="overview-status-title">
       <header class="panel-head">
@@ -212,13 +225,19 @@ function OverviewStatus({
       </header>
       <dl>
         <div class="overview-status-row">
-          <dt>{t("overview.chargingNow")}</dt>
+          <dt>
+            <span class={`status-dot ${chargingTone}`} aria-hidden="true" />
+            {t("overview.chargingNow")}
+          </dt>
           <dd>
             <ChargingStatus snapshot={current} directory={directory} unavailable={unavailable} />
           </dd>
         </div>
         <div class="overview-status-row">
-          <dt>{t("overview.cardsOnCharger")}</dt>
+          <dt>
+            <span class={`status-dot ${cardsTone}`} aria-hidden="true" />
+            {t("overview.cardsOnCharger")}
+          </dt>
           <dd>
             <strong>
               {authorization.syncState === "current"
@@ -255,7 +274,10 @@ function OverviewStatus({
           </dd>
         </div>
         <div class="overview-status-row">
-          <dt>{t("offline.kicker")}</dt>
+          <dt>
+            <span class={`status-dot ${offlineTone}`} aria-hidden="true" />
+            {t("offline.kicker")}
+          </dt>
           <dd>
             <strong>{t(fieldState)}</strong>
             <p>

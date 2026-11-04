@@ -250,7 +250,7 @@ export function SessionTable({
                     </small>
                   )}
                 </td>
-                <td class="mono">#{session.transactionId}</td>
+                <td class="mono muted">{session.transactionId}</td>
               </tr>
             );
           })}

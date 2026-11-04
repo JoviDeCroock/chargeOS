@@ -286,8 +286,8 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "module.evidence.description": "Bekijk en download de fraudebestendige registratie.",
   "module.evidence.label": "Registraties",
   "module.liberation.description":
-    "Zet een laadpaal over van zijn vorige aanbieder en voer de Freedom Test met getuige uit.",
-  "module.liberation.label": "Overstappen en Freedom Test",
+    "Zet een laadpaal over van zijn vorige aanbieder en voer daarna de offline test met getuige uit (de Freedom Test).",
+  "module.liberation.label": "Overstappen van aanbieder",
   "module.sharing.description":
     "Geef een installateur, werkgever of energieleverancier tijdelijke toegang om te lezen.",
   "module.sharing.label": "Gedeelde toegang",
@@ -459,14 +459,15 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "prefs.personalText":
     "Ingesteld voor iemand met een eigen laadpaal: het overzicht begint met hoeveel je laadt.",
   "prefs.profile": "Profiel",
-  "prefs.profileNote": "Je beheerder stelt het profiel in wanneer de server start, met",
+  "prefs.profileNote":
+    "Wie chargeOS installeerde, kiest het profiel. Vraag het hen als het moet veranderen.",
   "prefs.title": "Voorkeuren",
   "prefs.useDefaults": "Standaard van het profiel gebruiken",
 
   "sessions.active": "aan het laden",
   "sessions.card": "Laadpas",
   "sessions.cardRefused": "laadpas geweigerd",
-  "sessions.complete": "klaar",
+  "sessions.complete": "Afgerond",
   "sessions.conflict": "tegenstrijdige gegevens",
   "sessions.connector": "Aansluiting",
   "sessions.empty": "Nog geen laadsessies.",
@@ -609,5 +610,20 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "usage.titleCompany": "Verbruik per werknemer",
   "usage.unassigned": "Niemand",
   "usage.withSessions": "{count} met sessies",
+  "overview.unnamedTitle": "Je laadpaal",
+  "stations.nameIt": "Geef deze laadpaal een naam",
+  "fleet.step.identity.unchecked": "Laadpaal herkend",
+  "usage.historyHint": "Een maandgrafiek verschijnt zodra er meer dan één maand laadgegevens zijn.",
+  "offline.techDetails": "Instellingen die dit wijzigt",
+  "offline.steps.title": "Zo stel je laden zonder internet in",
+  "offline.steps.check": "Controleer de laadpaal. Dit leest alleen de instellingen.",
+  "offline.steps.prepare": "Ontbreekt er een instelling, zet laden zonder internet dan hier aan.",
+  "offline.steps.send": "Stuur je laadpassen naar de laadpaal.",
+  "offline.steps.test":
+    "Test het aan de laadpaal met het internet losgekoppeld, met de gids voor de praktijktest.",
+  "cards.noPerson": "Niemand gekoppeld",
+  "cards.addName": "Naam geven",
+  "cards.reference": "Referentie {id}",
+  "stations.continueSetup": "Verder instellen",
   ...fleetNl,
 };

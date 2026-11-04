@@ -8,7 +8,7 @@ import type {
 } from "../shared/contracts.js";
 import { BrandMark } from "./brand.js";
 import { enabledModules, OPTIONAL_MODULES, type OptionalModule } from "./console-modules.js";
-import { applyDocumentLanguage, formatDate, formatTime, locale, t, tn } from "./i18n/index.js";
+import { applyDocumentLanguage, formatTime, locale, t, tn } from "./i18n/index.js";
 import {
   directory,
   fleet,
@@ -292,7 +292,7 @@ export function App() {
           ) : resolved.page === "people" ? (
             <PeoplePage directory={names} fleet={fleetSnapshot} company={company} />
           ) : resolved.page === "cards" ? (
-            <CardsPage snapshot={current} directory={names} go={go} />
+            <CardsPage snapshot={current} directory={names} go={go} company={company} />
           ) : resolved.page === "usage" ? (
             <div class="section-stack">
               <UsageReportSection profile={profile ?? "personal"} />
@@ -313,11 +313,6 @@ export function App() {
 
         <footer class="stage-foot">
           <span>{t("app.footer")}</span>
-          <span>
-            {t("app.snapshot", {
-              date: formatDate(consolePage ? fleetSnapshot.generatedAt : current.generatedAt),
-            })}
-          </span>
         </footer>
       </div>
 
@@ -415,16 +410,16 @@ function navTones(
       : null;
   return {
     advanced: worst ? { hint: t("nav.hint.attention"), tone: worst } : { tone: "idle" },
+    // Navigation stays quiet: a dot only where something waits on the owner or has stopped.
+    // Setup progress itself lives on the overview checklist.
     cards:
       current.authorization.syncState === "current"
-        ? { tone: "ok" }
+        ? { tone: "idle" }
         : { hint: t("nav.hint.cardsWaiting"), tone: "warn" },
     overview:
       current.genesisPlan.state === "stop" || readiness === "blocked"
         ? { hint: t("nav.hint.attention"), tone: "risk" }
-        : readiness === "ready"
-          ? { tone: "ok" }
-          : { hint: t("nav.hint.notChecked"), tone: "warn" },
+        : { tone: "idle" },
   };
 }
 

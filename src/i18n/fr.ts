@@ -286,8 +286,8 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "module.evidence.description": "Consultez et téléchargez l’enregistrement infalsifiable.",
   "module.evidence.label": "Enregistrements",
   "module.liberation.description":
-    "Faites quitter à une borne son ancien fournisseur et réalisez le Freedom Test devant témoin.",
-  "module.liberation.label": "Changement de fournisseur et Freedom Test",
+    "Faites quitter à une borne son ancien fournisseur, puis réalisez le test hors ligne devant témoin (le Freedom Test).",
+  "module.liberation.label": "Changement de fournisseur",
   "module.sharing.description":
     "Donnez à un installateur, un employeur ou un fournisseur d’énergie un accès temporaire en lecture seule.",
   "module.sharing.label": "Accès partagé",
@@ -459,14 +459,15 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "prefs.personalText":
     "Configuré pour une personne avec sa propre borne : l’aperçu commence par votre consommation.",
   "prefs.profile": "Profil",
-  "prefs.profileNote": "Votre administrateur définit le profil au démarrage du serveur, avec",
+  "prefs.profileNote":
+    "La personne qui a installé chargeOS choisit le profil. Demandez-lui s’il doit changer.",
   "prefs.title": "Préférences",
   "prefs.useDefaults": "Utiliser les réglages du profil",
 
   "sessions.active": "en charge",
   "sessions.card": "Badge",
   "sessions.cardRefused": "badge refusé",
-  "sessions.complete": "terminée",
+  "sessions.complete": "Terminée",
   "sessions.conflict": "données contradictoires",
   "sessions.connector": "Prise",
   "sessions.empty": "Aucune session de recharge pour l’instant.",
@@ -614,5 +615,21 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "usage.titleCompany": "Consommation par collaborateur",
   "usage.unassigned": "Personne",
   "usage.withSessions": "{count} avec sessions",
+  "overview.unnamedTitle": "Votre borne",
+  "stations.nameIt": "Nommer cette borne",
+  "fleet.step.identity.unchecked": "Borne identifiée",
+  "usage.historyHint":
+    "Un graphique mensuel apparaît dès que plus d’un mois de recharge est enregistré.",
+  "offline.techDetails": "Paramètres modifiés",
+  "offline.steps.title": "Comment configurer la recharge sans internet",
+  "offline.steps.check": "Vérifiez la borne. Cela lit seulement ses paramètres.",
+  "offline.steps.prepare": "S’il manque un paramètre, activez ici la recharge sans internet.",
+  "offline.steps.send": "Envoyez vos badges à la borne.",
+  "offline.steps.test":
+    "Testez-la à la borne, internet débranché, avec le guide du test sur le terrain.",
+  "cards.noPerson": "Aucune personne liée",
+  "cards.addName": "Ajouter un nom",
+  "cards.reference": "Référence {id}",
+  "stations.continueSetup": "Continuer la configuration",
   ...fleetFr,
 };

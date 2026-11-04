@@ -64,28 +64,30 @@ export function StationsPage({
         }
       />
 
-      <section class="fleet-metrics glass" aria-label={t("stations.summary")}>
-        <Metric label={t("stations.metric.chargers")} value={String(fleet.totals.stations)} />
-        <Metric
-          label={t("stations.metric.connected")}
-          value={`${fleet.totals.connected} / ${fleet.totals.stations}`}
-        />
-        <Metric
-          label={t("stations.metric.charging")}
-          value={String(
-            fleet.stations.filter(({ chargingStatus }) => chargingStatus === "charging").length,
-          )}
-        />
-        <Metric
-          label={t("stations.metric.unknown")}
-          value={String(
-            fleet.stations.filter(
-              ({ chargingStatus }) => !chargingStatus || chargingStatus === "unknown",
-            ).length,
-          )}
-        />
-        <Metric label={t("stations.metric.energy")} value={formatKwh(fleet.totals.energyWh)} />
-      </section>
+      {fleet.totals.stations > 1 && (
+        <section class="fleet-metrics glass" aria-label={t("stations.summary")}>
+          <Metric label={t("stations.metric.chargers")} value={String(fleet.totals.stations)} />
+          <Metric
+            label={t("stations.metric.connected")}
+            value={`${fleet.totals.connected} / ${fleet.totals.stations}`}
+          />
+          <Metric
+            label={t("stations.metric.charging")}
+            value={String(
+              fleet.stations.filter(({ chargingStatus }) => chargingStatus === "charging").length,
+            )}
+          />
+          <Metric
+            label={t("stations.metric.unknown")}
+            value={String(
+              fleet.stations.filter(
+                ({ chargingStatus }) => !chargingStatus || chargingStatus === "unknown",
+              ).length,
+            )}
+          />
+          <Metric label={t("stations.metric.energy")} value={formatKwh(fleet.totals.energyWh)} />
+        </section>
+      )}
 
       <ul class="entity-grid" aria-label={t("stations.title")}>
         {fleet.stations.map((station) => (
@@ -181,7 +183,7 @@ function StationCard({
   const cards = directory?.cards.filter(({ stationId }) => stationId === station.id) ?? [];
   const charging = station.connected && station.chargingStatus === "charging";
   const state = charging ? "live" : station.connected ? "ok" : "idle";
-  const next: { label: MessageKey; route?: Route } =
+  let next: { label: MessageKey; route?: Route } =
     station.setup === "stopped"
       ? { label: "stations.resolveSetup" }
       : !station.connected
@@ -194,6 +196,10 @@ function StationCard({
               ? { label: "overview.cardDetails", route: { page: "cards" } }
               : { label: "stations.open" };
   const settingUp = station.setup !== undefined && station.setup !== "active";
+  // While setup runs, the overview checklist is the single next step for this charger.
+  if (settingUp && station.setup !== "stopped" && station.connected) {
+    next = { label: "stations.continueSetup" };
+  }
   return (
     <li class={`entity-card glass station-card ${state}`}>
       <header class="entity-head">
@@ -206,9 +212,9 @@ function StationCard({
           {t(station.connected ? "station.connected" : "station.offline")}
         </span>
       </header>
-      {(settingUp || station.ownership) && (
+      {(station.setup === "stopped" || station.ownership) && (
         <div class="station-badges">
-          {settingUp && (
+          {station.setup === "stopped" && (
             <span class={`label-chip setup ${station.setup}`}>
               {t(`fleet.setup.state.${station.setup}` as MessageKey)}
             </span>
@@ -264,7 +270,10 @@ function StationCard({
       {attention.length > 0 && (
         <ul class="attention-list" aria-label={t("stations.attention")}>
           {attention.map((item) => (
-            <li key={item}>{t(ATTENTION_KEYS[item])}</li>
+            <li key={item}>
+              <span class="status-dot warn" aria-hidden="true" />
+              {t(ATTENTION_KEYS[item])}
+            </li>
           ))}
         </ul>
       )}

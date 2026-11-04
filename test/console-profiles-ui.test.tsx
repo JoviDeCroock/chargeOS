@@ -281,7 +281,7 @@ describe("console profiles", () => {
 
     fireEvent.click(screen.getByRole("link", { name: "Preferences" }));
     expect(screen.getByRole("heading", { name: "Preferences", level: 1 })).toBeTruthy();
-    fireEvent.click(screen.getByRole("checkbox", { name: /Switching and Freedom Test/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Switching provider/ }));
     expect(JSON.parse(localStorage.getItem("chargeos.consoleModules") ?? "null")).toEqual([
       "liberation",
     ]);

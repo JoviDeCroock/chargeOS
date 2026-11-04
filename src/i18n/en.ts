@@ -286,8 +286,8 @@ export const en = {
   "module.evidence.description": "See the tamper-evident record and download it.",
   "module.evidence.label": "Records",
   "module.liberation.description":
-    "Move a charger away from its previous provider and run the witnessed Freedom Test.",
-  "module.liberation.label": "Switching and Freedom Test",
+    "Move a charger away from its previous provider, then run the witnessed offline test (the Freedom Test).",
+  "module.liberation.label": "Switching provider",
   "module.sharing.description":
     "Give an installer, employer or energy provider temporary read-only access.",
   "module.sharing.label": "Shared access",
@@ -453,14 +453,15 @@ export const en = {
   "prefs.personalText":
     "Set up for a person with their own charger: the overview starts with how much you charge.",
   "prefs.profile": "Profile",
-  "prefs.profileNote": "Your administrator sets the profile when the server starts, with",
+  "prefs.profileNote":
+    "Whoever installed chargeOS chooses the profile. Ask them if it should change.",
   "prefs.title": "Preferences",
   "prefs.useDefaults": "Use profile defaults",
 
   "sessions.active": "charging",
   "sessions.card": "Card",
   "sessions.cardRefused": "card refused",
-  "sessions.complete": "done",
+  "sessions.complete": "Finished",
   "sessions.conflict": "conflicting data",
   "sessions.connector": "Connector",
   "sessions.empty": "No charging sessions yet.",
@@ -602,6 +603,21 @@ export const en = {
   "usage.titleCompany": "Usage per employee",
   "usage.unassigned": "Nobody",
   "usage.withSessions": "{count} with sessions",
+  "overview.unnamedTitle": "Your charger",
+  "stations.nameIt": "Name this charger",
+  "fleet.step.identity.unchecked": "Charger identified",
+  "usage.historyHint": "A monthly chart appears once there is more than one month of charging.",
+  "offline.techDetails": "Settings this changes",
+  "offline.steps.title": "How offline charging gets set up",
+  "offline.steps.check": "Check the charger. This only reads its settings.",
+  "offline.steps.prepare": "If a setting is missing, turn on offline charging here.",
+  "offline.steps.send": "Send your cards to the charger.",
+  "offline.steps.test":
+    "Test it at the charger with the internet disconnected, using the field test guide.",
+  "cards.noPerson": "No person linked",
+  "cards.addName": "Add a name",
+  "cards.reference": "Reference {id}",
+  "stations.continueSetup": "Continue setup",
   ...fleetEn,
 } as const;
 

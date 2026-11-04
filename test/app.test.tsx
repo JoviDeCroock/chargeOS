@@ -591,7 +591,8 @@ describe("owner console", () => {
     openSection("RFID cards");
     expect(screen.getByText("1 removed card may still work at the charger")).toBeTruthy();
     expect(screen.getByText("2 changes are waiting to be sent to the charger")).toBeTruthy();
-    expect(screen.getByText("Card 123456")).toBeTruthy();
+    expect(screen.getByText("Unnamed card")).toBeTruthy();
+    expect(screen.getByText("Reference 123456")).toBeTruthy();
     expect((screen.getByRole("button", { name: "Remove" }) as HTMLButtonElement).disabled).toBe(
       true,
     );

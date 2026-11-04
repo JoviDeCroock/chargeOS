@@ -62,6 +62,8 @@ export function UsagePanel({
   const cards = usageByCard(thisMonthSessions);
   const yearWh = series.reduce((total, { energyWh }) => total + energyWh, 0);
   const openSessions = thisMonthSessions.filter(({ status }) => status === "active").length;
+  // Until an earlier month has charging, comparisons and a 12-month chart only repeat this month.
+  const hasHistory = series.slice(0, -1).some(({ sessionCount }) => sessionCount > 0);
 
   return (
     <section class="panel glass usage-panel" aria-labelledby="usage-title">
@@ -72,32 +74,40 @@ export function UsagePanel({
         </div>
       </header>
 
-      <div class="usage-tiles">
+      <div class={`usage-tiles${hasHistory ? "" : " single"}`}>
         <UsageTile
           label={t("usage.thisMonth")}
           value={formatKwh(thisMonth?.energyWh ?? 0)}
           detail={`${tn("usage.sessions", thisMonth?.sessionCount ?? 0)}${openSessions ? `, ${tn("usage.stillCharging", openSessions)}` : ""}`}
         />
-        <UsageTile
-          label={lastMonth ? monthLabel(lastMonth.month) : t("usage.lastMonth")}
-          value={formatKwh(lastMonth?.energyWh ?? 0)}
-          detail={tn("usage.sessions", lastMonth?.sessionCount ?? 0)}
-        />
-        <UsageTile
-          label={t("usage.last12")}
-          value={formatKwh(yearWh)}
-          detail={tn(
-            "usage.sessions",
-            series.reduce((total, { sessionCount }) => total + sessionCount, 0),
-          )}
-        />
+        {hasHistory && (
+          <>
+            <UsageTile
+              label={lastMonth ? monthLabel(lastMonth.month) : t("usage.lastMonth")}
+              value={formatKwh(lastMonth?.energyWh ?? 0)}
+              detail={tn("usage.sessions", lastMonth?.sessionCount ?? 0)}
+            />
+            <UsageTile
+              label={t("usage.last12")}
+              value={formatKwh(yearWh)}
+              detail={tn(
+                "usage.sessions",
+                series.reduce((total, { sessionCount }) => total + sessionCount, 0),
+              )}
+            />
+          </>
+        )}
       </div>
 
       {sessions.length === 0 ? (
         <p class="empty-state">{t("usage.empty")}</p>
       ) : (
         <>
-          <MonthlyColumns series={series} />
+          {hasHistory ? (
+            <MonthlyColumns series={series} />
+          ) : (
+            <p class="usage-history-hint">{t("usage.historyHint")}</p>
+          )}
           {cards.length > 1 && (
             <div class="usage-cards">
               <h3>{t("usage.byCard")}</h3>
@@ -436,9 +446,7 @@ export function ConsoleSettingsSection({ profile }: { profile: ConsoleProfile })
           </span>
         </header>
         <p>{t(profile === "company" ? "prefs.companyText" : "prefs.personalText")}</p>
-        <p class="fine-print">
-          {t("prefs.profileNote")} <code>CHARGEOS_PROFILE</code>
-        </p>
+        <p class="fine-print">{t("prefs.profileNote")}</p>
       </section>
 
       <section class="panel glass" aria-labelledby="modules-title">

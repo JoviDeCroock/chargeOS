@@ -148,7 +148,7 @@ export const fleetFr: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.detail.identity-mismatch":
     "Arrêt : la borne qui s’est connectée n’a pas la marque, le modèle ou le firmware attendus. Vérifiez avec l’installateur avant de continuer.",
   "fleet.detail.identity-unchecked":
-    "Aucune identité attendue n’a été saisie, rien n’a donc été comparé.",
+    "Non comparé : aucun modèle attendu n’a été saisi lors de l’ajout de cette borne.",
   "fleet.detail.readiness-blocked":
     "Dans sa configuration actuelle, la borne ne peut pas garder de badges pour un usage hors ligne. Ouvrez la recharge hors ligne pour les détails.",
   "fleet.detail.restart-required":
@@ -296,7 +296,7 @@ export const fleetFr: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.step.cards-on-charger.body":
     "Envoyez la liste des badges pour qu’ils fonctionnent aussi sans internet.",
   "fleet.step.cards-on-charger.title": "Badges sur la borne",
-  "fleet.step.cards.body": "Présentez le badge de l’employé à la borne pour l’enregistrer.",
+  "fleet.step.cards.body": "Présentez le badge à la borne pour l’enregistrer.",
   "fleet.step.cards.title": "Badge enregistré",
   "fleet.step.connected.body":
     "En attente de la connexion de la borne avec sa fiche d’installation. Cela peut prendre quelques minutes après l’enregistrement des réglages par l’installateur.",
@@ -308,7 +308,7 @@ export const fleetFr: Readonly<Record<keyof typeof fleetEn, string>> = {
     "Vérifiez, et préparez si nécessaire, que la borne garde les badges pour un usage hors ligne.",
   "fleet.step.offline-ready.title": "Réglages hors ligne vérifiés",
   "fleet.step.test-charge.body":
-    "Chargez une fois avec le badge enregistré. L’installation se termine quand cette recharge est acceptée.",
+    "Une fois les badges sur la borne, rechargez une fois avec un badge enregistré. Les recharges antérieures ne comptent pas.",
   "fleet.step.test-charge.title": "Première recharge",
   "usage.privatePart": "dont privé : {energy}",
 };
