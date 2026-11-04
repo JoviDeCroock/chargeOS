@@ -27,11 +27,6 @@ const ATTENTION_KEYS: Readonly<Record<FleetStationSummary["attention"][number], 
   offline: "attention.offline",
 };
 
-const ATTENTION_PROBLEMS: ReadonlySet<FleetStationSummary["attention"][number]> = new Set([
-  "offline",
-  "evidence-conflict",
-]);
-
 /** Attention follows the order the owner can act on it, matching the setup steps. */
 const ATTENTION_ORDER: readonly FleetStationSummary["attention"][number][] = [
   "offline",
@@ -230,6 +225,15 @@ function StationCard({
   if (settingUp && station.setup !== "stopped" && station.connected) {
     next = { label: "stations.continueSetup" };
   }
+  // During setup its steps already cover cards and offline settings: one line says so.
+  const setupWork: readonly FleetStationSummary["attention"][number][] = [
+    "authorization-pending",
+    "continuity-unproven",
+    "no-cards",
+  ];
+  const shownAttention: (FleetStationSummary["attention"][number] | "setup")[] = settingUp
+    ? attention.filter((item) => !setupWork.includes(item))
+    : [...attention];
   return (
     <li class={`entity-card glass station-card ${state}`}>
       <header class="entity-head">
@@ -239,7 +243,17 @@ function StationCard({
           <h2>
             {single && station.label === station.id ? t("overview.unnamedTitle") : station.label}
           </h2>
-          {visibleSite(station.site) && <span>{station.site}</span>}
+          {/* Where it is and, during setup, that setup is still open: one quiet line. */}
+          {(visibleSite(station.site) || settingUp) && (
+            <span class="entity-sub">
+              {[
+                visibleSite(station.site) ? station.site : null,
+                settingUp ? t("stations.setupOpen") : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          )}
         </div>
         {/* The same dot-and-word connection as the overview header. */}
         <StatusPill connected={station.connected} inline />
@@ -271,14 +285,18 @@ function StationCard({
             )}
           </dd>
         </div>
-        <div>
-          <dt>{t("stations.driver")}</dt>
-          <dd>{station.driver ?? <span class="muted">{t("people.nobody")}</span>}</dd>
-        </div>
+        {/* A lone charger with nobody linked keeps four balanced facts; a fleet shows who drives each. */}
+        {(!single || station.driver) && (
+          <div>
+            <dt>{t("stations.driver")}</dt>
+            <dd>{station.driver ?? <span class="muted">{t("people.nobody")}</span>}</dd>
+          </div>
+        )}
         <div>
           <dt>{t("nav.cards")}</dt>
           <dd>
-            {cards.length
+            {/* Names when the owner gave them; otherwise a count reads better than "Unnamed card". */}
+            {cards.some((card) => card.name ?? personName(directory, card.holderPersonId))
               ? cards
                   .map(
                     (card) =>
@@ -299,16 +317,12 @@ function StationCard({
           <dd>{formatDate(station.lastSessionAt)}</dd>
         </div>
       </dl>
-      {attention.length > 0 && (
+      {shownAttention.length > 0 && (
         <ul class="attention-list" aria-label={t("stations.attention")}>
-          {attention.map((item) => (
+          {shownAttention.map((item) => (
             <li key={item}>
-              {/* Setup work reads as neutral pending; only real problems are amber. */}
-              <span
-                class={`status-dot ${ATTENTION_PROBLEMS.has(item) ? "warn" : "idle"}`}
-                aria-hidden="true"
-              />
-              {t(ATTENTION_KEYS[item])}
+              <span class="status-dot warn" aria-hidden="true" />
+              {t(item === "setup" ? "stations.setupOpen" : ATTENTION_KEYS[item])}
             </li>
           ))}
         </ul>

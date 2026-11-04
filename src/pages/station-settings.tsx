@@ -38,6 +38,8 @@ import {
 import { TroubleshootingPanel } from "../troubleshooting.js";
 import {
   cardLabel,
+  unnamedCardsNeedReference,
+  visibleSite,
   connectorStatusLabel,
   connectorTone,
   Fact,
@@ -172,12 +174,10 @@ function OfflineTab({
           {/* Two separate facts, worded as on the overview: what software checked, and the
               owner's own test without internet, which software cannot do. */}
           <dl class="offline-facts">
-            <div
-              class={`today-row ${state === "ready" ? "ok" : state === "blocked" ? "warn" : "idle"}`}
-            >
+            <div class={`today-row ${state === "ready" ? "ok" : "warn"}`}>
               <dt>
                 <span
-                  class={`status-dot ${state === "ready" ? "ok" : state === "blocked" ? "warn" : "idle"}`}
+                  class={`status-dot ${state === "ready" ? "ok" : "warn"}`}
                   aria-hidden="true"
                 />
                 {t("offline.rowSettings")}
@@ -188,17 +188,20 @@ function OfflineTab({
                     ? "offline.pathPassed"
                     : state === "blocked"
                       ? "offline.pathProblem"
-                      : "offline.pathNotYet",
+                      : "offline.pathNotChecked",
                 )}
               </dd>
             </div>
-            <div class="today-row idle">
+            <div class="today-row warn">
               <dt>
-                <span class="status-dot idle" aria-hidden="true" />
+                <span class="status-dot warn" aria-hidden="true" />
                 {t("offline.rowField")}
               </dt>
               <dd>
-                {t(offlineFieldState(current.freedomTest))}
+                {/* Before any field result, the owner's test simply hasn't been done. */}
+                {offlineFieldState(current.freedomTest) === "overview.fieldUnverified"
+                  ? t("offline.testNotDone")
+                  : t(offlineFieldState(current.freedomTest))}
                 <small>
                   {t("fleet.setup.fieldTestBody")}{" "}
                   <a
@@ -213,7 +216,11 @@ function OfflineTab({
           </dl>
           {setupStep > 0 && (
             <p class="offline-step-of">
-              {t("offline.stepOf", { step: setupStep, total: current.setup!.steps.length })}{" "}
+              {t("offline.stepOf", {
+                step: setupStep,
+                // The owner's own test without internet is the last step of the same path.
+                total: current.setup!.steps.length + 1,
+              })}{" "}
               <a
                 class="text-link"
                 href="#/overview"
@@ -399,9 +406,10 @@ function ControlsTab({
 
   return (
     <section class="panel glass command-panel" aria-labelledby="commands-title">
-      <header class="panel-head">
-        <h2 id="commands-title">{t("controls.title")}</h2>
-      </header>
+      {/* The tab already says "Remote control"; the heading stays for screen readers. */}
+      <h2 id="commands-title" class="visually-hidden">
+        {t("controls.title")}
+      </h2>
       <p class="panel-intro">
         {unnamed ? t("controls.targetThis") : t("controls.target", { name })}
       </p>
@@ -425,7 +433,16 @@ function ControlsTab({
               onChange={(event) => setTagPseudonym(event.currentTarget.value)}
             >
               {current.authorization.tagPseudonyms.map((tag) => {
-                const card = cardLabel(directory, current.station.id, tag);
+                const card = cardLabel(
+                  directory,
+                  current.station.id,
+                  tag,
+                  unnamedCardsNeedReference(
+                    directory,
+                    current.station.id,
+                    current.authorization.tagPseudonyms,
+                  ),
+                );
                 return (
                   <option key={tag} value={tag}>
                     {card.holder ? `${card.name} · ${card.holder}` : card.name}
@@ -440,7 +457,9 @@ function ControlsTab({
             type="submit"
             disabled={offline || busy || !tagPseudonym}
           >
-            {t("controls.startTarget", { connector: connectorId })}
+            {connectorIds.length > 1
+              ? t("controls.startTarget", { connector: connectorId })
+              : t("controls.startTitle")}
           </button>
         </form>
 
@@ -470,41 +489,44 @@ function ControlsTab({
           </div>
         )}
 
-        <form
-          class="command-form"
-          aria-label={t("controls.availability")}
-          onSubmit={(event) => {
-            event.preventDefault();
-            void runStationCommand({
-              availability: "Operative",
-              connectorId: availabilityConnector,
-              type: "ChangeAvailability",
-            });
-          }}
-        >
-          <h2>{t("controls.availability")}</h2>
-          <ConnectorSelect
-            ids={connectorIds}
-            value={availabilityConnector}
-            onChange={setAvailabilityConnector}
-          />
-          {availabilityStatus === "Available" ? (
-            <p class="muted">{t("controls.isAvailable", { connector: availabilityConnector })}</p>
-          ) : (
-            <>
-              {availabilityStatus && (
-                <p class="muted">
-                  {t("controls.availableNow", {
-                    status: connectorStatusLabel(availabilityStatus),
-                  })}
-                </p>
-              )}
-              <button class="button secondary" type="submit" disabled={offline || busy}>
-                {t("controls.makeAvailable", { connector: availabilityConnector })}
-              </button>
-            </>
-          )}
-        </form>
+        {/* With one connector that is already available there is nothing to offer here. */}
+        {(connectorIds.length > 1 || availabilityStatus !== "Available") && (
+          <form
+            class="command-form"
+            aria-label={t("controls.availability")}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void runStationCommand({
+                availability: "Operative",
+                connectorId: availabilityConnector,
+                type: "ChangeAvailability",
+              });
+            }}
+          >
+            <h2>{t("controls.availability")}</h2>
+            <ConnectorSelect
+              ids={connectorIds}
+              value={availabilityConnector}
+              onChange={setAvailabilityConnector}
+            />
+            {availabilityStatus === "Available" ? (
+              <p class="muted">{t("controls.isAvailable", { connector: availabilityConnector })}</p>
+            ) : (
+              <>
+                {availabilityStatus && (
+                  <p class="muted">
+                    {t("controls.availableNow", {
+                      status: connectorStatusLabel(availabilityStatus),
+                    })}
+                  </p>
+                )}
+                <button class="button secondary" type="submit" disabled={offline || busy}>
+                  {t("controls.makeAvailable", { connector: availabilityConnector })}
+                </button>
+              </>
+            )}
+          </form>
+        )}
       </div>
 
       <details class="command-maintenance">
@@ -613,6 +635,8 @@ function ConnectorSelect({
   value: number;
   onChange: (id: number) => void;
 }) {
+  // A single connector needs no choice; the button names it.
+  if (ids.length <= 1) return null;
   return (
     <label>
       {t("controls.connector")}
@@ -713,8 +737,14 @@ function DetailsTab({
             )
           }
         />
-        <Fact label={t("stations.field.site")} value={station.site} />
-        <Fact label={t("stations.driver")} value={station.driver ?? t("people.nobody")} />
+        <Fact
+          label={t("stations.field.site")}
+          value={visibleSite(station.site) ?? <span class="muted">{t("details.siteNotSet")}</span>}
+        />
+        <Fact
+          label={t("stations.driver")}
+          value={station.driver ?? <span class="muted">{t("people.nobody")}</span>}
+        />
         <Fact label={t("details.chargePointId")} value={station.id} mono />
         <Fact
           label={t("station.hardware")}
@@ -755,7 +785,10 @@ function DetailsWithConnection(props: { snapshot: OwnerSnapshot; onEdit: (() => 
   return (
     <div class="section-stack">
       <DetailsTab {...props} />
-      <ConnectChargerPanel snapshot={props.snapshot} />
+      {/* Once connected, the details above already say so; the help is for connecting. */}
+      {!(props.snapshot.station.connected && props.snapshot.station.boot) && (
+        <ConnectChargerPanel snapshot={props.snapshot} />
+      )}
     </div>
   );
 }

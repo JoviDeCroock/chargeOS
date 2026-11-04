@@ -409,7 +409,7 @@ describe("owner console", () => {
     // The routine switching signal is noise for a company that does not use that module.
     expect(within(cards[0]!).queryByText("Switching step open")).toBeNull();
     expect(within(cards[1]!).getByText("Office bay 1")).toBeTruthy();
-    expect(within(cards[1]!).getByText("Offline charging not checked")).toBeTruthy();
+    expect(within(cards[1]!).getByText("Offline settings not checked")).toBeTruthy();
     expect(screen.getByText("1 of 2 connected")).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "Console sections" });
     expect(within(nav).getByRole("link", { name: "Employees" })).toBeTruthy();
@@ -794,8 +794,10 @@ describe("owner console", () => {
     // The fixture reports connector 1 as available, so there is nothing to change.
     expect(availability.getByText("Connector 1 is available. Nothing to change.")).toBeTruthy();
     expect(availability.queryByRole("button")).toBeNull();
-    expect(screen.getByText("Commands for Home charger.")).toBeTruthy();
-    const maintenance = screen.getByText("Maintenance").closest("details")!;
+    expect(
+      screen.getByText("Start a charge or restart Home charger without going to it."),
+    ).toBeTruthy();
+    const maintenance = screen.getByText("Restart and maintenance").closest("details")!;
     expect(maintenance.open).toBe(false);
     maintenance.open = true;
     expect((screen.getByRole("button", { name: "Restart" }) as HTMLButtonElement).disabled).toBe(

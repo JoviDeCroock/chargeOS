@@ -16,22 +16,23 @@ Before you start:
 4. Click **Create charger**. A **Setup sheet** appears with the server address, charger ID, password and protocol. Copy it to the installer now; the password is shown only once. If it gets lost before the charger first connects, open the charger and click **Make a new password**. After the charger has connected or has a card, the password can no longer be replaced here.
 5. The installer enters those values in the charger's own setup tool. How to do that depends on the charger model and is not verified by chargeOS; follow the manufacturer's procedure. See [Connect a charging station](connect-a-charger.md) for the careful, reversible way to move a charger from another provider.
 
-Open the new charger. **Set up this charger** lists the steps and ticks each one off only when chargeOS has seen it happen:
+Open the new charger. Its **Overview** shows **Set up offline charging** with **Step N of 7**. chargeOS ticks each of the first six steps only when it has seen it happen:
 
-1. **Charger connected**: the charger connected with its setup sheet.
-2. **Right charger**: the make, model and firmware it reports match what you entered. If they do not match, setup stops. Check with the installer before going on.
-3. **Card registered**: see the next section.
-4. **Offline charging checked**: click **Check the charger**. If a setting is not ready, open **Offline charging details**; see [Add or remove an RFID card](rfid.md#before-the-first-card).
-5. **Cards on the charger**: click **Send to charger**.
-6. **First charge**: charge once with the registered card.
+1. **Connect the charger**: the charger connects with its setup sheet.
+2. **Receive the charger’s details**: the make, model and firmware it reports match what you entered. If they do not match, setup stops. Check with the installer before going on.
+3. **Register a card**: see the next section.
+4. **Check offline settings**: click **Check offline settings**. This only reads the charger's settings. If a setting is not ready, open **Station settings › Offline charging**; see [Add or remove an RFID card](rfid.md#before-the-first-card).
+5. **Send the cards to the charger**: click **Send to charger**.
+6. **Try a charge while connected**: with the internet still connected, charge once with the registered card.
+7. **Test offline charging**: at the charger, with chargeOS and the internet unavailable, charge with the card. **How to test** opens the field test guide.
 
-When every step has passed, the console says the charger is ready. That means chargeOS saw each step online. It does not prove the charger keeps working with the internet unplugged. Only a real test does that; see the [Freedom Test](connect-a-charger.md).
+chargeOS never ticks step 7. When the first six steps have passed, the console says **Setup complete for …**. That means chargeOS saw each step online. It does not prove the charger keeps working with the internet unplugged. Only a real test does that; see the [Freedom Test](connect-a-charger.md). Opening the charger, electrical work and SIM work stay with the installer, with the power isolated.
 
 The setup page refreshes on its own every few seconds while you wait.
 
 ## Register a card by tapping it, and classify it
 
-1. On the charger's setup page click **Register a card**, or open **RFID cards** and click **Add card**, then **Tap a card at the charger**. The charger must be online.
+1. On the charger's setup steps click **Register a card**, or open **Cards** and click **Add card**, then **Tap a card at the charger**. The charger must be online.
 2. Hold the card against that charger within two minutes. The charger refuses the card this time; that is expected.
 3. When the console says **Card found**, choose **Who owns the card**:
    - **Company card**: only you can change or remove it.
@@ -39,7 +40,7 @@ The setup page refreshes on its own every few seconds while you wait.
 4. Choose whether **Charging with this card is** **Business** (sessions can be reimbursed) or **Private** (sessions are never reimbursed and never sent to finance).
 5. Click **Add this card**, then send the card list as in step 5 above.
 
-The same physical card has one classification on every charger. To change it later, open **RFID cards**, click **More** next to the card and choose **Company or personal…**. A card nobody classified shows **Not classified**. Its sessions reach the finance feed marked as unclassified, so someone has to decide before they are paid. A classification counts from the moment you set it: changing it later, or removing the card, does not change how earlier sessions are reported.
+The same physical card has one classification on every charger. To change it later, open **Cards**, click **Classify or remove** next to the card and choose **Company or personal…**. A card nobody classified shows **Not classified**. Its sessions reach the finance feed marked as unclassified, so someone has to decide before they are paid. A classification counts from the moment you set it: changing it later, or removing the card, does not change how earlier sessions are reported.
 
 Card details are covered in [Add or remove an RFID card](rfid.md).
 
@@ -47,7 +48,7 @@ Card details are covered in [Add or remove an RFID card](rfid.md).
 
 An employee who charges at home and at the office can use one card at both.
 
-1. In **RFID cards**, click **More** next to the card, then **Use on other chargers…**.
+1. In **Cards**, click **Classify or remove** next to the card, then **Use on other chargers…**.
 2. Tick the chargers and confirm. The card number stays on the server and is never retyped.
 3. On **Chargers**, click **Review card sync**. Check which chargers will receive their full list, the additions and removals, and why any charger is skipped. Confirm the send, then check each charger’s result.
 
@@ -55,7 +56,7 @@ The card row then says **Also works at** with the other chargers.
 
 ## When a card is lost
 
-1. In **RFID cards**, click **More** next to the card, then **Card lost: remove everywhere**.
+1. In **Cards**, click **Classify or remove** next to the card, then **Card lost: remove everywhere**.
 2. The window lists the chargers it will be removed from. If it is the only card on a charger, that charger keeps it, because chargeOS never leaves a charger without a card. Add another card there first, then remove the lost one.
 3. Click **Remove everywhere**, then go to **Chargers › Review card sync**. Confirm the eligible sends and check which chargers accepted the replacement list.
 
@@ -77,7 +78,7 @@ On their page the employee can click **Add a personal card**, tap it at their ch
    - **(Name) takes the charger**: company cards are removed and the employee page ends. Their personal cards keep working on their own charger (they are removed from any other charger), and the charger is marked employee-owned.
 3. Read **What will happen**, then click **Apply**. Each step shows its own result. A step that could not be done says why; the others still run.
 4. Open **Chargers › Review card sync** and confirm the eligible sends. Removed cards may still work at any charger that has not accepted the new list.
-5. If the employee takes the charger, their installer later moves it to its new system. After that, click **Retire** in the same window, or open **Chargers**, click **More** next to the charger and choose **Retire charger…**. Type the phrase shown. A retired charger can no longer connect; its history stays and its ID is never reused. Cards already stored in the charger keep working there.
+5. If the employee takes the charger, their installer later moves it to its new system. After that, click **Retire** in the same window, or open **Chargers**, click **More actions** next to the charger and choose **Retire charger…**. Type the phrase shown. A retired charger can no longer connect; its history stays and its ID is never reused. Cards already stored in the charger keep working there.
 
 Reimbursement ends on the leaving date in the reimbursement service. Nothing here changes statements; see [Add a person](people.md#when-someone-leaves).
 

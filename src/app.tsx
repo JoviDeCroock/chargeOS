@@ -504,17 +504,19 @@ function TokenGate() {
               value={value}
               minLength={32}
               autocomplete="current-password"
+              aria-describedby="owner-token-hint"
               onInput={(event) => setValue(event.currentTarget.value)}
             />
+            <p id="owner-token-hint" class="field-hint">
+              {t("signin.tokenHint")}
+            </p>
             <button class="button primary" type="submit" disabled={value.trim().length < 32}>
               {t("signin.open")}
             </button>
           </form>
           {notice.value && <div class="notice error">{notice.value.message}</div>}
+          {/* One help link, beside the field it explains; the foot keeps only the language. */}
           <div class="token-foot">
-            <a class="text-button" href="/help">
-              {t("signin.help")}
-            </a>
             <LanguagePicker id="signin-language" />
           </div>
         </div>

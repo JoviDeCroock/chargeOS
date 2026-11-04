@@ -11,7 +11,7 @@ This guide deploys the **owner edge** through the wizard, with separate console 
 3. Name the installation. Use a new name only for a separate installation; an existing setup is never overwritten.
 4. Optionally enter the charger's name (its OCPP identity) and your RFID card. You can leave both blank:
    - **Charger name**: blank uses `HOME-1`. If the charger connects with its own name and the right password, the console offers to accept that name; see [Connect your charger](connect-a-charger.md). Names use letters, numbers, hyphens and underscores, up to 64 characters.
-   - **RFID card**: blank starts with no card. After setup, open **RFID cards** in the console and tap your card at the charger; see [Add or remove an RFID card](rfid.md). Until you add one, every card is refused. If you type it, use the identifier the charger reports; the number printed on a card may differ.
+   - **RFID card**: blank starts with no card. After setup, open **Cards** in the console (or follow the setup steps on **Overview**) and tap your card at the charger; see [Add or remove an RFID card](rfid.md). Until you add one, every card is refused. If you type it, use the identifier the charger reports; the number printed on a card may differ.
    - **Console**: choose **Home** for your own charger or **Company** for chargers shared with employees or guests. You can change this later in the console's preferences.
 5. Enter the two hostnames and the email address for certificate notices.
 6. Leave the image field blank to build this source version, or paste a verified image digest supplied by your operator.

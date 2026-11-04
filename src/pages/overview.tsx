@@ -64,6 +64,27 @@ export function OverviewPage({
         : null;
   const liveOrAlert =
     unavailable || current.authorization.pendingRevocations.length > 0 || charging;
+  const capabilities: { label: string; tone: Tone; text: string }[] | null =
+    settingUp && station.boot && !liveOrAlert
+      ? [
+          {
+            label: t("head.connection"),
+            text: t(station.connected ? "head.connectedChargeOS" : "status.offlineShort"),
+            tone: station.connected ? "ok" : "idle",
+          },
+          {
+            label: t("head.charging"),
+            text: t(activity ?? "overview.chargingUnknown"),
+            tone: report.status === "charging" ? "live" : "idle",
+          },
+          {
+            label: t("head.offline"),
+            // Software can only get the charger ready; the owner's own test proves it.
+            text: t("head.offlineNotReady"),
+            tone: "warn",
+          },
+        ]
+      : null;
   return (
     <div class="section-stack">
       <PageHead
@@ -73,16 +94,25 @@ export function OverviewPage({
             {/* Connection, what the charger is doing and where it is, in one quiet line.
                 Separators trail each part so a wrapped line never starts with a dot. */}
             <span class="lede-parts">
-              <span class="lede-part">
-                <StatusPill
-                  connected={station.connected}
-                  awaitingConnection={!station.boot}
-                  inline
-                />
-              </span>
-              {/* While setup hides the status summary, the activity stays on this line. */}
-              {settingUp && !liveOrAlert && activity && (
-                <span class="lede-part">{t(activity)}</span>
+              {capabilities ? (
+                // During setup the header answers three separate questions, each labelled.
+                capabilities.map(({ label, tone, text }) => (
+                  <span key={label} class={`lede-part head-fact ${tone}`}>
+                    <span class="head-fact-label">{label}</span>
+                    <span class="head-fact-value">
+                      <span class={`status-dot ${tone}`} aria-hidden="true" />
+                      {text}
+                    </span>
+                  </span>
+                ))
+              ) : (
+                <span class="lede-part">
+                  <StatusPill
+                    connected={station.connected}
+                    awaitingConnection={!station.boot}
+                    inline
+                  />
+                </span>
               )}
               {[visibleSite(station.site), station.driver].filter(Boolean).map((part) => (
                 <span key={part} class="lede-part">
@@ -92,17 +122,11 @@ export function OverviewPage({
             </span>
           </>
         }
-        titleAside={
-          unnamed && onEdit ? (
-            <button class="text-button name-action" type="button" onClick={onEdit}>
-              {t("stations.nameItShort")}
-            </button>
-          ) : undefined
-        }
+        // Naming waits while setup leads; afterwards it is one quiet button, as on Chargers.
         actions={
-          !unnamed && onEdit ? (
+          onEdit && !settingUp ? (
             <button class="button secondary" type="button" onClick={onEdit}>
-              {t("stations.edit")}
+              {t(unnamed ? "stations.nameItShort" : "stations.edit")}
             </button>
           ) : undefined
         }
@@ -139,8 +163,6 @@ export function OverviewPage({
           compact={settingUp}
         />
       )}
-
-      {settingUp && station.boot && <ChargingToday snapshot={current} />}
 
       <SetupChecklist snapshot={current} go={go} onRegisterCard={() => setRegistering(true)} />
 
@@ -187,45 +209,6 @@ export function OverviewPage({
         </>
       )}
     </div>
-  );
-}
-
-/**
- * What the owner can rely on today, while setup is still running: charging with internet
- * (chargeOS approves registered cards) and charging without internet (not ready until setup
- * and the owner's own test at the charger). It never claims more than chargeOS has seen.
- */
-function ChargingToday({ snapshot: current }: { snapshot: OwnerSnapshot }) {
-  const { station, authorization, setup } = current;
-  const online: { tone: Tone; text: string } = !station.connected
-    ? { text: t("today.onlineDisconnected"), tone: "idle" }
-    : authorization.tagCount === 0
-      ? { text: t("today.onlineNoCard"), tone: "warn" }
-      : { text: t("today.onlineWorks"), tone: "ok" };
-  return (
-    <section class="panel glass charging-today" aria-labelledby="charging-today-title">
-      <h2 id="charging-today-title" class="visually-hidden">
-        {t("today.title")}
-      </h2>
-      <dl>
-        <div class={`today-row ${online.tone}`}>
-          <dt>
-            <span class={`status-dot ${online.tone}`} aria-hidden="true" />
-            {t("today.online")}
-          </dt>
-          <dd>{online.text}</dd>
-        </div>
-        <div class="today-row idle">
-          <dt>
-            <span class="status-dot idle" aria-hidden="true" />
-            {t("today.offline")}
-          </dt>
-          <dd>
-            {t(setup?.state === "stopped" ? "today.offlineStopped" : "today.offlineNotReady")}
-          </dd>
-        </div>
-      </dl>
-    </section>
   );
 }
 

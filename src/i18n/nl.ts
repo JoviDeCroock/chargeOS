@@ -8,16 +8,16 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "stations.connectionHelp": "Open hulp bij verbinden",
   "stations.metric.unknown": "Laadstatus onbekend",
   "offline.fieldGuide": "Open de gids voor de praktijktest",
-  "controls.maintenance": "Onderhoud",
+  "controls.maintenance": "Herstarten en onderhoud",
   "controls.availability": "Beschikbaarheid van de aansluiting",
   "controls.startTarget": "Start op aansluiting {connector}",
   "controls.historyIntro":
     "In de geschiedenis zie je het antwoord van de laadpaal en wat chargeOS daarna heeft waargenomen.",
-  "controls.target": "Opdrachten voor {name}.",
+  "controls.target": "Start een laadbeurt of herstart {name} zonder ernaartoe te gaan.",
   "advanced.englishOnly":
     "Dit onderdeel is voorlopig alleen in het Engels beschikbaar, omdat de veiligheidsteksten eerst nagekeken moeten worden voor ze vertaald worden.",
   "advanced.lede":
-    "Technische hulpmiddelen voor je laadpaal. Je hebt ze alleen nodig om offline laden in te stellen, de laadpaal op afstand te bedienen of registraties na te kijken.",
+    "Technische hulpmiddelen voor je laadpaal: offline-instellingen, bediening op afstand en de gegevens van de laadpaal.",
   "advanced.tabs": "Onderdelen van de laadpaalinstellingen",
 
   "app.charger": "Laadpaal",
@@ -35,7 +35,7 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "app.updated": "Bijgewerkt",
 
   "attention.authorization-pending": "Laadpassen nog niet naar de laadpaal verzonden",
-  "attention.continuity-unproven": "Offline laden niet gecontroleerd",
+  "attention.continuity-unproven": "Offline-instellingen niet gecontroleerd",
   "attention.evidence-conflict": "Tegenstrijdige sessiegegevens",
   "attention.migration-action": "Overstapstap open",
   "attention.offline": "Offline",
@@ -85,7 +85,7 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "cards.staleTitle.one": "{count} verwijderde laadpas kan nog werken aan de laadpaal",
   "cards.staleTitle.other": "{count} verwijderde laadpassen kunnen nog werken aan de laadpaal",
   "cards.sync.checkFirst":
-    "Controleer eerst de offline-instellingen van de laadpaal. Versturen kan zodra die controle slaagt.",
+    "Ze werken al zolang de laadpaal online is. Om ze ook zonder internet te laten werken, controleer je eerst de offline-instellingen van de laadpaal.",
   "cards.sync.confirm":
     "De lijst met laadpassen op de laadpaal vervangen door de laadpassen die hier staan?",
   "cards.sync.current": "Alle laadpassen staan op de laadpaal",
@@ -126,7 +126,7 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "cards.title": "Laadpassen",
   "cards.unnamed": "Laadpas zonder naam",
   "cards.unnamedShort": "Laadpas zonder naam · {id}",
-  "cards.waiting": "Nog niet verzonden",
+  "cards.waiting": "Nog niet naar de laadpaal gestuurd",
 
   "command.message.accepted":
     "{name}: de laadpaal zei ja. Kijk hieronder wat er daarna gebeurde; een ja alleen is geen bewijs.",
@@ -362,7 +362,7 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "offline.unanswered": "Wachten op antwoord van de laadpaal",
   "offline.unknownText":
     "Controleer of de laadpaal je laadpassen kan aanvaarden als het internet wegvalt. Controleren leest alleen instellingen.",
-  "offline.unknownTitle": "Instellingen nog niet gecontroleerd",
+  "offline.unknownTitle": "Controleer de instellingen voor offline laden",
 
   "overview.cardDetails": "Bekijk laadpassen",
   "overview.cardListWaiting":
@@ -412,7 +412,7 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "people.add": "Persoon toevoegen",
   "people.addCompany": "Werknemer toevoegen",
   "people.empty":
-    "Nog niemand. Voeg de mensen toe die hier laden, zodat je hun laadpassen kunt koppelen.",
+    "Optioneel. Voeg de mensen toe die hier laden om te zien wiens laadpas elke laadbeurt startte.",
   "people.emptyCompany":
     "Nog geen werknemers. Voeg een werknemer toe en wijs daarna hun laadpaal en laadpassen toe.",
   "people.field.name": "Naam",
@@ -439,20 +439,18 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "prefs.companyText":
     "Ingesteld voor een organisatie die laadpalen beheert voor haar werknemers: het verbruik wordt per werknemer gerapporteerd en kan gedownload worden.",
   "prefs.language": "Taal",
-  "prefs.languageNote":
-    "Bewaard in deze browser. De hulpgidsen en sommige geavanceerde onderdelen zijn in het Engels.",
+  "prefs.languageNote": "De hulpgidsen en sommige geavanceerde onderdelen zijn in het Engels.",
   "prefs.lede":
     "Kies je taal en welke onderdelen je ziet. Je keuzes gelden alleen in deze browser.",
   "prefs.modules": "Extra onderdelen",
   "prefs.modulesCustom": "Je eigen keuze in deze browser wordt gebruikt.",
-  "prefs.modulesDefault":
-    "De standaardonderdelen voor je profiel worden getoond. Vink een onderdeel aan om het te tonen.",
+  "prefs.modulesDefault": "Vink een onderdeel aan om het toe te voegen.",
   "prefs.modulesNote":
-    "Een onderdeel verbergen verandert alleen deze browser; laadpassen, offline laden en registraties blijven werken. Een verborgen onderdeel komt terug wanneer het je nodig heeft.",
+    "Laadpassen, offline laden en registraties blijven werken. Een verborgen onderdeel verschijnt alleen weer zolang het je aandacht nodig heeft, zoals actieve gedeelde toegang of een onafgeronde overstap, en je keuze blijft bewaard.",
   "prefs.onByDefault": "Standaard aan.",
   "prefs.personal": "Persoonlijk",
   "prefs.personalText":
-    "Ingesteld voor iemand met een eigen laadpaal: het overzicht begint met hoeveel je laadt.",
+    "Ingesteld voor iemand met een eigen laadpaal: het overzicht toont je laadpaal en hoeveel je laadt.",
   "prefs.profile": "Profiel",
   "prefs.profileNote":
     "Wie chargeOS installeerde, kiest het profiel. Vraag het hen als het moet veranderen.",
@@ -505,10 +503,10 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "sharing.status.revoked": "ingetrokken",
 
   "signin.body":
-    "Vul het eigenaarstoken in dat je kreeg toen chargeOS werd ingesteld. Heb je het niet, vraag het dan aan wie chargeOS installeerde. Het blijft alleen in dit browsertabblad.",
+    "Meld je aan om je laadpaal te bekijken en te beheren. Het token blijft alleen in dit browsertabblad.",
   "signin.help": "Installatie- en hulpgidsen",
   "signin.open": "Console openen",
-  "signin.title": "Welkom bij je laadpalen",
+  "signin.title": "Je chargeOS-console",
   "signin.token": "Eigenaarstoken",
 
   "station.awaitingBoot": "Wachten tot de laadpaal zich meldt",
@@ -538,7 +536,7 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "stations.independence":
     "Elke laadpaal heeft zijn eigen passenlijst. Test offline laden aan elke laadpaal.",
   "stations.lastSession": "Laatste sessie",
-  "stations.lede": "Bekijk per laadpaal de verbinding, de laatste laadstatus en de volgende stap.",
+  "stations.lede": "Bekijk per laadpaal de verbinding, de laatste laadbeurt en de volgende stap.",
   "stations.metric.chargers": "Laadpalen",
   "stations.metric.charging": "Laden gemeld",
   "stations.metric.connected": "Verbonden",
@@ -609,13 +607,13 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "usage.historyHint": "Vanaf je tweede maand verschijnt een maandgrafiek.",
   "offline.techDetails": "Instellingen die dit wijzigt",
   "cards.noPerson": "Niemand gekoppeld",
-  "cards.addName": "Naam geven",
+  "cards.addName": "Laadpas benoemen",
   "cards.reference": "Referentie {id}",
   "stations.continueSetup": "Verder instellen",
   "fleet.setup.why":
     "Met deze stappen komen je laadpassen op de laadpaal, zodat ze ook zonder internet werken.",
   "details.notNamed": "Nog geen naam",
-  "stations.nameItShort": "Naam geven",
+  "stations.nameItShort": "Laadpaal benoemen",
   "app.menu": "Menu",
   "app.closeMenu": "Menu sluiten",
   "controls.availableNow": "Nu: {status}",
@@ -626,15 +624,15 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "fleet.step.cards.todo": "Registreer een laadpas",
   "fleet.step.offline-ready.todo": "Controleer de offline-instellingen",
   "fleet.step.cards-on-charger.todo": "Stuur de laadpassen naar de laadpaal",
-  "fleet.step.test-charge.todo": "Laad één keer na het verzenden van de laadpassen",
-  "fleet.setup.fieldTest": "Daarna: laden zonder internet testen",
+  "fleet.step.test-charge.todo": "Probeer een laadbeurt terwijl de laadpaal verbonden is",
+  "fleet.setup.fieldTest": "Test offline laden",
   "fleet.setup.fieldTestBody":
-    "Haal aan de laadpaal het internet weg en laad met je laadpas. Alleen jij kunt dit doen.",
+    "Laad met je laadpas terwijl chargeOS en het internet onbereikbaar zijn voor de laadpaal. Hiervoor moet je bij de laadpaal zijn.",
   "fleet.setup.fieldTestGuide": "Zo test je",
-  "controls.targetThis": "Opdrachten voor deze laadpaal.",
+  "controls.targetThis": "Start een laadbeurt of herstart deze laadpaal zonder ernaartoe te gaan.",
   "controls.isAvailable": "Aansluiting {connector} is beschikbaar. Niets te wijzigen.",
-  "signin.where": "Waar vind ik het?",
-  "fleet.setup.notReady": "Laden zonder internet instellen",
+  "signin.where": "Hulp bij het vinden van je token",
+  "fleet.setup.notReady": "Offline laden instellen",
   "cards.ledeThis": "Laadpassen en sleutelhangers die je laadpaal kunnen starten.",
   "overview.notSentValue": "Nog niet naar de laadpaal gestuurd",
   "overview.notConfirmedValue": "Nog niet aanvaard door de laadpaal",
@@ -645,27 +643,19 @@ export const nl: Readonly<Record<MessageKey, string>> = {
     "Je laadpassen worden goedgekeurd zolang de laadpaal online is. Met deze stappen bereid je laden zonder internet voor.",
   "offline.pathPassed": "Geslaagd",
   "offline.pathProblem": "Moet worden opgelost",
-  "offline.pathNotYet": "Nog niet gedaan",
-  "usage.panelSubShort": "Energie gemeten door je laadpaal, per maand.",
   "usage.thisMonthLower": "deze maand",
-  "usage.lastOn": "laatste op {date}",
+  "usage.lastOn": "Laatste laadbeurt {date}",
   "usage.meterNoteZone":
     "Gemeten door de eigen meter van de laadpaal en geteld wanneer een sessie stopt, in de maand waarin ze begon ({timeZone}). Geen factuur of goedgekeurde terugbetaling.",
   "controls.startHint":
     "Steek eerst de stekker in de auto. De laadpaal start dan alsof deze laadpas werd aangeboden.",
   "connect.titleConnected": "Verbinding",
-  "fleet.setup.showDone": "Afgeronde stappen tonen",
-  "status.connectedShort": "Verbonden met chargeOS",
-  "status.offlineShort": "Offline",
+  "fleet.setup.showDone": "Stappen 1–{last} klaar",
+  "status.connectedShort": "Verbonden",
+  "status.offlineShort": "Niet verbonden",
   "usage.meterShort": "Gemeten door de eigen meter van je laadpaal. Geen factuur.",
   "usage.howCounted": "Hoe dit geteld wordt",
   "usage.allSessions": "Alle sessies bekijken",
-  "today.title": "Laden vandaag",
-  "today.online": "Online",
-  "today.offline": "Als het internet wegvalt",
-  "today.onlineWorks": "Werkt. chargeOS keurt je laadpassen goed zolang de laadpaal verbonden is.",
-  "today.onlineNoCard": "Registreer eerst een laadpas.",
-  "today.onlineDisconnected": "De laadpaal is nu niet verbonden.",
   "nav.sessions": "Laadbeurten",
   "sessions.title": "Laadbeurten",
   "sessions.ledeThis": "Elke laadbeurt op je laadpaal, nieuwste eerst.",
@@ -673,12 +663,46 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "sessions.note":
     "De energie komt van de eigen meter van de laadpaal en is definitief zodra een sessie stopt.",
   "fleet.setup.stepOf": "Stap {step} van {total}",
-  "today.offlineNotReady":
-    "De installatie is nog niet klaar, dus laden zonder internet is nog niet bevestigd.",
-  "today.offlineStopped": "De installatie is gestopt, dus laden zonder internet is niet bevestigd.",
   "offline.rowSettings": "Offline-instellingen",
-  "offline.rowField": "Test zonder internet",
-  "cards.privacyShort": "Namen van laadpassen blijven privé in deze console.",
-  "people.privacyShort": "Namen blijven privé in deze console.",
+  "offline.rowField": "Test offline laden",
+  "cards.privacyShort": "Namen van laadpassen blijven op je chargeOS-server.",
+  "people.privacyShort": "Namen blijven op je chargeOS-server.",
+  "offline.pathNotChecked": "Niet gecontroleerd",
+  "details.siteNotSet": "Niet ingesteld",
+  "fleet.setup.stake":
+    "Tot dit is ingesteld en getest, werken je laadpassen misschien niet als het internet uitvalt.",
+  "offline.testNotDone": "Niet gedaan",
+  "sessions.duration": "Duur",
+  "sessions.hoursMinutes": "{hours} u {minutes} min",
+  "sessions.minutes": "{minutes} min",
+  "sessions.underMinute": "Minder dan 1 min",
+  "head.connection": "Verbinding",
+  "head.charging": "Nu",
+  "head.offline": "Offline laden",
+  "cards.sync.continueSetup": "Verder met installeren",
+  "cards.manage": "Opties voor laadpas",
+  "cards.manageCompany": "Indelen of verwijderen",
+  "stations.setupOpen": "Installatie niet afgerond",
+  "signin.tokenHint":
+    "Plak het eigenaarstoken dat je kreeg toen chargeOS werd geïnstalleerd. Vraag het aan wie het installeerde als je het niet hebt.",
+  "prefs.modulesNoteShort": "Wat gebeurt er als een onderdeel verborgen is?",
+  "head.offlineNotReady": "Nog niet getest",
+  "fleet.setup.stakeWorking":
+    "Je laadpassen werken zolang de laadpaal met chargeOS verbonden is. Laden zonder die verbinding vraagt nog deze stappen en je eigen test.",
+  "fleet.step.connected.why": "zodat chargeOS hem kan bereiken",
+  "fleet.step.identity.why": "zodat je weet dat het de juiste laadpaal is",
+  "fleet.step.cards.why": "zodat je laadpas kan starten",
+  "fleet.step.offline-ready.why": "leest alleen, verandert niets",
+  "fleet.step.cards-on-charger.why": "zodat de laadpaal je laadpassen kent zonder internet",
+  "fleet.step.test-charge.why":
+    "start en stop een laadbeurt met je laadpas, nadat die verstuurd is",
+  "fleet.setup.fieldTestWhy": "aan de laadpaal, met chargeOS en het internet onbereikbaar",
+  "cards.sync.laterInSetup":
+    "De installatie stuurt ze in een latere stap naar de laadpaal, zodat ze ook zonder internet werken.",
+  "cards.sync.nextInSetup":
+    "Ze naar de laadpaal sturen is je volgende installatiestap, zodat ze ook zonder internet werken.",
+  "head.connectedChargeOS": "Verbonden met chargeOS",
+  "cards.sync.workConnected": "Je laadpassen werken zolang de laadpaal verbonden is.",
+  "people.emptyTitle": "Nog geen mensen",
   ...fleetNl,
 };

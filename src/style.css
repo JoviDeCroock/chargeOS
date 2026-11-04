@@ -22,7 +22,7 @@
   --ground: #e3e9ed;
   --ink: #0f1f2b;
   --ink-2: #455866;
-  --ink-3: #5f707d;
+  --ink-3: #536370;
   --line: rgb(15 31 43 / 9%);
   --line-strong: rgb(15 31 43 / 16%);
 
@@ -76,7 +76,7 @@
     --ground: #0d1720;
     --ink: #e7eef3;
     --ink-2: #a6b5c1;
-    --ink-3: #97a6b1;
+    --ink-3: #a5b3bd;
     --line: rgb(255 255 255 / 8%);
     --line-strong: rgb(255 255 255 / 15%);
     --glass: rgb(24 37 49 / 72%);
@@ -4540,4 +4540,562 @@ body {
 th.numeric,
 td.numeric {
   padding-inline-end: 28px;
+}
+
+/* A quieter wash behind the owner console; content, not the backdrop, carries the page. */
+.console-backdrop::before {
+  background:
+    radial-gradient(
+      42rem 34rem at 8% -6%,
+      color-mix(in srgb, var(--field-a) 60%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      38rem 30rem at 96% 8%,
+      color-mix(in srgb, var(--field-b) 55%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      46rem 32rem at 70% 108%,
+      color-mix(in srgb, var(--field-c) 55%, transparent),
+      transparent 70%
+    ),
+    var(--ground);
+}
+
+/* Steps carry their number, so "Step 4 of 7" can be counted on screen. */
+.setup-node {
+  display: inline-grid;
+  place-items: center;
+  color: var(--ink-3);
+  font-size: 0.7rem;
+  font-weight: 650;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.setup-step.current .setup-node {
+  color: var(--current);
+}
+
+.today-row dd small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: 0.86rem;
+}
+
+.offline-facts {
+  max-width: none;
+}
+
+.offline-facts .text-link {
+  white-space: nowrap;
+}
+
+/* One charger: its facts in two balanced columns. */
+.entity-grid.single .entity-facts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  .entity-grid.single .entity-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Card row actions stay quiet and sized to their words on phones. */
+  .card-row .card-actions {
+    justify-content: flex-start;
+  }
+
+  .card-row .card-actions .button {
+    flex: none;
+    width: auto;
+  }
+}
+
+/* Header capability line during setup: each fact carries its own dot. */
+.lede-part.capability {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.lede-part.capability.ok {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+/* Upcoming steps read as the path ahead, not as disabled controls. */
+.setup-step.waiting .setup-copy strong {
+  color: var(--ink-2);
+  font-weight: 550;
+}
+
+.setup-step.field-test .label-chip {
+  margin-inline-start: 6px;
+  vertical-align: 1px;
+}
+
+/* A finished session is a fact, not a pass: neutral, like other records. */
+.table-status.complete {
+  background: var(--idle-soft);
+  color: var(--ink-2);
+}
+
+/* Details: one value weight; placeholders stay muted. */
+.details-facts dd {
+  font-weight: 500;
+}
+
+/* Fine print a step larger for comfortable reading. */
+.fine-print,
+.privacy-note,
+.usage-how {
+  font-size: 0.88rem;
+}
+
+/* Close menu reads as a cross, not a minus. */
+@media (max-width: 900px) {
+  .rail.menu-open .rail-menu-icon {
+    height: 14px;
+    border-color: transparent;
+    background:
+      linear-gradient(currentColor, currentColor) center / 100% 2px no-repeat,
+      linear-gradient(currentColor, currentColor) center / 2px 100% no-repeat;
+    transform: rotate(45deg);
+  }
+}
+
+/* Capability facts are separated by their own dots, not by a middle dot. */
+.lede-part.capability::after {
+  content: none;
+}
+
+.lede-part.capability {
+  margin-inline-end: 18px;
+}
+
+/* Header facts during setup: label, then value, each with its own dot. */
+.lede-part.head-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-inline-end: 22px;
+}
+
+.lede-part.head-fact::after {
+  content: none;
+}
+
+.head-fact-label {
+  color: var(--ink-3);
+}
+
+.head-fact-value {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.head-fact.warn .head-fact-value {
+  color: var(--warn);
+}
+
+@media (max-width: 640px) {
+  .lede-parts:has(.head-fact) {
+    display: grid;
+    gap: 4px;
+  }
+
+  .lede-part.head-fact {
+    margin: 0;
+  }
+}
+
+/* Folded later steps: a summary that names them, details on request. */
+.setup-later-steps ol {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 0;
+  padding-inline-start: 18px;
+  color: var(--ink-2);
+}
+
+.setup-later-steps ol li strong {
+  display: block;
+  font-weight: 600;
+}
+
+.setup-later-steps ol li small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+/* During setup the Cards banner is a quiet pointer back to the steps. */
+.sync-banner.quiet {
+  align-items: flex-start;
+}
+
+.sync-banner.quiet .sync-icon {
+  margin-top: 7px;
+}
+
+/* Phone card rows: identity across the full width, status beneath it, actions below. */
+@media (max-width: 640px) {
+  .card-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "chip main"
+      ". state"
+      "actions actions";
+    column-gap: 14px;
+    row-gap: 8px;
+  }
+
+  .card-row .rfid-chip {
+    grid-area: chip;
+  }
+
+  .card-row .card-main {
+    grid-area: main;
+  }
+
+  .card-row > .state-chip {
+    grid-area: state;
+    justify-self: start;
+  }
+
+  .card-row .card-tags {
+    grid-column: 2;
+  }
+
+  .card-row .card-actions {
+    grid-area: actions;
+  }
+
+  /* Naming is the everyday action; removal and loss wait behind a smaller "More". */
+  .card-row .card-actions {
+    justify-content: flex-start;
+  }
+
+  .card-row .card-actions .button {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  .card-row .card-actions .row-menu {
+    flex: none;
+  }
+
+  .card-row .card-actions .row-menu > summary {
+    width: 100%;
+  }
+}
+
+/* The disabled sign-in button stays legible. */
+.token-gate .button.primary:disabled {
+  border-color: var(--line-strong);
+  background: var(--idle-soft);
+  box-shadow: none;
+  color: var(--ink-3);
+  opacity: 1;
+}
+
+.token-gate .field-hint {
+  margin: 6px 0 0;
+}
+
+/* The owner's test is one more numbered step; only its "At the charger" chip sets it apart. */
+.setup-steps .setup-step.field-test .setup-node {
+  border-style: solid;
+}
+
+/* Upcoming steps are single quiet lines, so the full path stays short. */
+.setup-step.waiting {
+  padding-bottom: 14px;
+}
+
+@media (max-width: 640px) {
+  .setup-step.field-test .label-chip {
+    margin-inline-start: 0;
+    margin-top: 4px;
+  }
+}
+
+/* The offline tab's one explanation reads in a single comfortable line on desktop. */
+.hero .hero-body > .hero-text {
+  max-width: 72ch;
+}
+
+/* Page actions line up with the title, not the lede below it. */
+.page-head.with-actions {
+  align-items: flex-start;
+}
+
+.page-head.with-actions > .head-actions {
+  margin-top: 12px;
+}
+
+.sessions-summary {
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sessions-summary strong {
+  font-size: 1.35rem;
+}
+
+/* Header facts during setup stay on one line on wide screens. */
+.lede:has(.head-fact) {
+  max-width: none;
+}
+
+/* A setup step's reason sits beside its title, quieter. */
+.setup-why {
+  color: var(--ink-3);
+  font-weight: 450;
+}
+
+/* Details use the panel's full width. */
+.details-facts {
+  max-width: none;
+}
+
+/* A table's footnote sits inside its card, like the overview's usage footer. */
+.table-foot {
+  margin: 14px 0 0;
+}
+
+.usage-summary-block {
+  margin-bottom: 10px;
+}
+
+.usage-summary-block .usage-summary {
+  margin-bottom: 2px;
+}
+
+.usage-last {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 0.88rem;
+}
+
+/* Details: connectors read as more rows of the same list. */
+.station-panel .connector-list {
+  margin-top: 0;
+}
+
+.station-panel .connector-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 200px) minmax(0, 1fr);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+}
+
+.station-panel .connector-row .connector-dot {
+  display: none;
+}
+
+.station-panel .connector-row span:nth-child(2) {
+  color: var(--ink-3);
+  font-size: 0.88rem;
+}
+
+.station-panel .connector-row strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+/* A finished session is plain text; only open or conflicting sessions get a pill. */
+.table-status.complete {
+  padding: 0;
+  background: none;
+  color: var(--ink-2);
+  font-weight: 450;
+}
+
+/* The current step: a quiet outline with a teal edge, not a filled block. */
+.setup-steps .setup-step.current .setup-copy {
+  border: 1px solid var(--line);
+  border-inline-start: 3px solid var(--current);
+  background: var(--glass-strong);
+}
+
+/* Upcoming steps: title, then the reason on its own quieter line. */
+.setup-step .setup-why {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.86rem;
+}
+
+@media (max-width: 640px) {
+  /* On a phone upcoming steps are titles only; the owner's own test keeps its reason. */
+  .setup-step.waiting .setup-why {
+    display: none;
+  }
+}
+
+.setup-step.waiting {
+  padding-bottom: 12px;
+}
+
+.station-panel .connector-list {
+  max-width: none;
+}
+
+.station-panel .connector-row {
+  column-gap: 16px;
+}
+
+/* Setup status strip: a small label above each value, like a quiet instrument panel. */
+.lede-parts:has(.head-fact) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 40px;
+  margin-top: 6px;
+}
+
+.lede-part.head-fact {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+
+.head-fact-label {
+  color: var(--ink-3);
+  font-size: 0.8rem;
+  font-weight: 550;
+}
+
+.head-fact-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+}
+
+@media (max-width: 640px) {
+  /* On a phone each fact is one row: label left, value right of it. */
+  .lede-parts:has(.head-fact) {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .lede-part.head-fact {
+    grid-template-columns: 112px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+  }
+
+  .head-fact-label {
+    font-size: 0.86rem;
+  }
+}
+
+.token-foot {
+  justify-content: flex-end;
+}
+
+/* Session status reads at the row's size. */
+.table-status.complete {
+  font-size: inherit;
+}
+
+/* One emphasis for the current step: the teal edge. No halo around its number. */
+.setup-steps .setup-step.current .setup-node {
+  box-shadow: none;
+}
+
+@media (max-width: 640px) {
+  .setup-step.done.setup-folded {
+    padding-bottom: 12px;
+  }
+
+  .setup-step.waiting {
+    padding-bottom: 8px;
+  }
+
+  .setup-panel .panel-sub {
+    margin-bottom: 4px;
+  }
+}
+
+/* During setup the Cards notice is information, not a warning: the cards already work. */
+.sync-banner.quiet .sync-icon {
+  background: var(--idle);
+}
+
+/* People empty state: a title, the benefit, then the privacy promise. */
+.empty-panel h2 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+
+.empty-panel p {
+  margin: 0;
+}
+
+.empty-panel .privacy-note {
+  margin-top: 10px;
+}
+
+/* Remote control: forms sit flat on the panel, divided by rules, with sensible widths. */
+.remote-settings .command-panel .command-form,
+.command-panel .command-form {
+  padding: 4px 0 18px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.remote-settings .command-panel .command-form.guarded,
+.command-panel .command-form.guarded {
+  background: none;
+}
+
+.command-panel .command-form select,
+.command-panel .command-form input {
+  max-width: 360px;
+}
+
+.command-panel .command-form .button {
+  align-self: flex-start;
+}
+
+/* Preferences: one list with dividers, not a card per row. */
+.module-list {
+  gap: 0;
+}
+
+.module-list label {
+  padding: 12px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+}
+
+.module-list li:last-child label {
+  border-bottom: 0;
+}
+
+/* Privacy notes keep their chevron beside the last word, even when the text wraps. */
+.privacy-note > summary {
+  display: block;
+}
+
+.privacy-note > summary::after {
+  display: inline-block;
+  margin-inline-start: 8px;
+  vertical-align: 2px;
 }

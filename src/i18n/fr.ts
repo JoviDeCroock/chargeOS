@@ -8,16 +8,16 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "stations.connectionHelp": "Ouvrir l’aide à la connexion",
   "stations.metric.unknown": "État de recharge inconnu",
   "offline.fieldGuide": "Ouvrir le guide du test sur place",
-  "controls.maintenance": "Maintenance",
+  "controls.maintenance": "Redémarrage et maintenance",
   "controls.availability": "Disponibilité de la prise",
   "controls.startTarget": "Démarrer sur la prise {connector}",
   "controls.historyIntro":
     "L’historique indique la réponse de la borne et ce que chargeOS a observé ensuite.",
-  "controls.target": "Commandes pour {name}.",
+  "controls.target": "Lancez une recharge ou redémarrez {name} sans vous déplacer.",
   "advanced.englishOnly":
     "Cette section n’est disponible qu’en anglais pour l’instant, car ses textes de sécurité doivent être relus avant d’être traduits.",
   "advanced.lede":
-    "Outils techniques pour votre borne. Vous n’en avez besoin que pour configurer la recharge hors ligne, commander la borne à distance ou consulter les enregistrements.",
+    "Outils techniques pour votre borne : réglages hors ligne, commande à distance et détails de la borne.",
   "advanced.tabs": "Sections des réglages de la borne",
 
   "app.charger": "Borne",
@@ -35,7 +35,7 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "app.updated": "Mis à jour",
 
   "attention.authorization-pending": "Badges pas encore envoyés à la borne",
-  "attention.continuity-unproven": "Recharge hors ligne non vérifiée",
+  "attention.continuity-unproven": "Réglages hors ligne non vérifiés",
   "attention.evidence-conflict": "Données de session contradictoires",
   "attention.migration-action": "Étape de changement ouverte",
   "attention.offline": "Hors ligne",
@@ -85,7 +85,7 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "cards.staleTitle.one": "{count} badge retiré peut encore fonctionner à la borne",
   "cards.staleTitle.other": "{count} badges retirés peuvent encore fonctionner à la borne",
   "cards.sync.checkFirst":
-    "Vérifiez d’abord les paramètres hors ligne de la borne. L’envoi devient possible dès que ce contrôle réussit.",
+    "Ils fonctionnent déjà tant que la borne est en ligne. Pour qu’ils fonctionnent sans internet, vérifiez d’abord les réglages hors ligne de la borne.",
   "cards.sync.confirm": "Remplacer la liste des badges sur la borne par les badges affichés ici ?",
   "cards.sync.current": "Tous les badges sont sur la borne",
   "cards.sync.currentLong": "La borne a accepté la liste actuelle",
@@ -124,7 +124,7 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "cards.title": "Badges",
   "cards.unnamed": "Badge sans nom",
   "cards.unnamedShort": "Badge sans nom · {id}",
-  "cards.waiting": "Pas encore envoyé",
+  "cards.waiting": "Pas encore envoyé à la borne",
 
   "command.message.accepted":
     "{name} : la borne a dit oui. Vérifiez ci-dessous ce qui s’est passé ensuite ; un oui seul n’est pas une preuve.",
@@ -361,7 +361,7 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "offline.unanswered": "En attente de la réponse de la borne",
   "offline.unknownText":
     "Vérifiez si la borne peut accepter vos badges lorsque internet est coupé. La vérification ne fait que lire les réglages.",
-  "offline.unknownTitle": "Réglages pas encore vérifiés",
+  "offline.unknownTitle": "Vérifiez les réglages de recharge hors ligne",
 
   "overview.cardDetails": "Voir les badges",
   "overview.cardListWaiting": "La borne n’a pas encore répondu à une mise à jour de la liste.",
@@ -410,7 +410,7 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "people.add": "Ajouter une personne",
   "people.addCompany": "Ajouter un collaborateur",
   "people.empty":
-    "Personne pour l’instant. Ajoutez les personnes qui rechargent ici pour lier leurs badges.",
+    "Facultatif. Ajoutez les personnes qui rechargent ici pour voir quel badge a lancé chaque recharge.",
   "people.emptyCompany":
     "Aucun collaborateur pour l’instant. Ajoutez un collaborateur, puis attribuez-lui sa borne et ses badges.",
   "people.field.name": "Nom",
@@ -437,20 +437,18 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "prefs.companyText":
     "Configuré pour une organisation qui gère des bornes pour ses collaborateurs : la consommation est rapportée par collaborateur et peut être téléchargée.",
   "prefs.language": "Langue",
-  "prefs.languageNote":
-    "Enregistrée dans ce navigateur. Les guides d’aide et certaines sections avancées sont en anglais.",
+  "prefs.languageNote": "Les guides d’aide et certaines sections avancées sont en anglais.",
   "prefs.lede":
     "Choisissez votre langue et les sections affichées. Vos choix ne valent que dans ce navigateur.",
   "prefs.modules": "Sections supplémentaires",
   "prefs.modulesCustom": "Votre choix dans ce navigateur est utilisé.",
-  "prefs.modulesDefault":
-    "Les sections standard de votre profil sont affichées. Cochez une section pour l’afficher.",
+  "prefs.modulesDefault": "Cochez une section pour l’ajouter.",
   "prefs.modulesNote":
-    "Masquer une section ne change que ce navigateur ; les badges, la recharge hors ligne et les enregistrements continuent de fonctionner. Une section masquée revient quand elle a besoin de vous.",
+    "Les badges, la recharge hors ligne et les enregistrements continuent de fonctionner. Une section masquée ne réapparaît que tant qu’elle demande votre attention, par exemple un accès partagé actif ou un changement inachevé, et votre choix reste enregistré.",
   "prefs.onByDefault": "Activée par défaut.",
   "prefs.personal": "Personnel",
   "prefs.personalText":
-    "Configuré pour une personne avec sa propre borne : l’aperçu commence par votre consommation.",
+    "Configuré pour une personne avec sa propre borne : la vue d’ensemble montre votre borne et ce que vous rechargez.",
   "prefs.profile": "Profil",
   "prefs.profileNote":
     "La personne qui a installé chargeOS choisit le profil. Demandez-lui s’il doit changer.",
@@ -504,10 +502,10 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "sharing.status.revoked": "retiré",
 
   "signin.body":
-    "Saisissez le jeton propriétaire reçu lors de l’installation de chargeOS. Si vous ne l’avez pas, demandez-le à la personne qui a installé chargeOS. Il reste uniquement dans cet onglet.",
+    "Connectez-vous pour voir et gérer votre borne. Le jeton reste uniquement dans cet onglet.",
   "signin.help": "Guides d’installation et d’aide",
   "signin.open": "Ouvrir la console",
-  "signin.title": "Bienvenue sur vos bornes",
+  "signin.title": "Votre console chargeOS",
   "signin.token": "Jeton propriétaire",
 
   "station.awaitingBoot": "En attente du signalement de la borne",
@@ -538,7 +536,7 @@ export const fr: Readonly<Record<MessageKey, string>> = {
     "Chaque borne a sa propre liste de badges. Vérifiez la recharge hors ligne sur chaque borne.",
   "stations.lastSession": "Dernière session",
   "stations.lede":
-    "Consultez la connexion, le dernier état de recharge et la prochaine étape pour chaque borne.",
+    "Consultez la connexion, la dernière recharge et la prochaine étape de chaque borne.",
   "stations.metric.chargers": "Bornes",
   "stations.metric.charging": "Recharge signalée",
   "stations.metric.connected": "Connectées",
@@ -612,13 +610,13 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "usage.historyHint": "Un graphique mensuel apparaît dès votre deuxième mois.",
   "offline.techDetails": "Paramètres modifiés",
   "cards.noPerson": "Aucune personne liée",
-  "cards.addName": "Ajouter un nom",
+  "cards.addName": "Nommer le badge",
   "cards.reference": "Référence {id}",
   "stations.continueSetup": "Continuer la configuration",
   "fleet.setup.why":
     "Ces étapes placent vos badges sur la borne pour qu’ils fonctionnent sans internet.",
   "details.notNamed": "Pas encore nommée",
-  "stations.nameItShort": "Ajouter un nom",
+  "stations.nameItShort": "Nommer la borne",
   "app.menu": "Menu",
   "app.closeMenu": "Fermer le menu",
   "controls.availableNow": "Actuellement : {status}",
@@ -629,15 +627,15 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "fleet.step.cards.todo": "Enregistrez un badge",
   "fleet.step.offline-ready.todo": "Vérifiez les paramètres hors ligne",
   "fleet.step.cards-on-charger.todo": "Envoyez les badges à la borne",
-  "fleet.step.test-charge.todo": "Rechargez une fois après l’envoi des badges",
-  "fleet.setup.fieldTest": "Ensuite : tester la recharge sans internet",
+  "fleet.step.test-charge.todo": "Essayez une recharge en étant connecté",
+  "fleet.setup.fieldTest": "Testez la recharge hors ligne",
   "fleet.setup.fieldTestBody":
-    "À la borne, coupez internet et rechargez avec votre badge. Vous seul pouvez le faire.",
+    "Rechargez avec votre badge pendant que chargeOS et internet sont indisponibles pour la borne. Cela demande votre présence à la borne.",
   "fleet.setup.fieldTestGuide": "Comment tester",
-  "controls.targetThis": "Commandes pour cette borne.",
+  "controls.targetThis": "Lancez une recharge ou redémarrez cette borne sans vous déplacer.",
   "controls.isAvailable": "Le connecteur {connector} est disponible. Rien à modifier.",
-  "signin.where": "Où le trouver ?",
-  "fleet.setup.notReady": "Configurer la recharge sans internet",
+  "signin.where": "Aide pour trouver votre jeton",
+  "fleet.setup.notReady": "Configurer la recharge hors ligne",
   "cards.ledeThis": "Badges et porte-clés qui peuvent démarrer votre borne.",
   "overview.notSentValue": "Pas encore envoyés à la borne",
   "overview.notConfirmedValue": "Pas encore acceptés par la borne",
@@ -648,41 +646,65 @@ export const fr: Readonly<Record<MessageKey, string>> = {
     "Vos badges sont acceptés tant que la borne est en ligne. Ces étapes préparent la recharge sans internet.",
   "offline.pathPassed": "Réussie",
   "offline.pathProblem": "À corriger",
-  "offline.pathNotYet": "Pas encore faite",
-  "usage.panelSubShort": "Énergie mesurée par votre borne, par mois.",
   "usage.thisMonthLower": "ce mois-ci",
-  "usage.lastOn": "dernière le {date}",
+  "usage.lastOn": "Dernière recharge {date}",
   "usage.meterNoteZone":
     "Mesurée par le compteur de la borne et comptée à la fin d'une session, dans le mois où elle a commencé ({timeZone}). Ni une facture ni un remboursement approuvé.",
   "controls.startHint":
-    "Branchez d'abord la voiture. La borne démarre alors comme si ce badge avait été présenté.",
+    "Branchez d’abord la voiture. La borne démarre alors comme si ce badge avait été présenté.",
   "connect.titleConnected": "Connexion",
-  "fleet.setup.showDone": "Afficher les étapes terminées",
-  "status.connectedShort": "Connectée à chargeOS",
-  "status.offlineShort": "Hors ligne",
+  "fleet.setup.showDone": "Étapes 1 à {last} faites",
+  "status.connectedShort": "Connectée",
+  "status.offlineShort": "Non connectée",
   "usage.meterShort": "Mesurée par le compteur de votre borne. Pas une facture.",
   "usage.howCounted": "Comment c’est compté",
   "usage.allSessions": "Voir toutes les sessions",
-  "today.title": "Recharge aujourd’hui",
-  "today.online": "En ligne",
-  "today.offline": "Si internet tombe",
-  "today.onlineWorks": "Fonctionne. chargeOS accepte vos badges tant que la borne est connectée.",
-  "today.onlineNoCard": "Enregistrez d’abord un badge.",
-  "today.onlineDisconnected": "La borne n’est pas connectée pour le moment.",
   "nav.sessions": "Sessions",
-  "sessions.title": "Sessions de recharge",
+  "sessions.title": "Sessions",
   "sessions.ledeThis": "Chaque session de recharge sur votre borne, la plus récente d’abord.",
   "sessions.lede": "Chaque session de recharge sur {station}, la plus récente d’abord.",
   "sessions.note":
     "L’énergie vient du compteur de la borne et devient définitive à la fin de la session.",
   "fleet.setup.stepOf": "Étape {step} sur {total}",
-  "today.offlineNotReady":
-    "La configuration n’est pas terminée : la recharge sans internet n’est pas encore vérifiée.",
-  "today.offlineStopped":
-    "La configuration est arrêtée : la recharge sans internet n’est pas vérifiée.",
   "offline.rowSettings": "Réglages hors ligne",
-  "offline.rowField": "Test sans internet",
-  "cards.privacyShort": "Les noms des badges restent privés dans cette console.",
-  "people.privacyShort": "Les noms restent privés dans cette console.",
+  "offline.rowField": "Testez la recharge hors ligne",
+  "cards.privacyShort": "Les noms des badges restent sur votre serveur chargeOS.",
+  "people.privacyShort": "Les noms restent sur votre serveur chargeOS.",
+  "offline.pathNotChecked": "Non vérifiés",
+  "details.siteNotSet": "Non défini",
+  "fleet.setup.stake":
+    "Tant que ce n’est pas configuré et testé, vos badges risquent de ne pas fonctionner pendant une coupure d’internet.",
+  "offline.testNotDone": "Pas fait",
+  "sessions.duration": "Durée",
+  "sessions.hoursMinutes": "{hours} h {minutes} min",
+  "sessions.minutes": "{minutes} min",
+  "sessions.underMinute": "Moins d’1 min",
+  "head.connection": "Connexion",
+  "head.charging": "En ce moment",
+  "head.offline": "Recharge hors ligne",
+  "cards.sync.continueSetup": "Continuer la configuration",
+  "cards.manage": "Options du badge",
+  "cards.manageCompany": "Classer ou retirer",
+  "stations.setupOpen": "Configuration non terminée",
+  "signin.tokenHint":
+    "Collez le jeton propriétaire reçu lors de l’installation de chargeOS. Demandez-le à la personne qui l’a installé si vous ne l’avez pas.",
+  "prefs.modulesNoteShort": "Que se passe-t-il quand une section est masquée ?",
+  "head.offlineNotReady": "Pas encore testée",
+  "fleet.setup.stakeWorking":
+    "Vos badges fonctionnent tant que la borne est connectée à chargeOS. La recharge sans cette connexion demande encore ces étapes et votre propre test.",
+  "fleet.step.connected.why": "pour que chargeOS puisse la joindre",
+  "fleet.step.identity.why": "pour savoir que c’est la bonne borne",
+  "fleet.step.cards.why": "pour que votre badge puisse lancer une recharge",
+  "fleet.step.offline-ready.why": "lit seulement, ne change rien",
+  "fleet.step.cards-on-charger.why": "pour que la borne connaisse vos badges sans internet",
+  "fleet.step.test-charge.why": "lancez et terminez une recharge avec votre badge, après son envoi",
+  "fleet.setup.fieldTestWhy": "à la borne, avec chargeOS et internet indisponibles",
+  "cards.sync.laterInSetup":
+    "La configuration les envoie à la borne lors d’une étape suivante, pour qu’ils fonctionnent aussi sans internet.",
+  "cards.sync.nextInSetup":
+    "Les envoyer à la borne est votre prochaine étape de configuration, pour qu’ils fonctionnent aussi sans internet.",
+  "head.connectedChargeOS": "Connectée à chargeOS",
+  "cards.sync.workConnected": "Vos badges fonctionnent tant que la borne est connectée.",
+  "people.emptyTitle": "Pas encore de personnes",
   ...fleetFr,
 };

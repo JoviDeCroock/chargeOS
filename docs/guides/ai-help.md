@@ -11,7 +11,7 @@ Keep the key in your password manager. It is different from your chargeOS owner 
 ## Ask for help
 
 1. Open the owner console and choose the affected charger.
-2. Open **AI troubleshooting** in the sidebar. The page is titled **Troubleshoot with your own AI key**.
+2. Open **Station settings › AI help**. If the tab is missing, turn on **AI help** under **Preferences › Extra sections**. The section is titled **Troubleshoot with your own AI key**.
 3. Click **Review diagnostics**. You will see the exact connection and configuration-check summary that will be shared.
 4. Select your AI provider, enter the model ID supplied by your administrator and paste your API key.
 5. Describe the issue in ordinary language. For example: “Why is known-owner offline authorization blocked?” You may include a model and firmware name, but keep passwords, card identifiers, addresses and personal data out of the question.

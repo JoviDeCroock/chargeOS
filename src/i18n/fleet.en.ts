@@ -292,7 +292,7 @@ export const fleetEn = {
   "fleet.step.offline-ready.body": "Reads your charger’s offline settings. This won’t change them.",
   "fleet.step.offline-ready.title": "Offline settings checked",
   "fleet.step.test-charge.body":
-    "With the charger online, charge once with a registered card. This shows the card works; testing without internet comes after.",
+    "With the internet still connected, charge once with a registered card. This shows the card works from start to finish; it does not test charging without internet.",
   "fleet.step.test-charge.title": "Charged once with a card",
   "usage.privatePart": "of which private: {energy}",
 } as const;

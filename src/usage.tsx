@@ -53,7 +53,7 @@ export function UsagePanel({
   sessions: readonly ChargeSession[];
   stationId: string;
   directory: OwnerDirectory | null;
-  /** Opens the full session list (under Station settings). */
+  /** Opens the full session list on the Sessions page. */
   onSessions?: () => void;
   now?: Date;
 }) {
@@ -79,7 +79,6 @@ export function UsagePanel({
       <header class="panel-head">
         <div>
           <h2 id="usage-title">{t("usage.panelTitle")}</h2>
-          <p class="panel-sub">{t("usage.panelSubShort")}</p>
         </div>
       </header>
 
@@ -106,15 +105,19 @@ export function UsagePanel({
         </div>
       ) : (
         // One month of charging is one figure; comparisons would only repeat it.
-        <p class="usage-summary">
-          <strong>{formatKwh(thisMonth?.energyWh ?? 0)}</strong>
-          <span>
-            {t("usage.thisMonthLower")} · {thisMonthDetail}
-            {lastSession && (
-              <small>{t("usage.lastOn", { date: formatDate(lastSession.startedAt) })}</small>
-            )}
-          </span>
-        </p>
+        <div class="usage-summary-block">
+          <p class="usage-summary">
+            <strong>{formatKwh(thisMonth?.energyWh ?? 0)}</strong>
+            <span>
+              {t("usage.thisMonthLower")} · {thisMonthDetail}
+            </span>
+          </p>
+          {lastSession && (
+            <p class="usage-last">
+              {t("usage.lastOn", { date: formatDate(lastSession.startedAt) })}
+            </p>
+          )}
+        </div>
       )}
 
       {sessions.length === 0 ? (
@@ -187,6 +190,27 @@ function niceCeiling(value: number): number {
 }
 
 /** Single-series monthly columns with hover/focus values and a table view. */
+/** One quiet line above the session list: this month's energy and session count. */
+export function MonthSummary({
+  sessions,
+  now = new Date(),
+}: {
+  sessions: readonly ChargeSession[];
+  now?: Date;
+}) {
+  if (sessions.length === 0) return null;
+  const timeZone = browserTimeZone();
+  const thisMonth = monthlyUsage(sessions, recentMonths(now, timeZone, 1), timeZone).at(-1);
+  return (
+    <p class="usage-summary sessions-summary">
+      <strong>{formatKwh(thisMonth?.energyWh ?? 0)}</strong>
+      <span>
+        {t("usage.thisMonthLower")} · {tn("usage.sessions", thisMonth?.sessionCount ?? 0)}
+      </span>
+    </p>
+  );
+}
+
 export function MonthlyColumns({ series }: { series: readonly MonthlyUsage[] }) {
   const [showTable, setShowTable] = useState(false);
   const maxKwh = niceCeiling(Math.max(...series.map(({ energyWh }) => energyWh / 1_000), 0));
@@ -438,10 +462,17 @@ const MODULE_KEYS: Readonly<
   sharing: { description: "module.sharing.description", label: "module.sharing.label" },
 };
 
-export function LanguagePicker({ id = "console-language" }: { id?: string }) {
+export function LanguagePicker({
+  id = "console-language",
+  hideLabel = false,
+}: {
+  id?: string;
+  /** Under a "Language" heading the visible label would only repeat it. */
+  hideLabel?: boolean;
+}) {
   return (
     <label class="language-picker" for={id}>
-      <span>{t("prefs.language")}</span>
+      <span class={hideLabel ? "visually-hidden" : undefined}>{t("prefs.language")}</span>
       <select
         id={id}
         value={locale.value}
@@ -470,7 +501,7 @@ export function ConsoleSettingsSection({ profile }: { profile: ConsoleProfile })
         <header class="panel-head">
           <h2 id="language-title">{t("prefs.language")}</h2>
         </header>
-        <LanguagePicker id="preferences-language" />
+        <LanguagePicker id="preferences-language" hideLabel />
         <p class="fine-print">{t("prefs.languageNote")}</p>
       </section>
 
@@ -512,7 +543,10 @@ export function ConsoleSettingsSection({ profile }: { profile: ConsoleProfile })
             </li>
           ))}
         </ul>
-        <p class="fine-print">{t("prefs.modulesNote")}</p>
+        <details class="privacy-note">
+          <summary>{t("prefs.modulesNoteShort")}</summary>
+          <p>{t("prefs.modulesNote")}</p>
+        </details>
       </section>
 
       {/* Read-only context goes after the choices the owner can make here. */}

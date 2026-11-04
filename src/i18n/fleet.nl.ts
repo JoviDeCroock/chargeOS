@@ -302,7 +302,7 @@ export const fleetNl: Readonly<Record<keyof typeof fleetEn, string>> = {
     "Leest de offline-instellingen van je laadpaal. Er verandert niets.",
   "fleet.step.offline-ready.title": "Offline instellingen gecontroleerd",
   "fleet.step.test-charge.body":
-    "Laad met de laadpaal online één keer met een geregistreerde laadpas. Zo zie je dat de laadpas werkt; testen zonder internet komt daarna.",
+    "Laad met het internet nog verbonden één keer met een geregistreerde laadpas. Zo zie je dat de laadpas van begin tot eind werkt; laden zonder internet test dit niet.",
   "fleet.step.test-charge.title": "Eén keer geladen met een laadpas",
   "usage.privatePart": "waarvan privé: {energy}",
 };

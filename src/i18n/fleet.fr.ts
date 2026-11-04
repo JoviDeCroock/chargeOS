@@ -305,7 +305,7 @@ export const fleetFr: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.step.offline-ready.body": "Lit les réglages hors ligne de votre borne, sans les modifier.",
   "fleet.step.offline-ready.title": "Réglages hors ligne vérifiés",
   "fleet.step.test-charge.body":
-    "Borne en ligne, rechargez une fois avec un badge enregistré. Cela montre que le badge fonctionne ; le test sans internet vient ensuite.",
+    "Avec internet toujours connecté, rechargez une fois avec un badge enregistré. Cela montre que le badge fonctionne de bout en bout ; cela ne teste pas la recharge sans internet.",
   "fleet.step.test-charge.title": "Une recharge faite avec un badge",
   "usage.privatePart": "dont privé : {energy}",
 };

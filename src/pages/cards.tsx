@@ -161,14 +161,17 @@ export function CardsPage({
                     company && <span class="label-chip unset">{t("fleet.card.unclassified")}</span>
                   )}
                 </span>
-                {/* The page banner carries the pending signal once; the row stays neutral. */}
-                <span class={`state-chip ${onCharger ? "ok" : "idle"}`}>
-                  {t(onCharger ? "cards.onCharger" : "cards.waiting")}
-                </span>
+                {/* Pending is amber everywhere. Before the first send the banner already says it
+                    for every card, so rows stay quiet instead of repeating it. */}
+                {authorization.syncState !== "never-synced" && (
+                  <span class={`state-chip ${onCharger ? "ok" : "warn"}`}>
+                    {t(onCharger ? "cards.onCharger" : "cards.waiting")}
+                  </span>
+                )}
                 <div class="card-actions">
                   {canName && (
                     <button
-                      class="button secondary compact"
+                      class="button ghost compact"
                       type="button"
                       onClick={() => setEditing({ kind: "edit", tagPseudonym: tag })}
                     >
@@ -177,7 +180,9 @@ export function CardsPage({
                   )}
                   {current.cardPolicies ? (
                     <details class="row-menu">
-                      <summary class="button ghost compact">{t("fleet.cards.more")}</summary>
+                      <summary class="button ghost compact">
+                        {t(company ? "cards.manageCompany" : "cards.manage")}
+                      </summary>
                       <div class="row-menu-list glass" onClickCapture={closeRowMenu}>
                         <button
                           type="button"
@@ -322,6 +327,39 @@ function SyncBanner({
     );
   }
   const waiting = authorization.pendingAdditions.length + authorization.pendingRevocations.length;
+  // While setup runs, sending cards is one of its steps: point there instead of offering a
+  // second primary action that competes with the overview's checklist.
+  const setup = current.setup && current.setup.state !== "active" ? current.setup : null;
+  const sendStep = setup ? setup.steps.findIndex(({ id }) => id === "cards-on-charger") + 1 : 0;
+  if (setup && sendStep > 0 && authorization.syncState === "never-synced") {
+    return (
+      <div class="sync-banner never-synced quiet">
+        <span class="sync-icon" aria-hidden="true" />
+        <div>
+          <strong>{t("cards.sync.workConnected")}</strong>
+          <p>
+            {/* Name the step by its place relative to now, so no number disagrees with the
+                checklist the owner lands on. */}
+            {t(
+              setup.steps.findIndex(({ state }) => state !== "done") + 1 >= sendStep
+                ? "cards.sync.nextInSetup"
+                : "cards.sync.laterInSetup",
+            )}{" "}
+            <a
+              class="text-link"
+              href="#/overview"
+              onClick={(event) => {
+                event.preventDefault();
+                go({ page: "overview" });
+              }}
+            >
+              {t("cards.sync.continueSetup")}
+            </a>
+          </p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div class={`sync-banner ${authorization.syncState} with-action`}>
       <span class="sync-icon" aria-hidden="true" />

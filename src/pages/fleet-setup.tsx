@@ -293,6 +293,16 @@ const STEP_TEXT: Readonly<
   },
 };
 
+/** Why each upcoming step matters, in a few words beside its title. */
+const STEP_WHY: Readonly<Record<SetupStepId, MessageKey>> = {
+  cards: "fleet.step.cards.why",
+  "cards-on-charger": "fleet.step.cards-on-charger.why",
+  connected: "fleet.step.connected.why",
+  identity: "fleet.step.identity.why",
+  "offline-ready": "fleet.step.offline-ready.why",
+  "test-charge": "fleet.step.test-charge.why",
+};
+
 const DETAIL_TEXT: Readonly<Record<NonNullable<SetupStep["detail"]>, MessageKey>> = {
   "identity-mismatch": "fleet.detail.identity-mismatch",
   "identity-unchecked": "fleet.detail.identity-unchecked",
@@ -334,7 +344,10 @@ export function SetupChecklist({
   // Finished steps fold into one line once there are a few, so the next action stays near the top.
   const foldDone = done >= 2 && setup.steps.slice(0, done).every(({ state }) => state === "done");
   const [next, ...later] = setup.steps.slice(done);
+  // The owner's own test without internet is the final, never-ticked step of the same path.
+  const total = setup.steps.length + 1;
   const renderStep = (step: SetupStep) => {
+    const number = setup.steps.indexOf(step) + 1;
     // Done without a comparison: the charger said what it is, but nobody said what to expect.
     const uncompared = step.detail === "identity-unchecked" && step.state === "done";
     // Pending steps read as the action to take; finished ones as the result.
@@ -346,9 +359,15 @@ export function SetupChecklist({
         : STEP_TEXT[step.id].todo;
     return (
       <li key={step.id} class={`setup-step ${step.state}${uncompared ? " uncompared" : ""}`}>
-        <span class="setup-node" aria-hidden="true" />
+        <span class="setup-node" aria-hidden="true">
+          {step.state === "done" ? null : number}
+        </span>
         <div class="setup-copy">
-          <strong>{t(title)}</strong>
+          <strong>
+            {t(title)}
+            {/* Upcoming steps: the action, then in a few words why it matters. */}
+            {step.state === "waiting" && <span class="setup-why">{t(STEP_WHY[step.id])}</span>}
+          </strong>
           {/* Future steps stay as short titles; only the current one explains itself. */}
           {step.state !== "done" && step.state !== "waiting" && <p>{t(STEP_TEXT[step.id].body)}</p>}
           {/* The report matters while identity is in question; Details keeps it afterwards. */}
@@ -390,7 +409,7 @@ export function SetupChecklist({
         <li class="setup-step done setup-folded">
           <span class="setup-node" aria-hidden="true" />
           <details class="setup-copy">
-            <summary>{t("fleet.setup.showDone")}</summary>
+            <summary>{t("fleet.setup.showDone", { last: done })}</summary>
             <ul>
               {setup.steps.slice(0, done).map((step) => (
                 <li key={step.id}>
@@ -411,19 +430,40 @@ export function SetupChecklist({
         setup.steps.slice(0, done).map(renderStep)
       )}
       {next && renderStep(next)}
-      {/* Later steps stay as one-line titles, so the whole path is visible. */}
+      {/* Later steps stay as one quiet line each, so every number on the path is visible. */}
       {later.map(renderStep)}
       {/* Software cannot verify offline charging; the journey ends with the owner's own test. */}
-      <li class="setup-step field-test">
-        <span class="setup-node" aria-hidden="true" />
+      <li class={`setup-step field-test${next ? "" : " next"}`}>
+        <span class="setup-node" aria-hidden="true">
+          {total}
+        </span>
         <div class="setup-copy">
-          <strong>{t("fleet.setup.fieldTest")}</strong>
-          <p class="setup-later">
-            {t("fleet.setup.fieldTestBody")}{" "}
-            <a class="text-link" href="/help?guide=connect-a-charger#check-charging-after-the-move">
-              {t("fleet.setup.fieldTestGuide")}
-            </a>
-          </p>
+          <strong>
+            {t("fleet.setup.fieldTest")}
+            {next && (
+              <span class="setup-why">
+                {t("fleet.setup.fieldTestWhy")} ·{" "}
+                <a
+                  class="text-link"
+                  href="/help?guide=connect-a-charger#check-charging-after-the-move"
+                >
+                  {t("fleet.setup.fieldTestGuide")}
+                </a>
+              </span>
+            )}
+          </strong>
+          {/* The full instructions appear once the software steps are done and this is next. */}
+          {!next && (
+            <p class="setup-later">
+              {t("fleet.setup.fieldTestBody")}{" "}
+              <a
+                class="text-link"
+                href="/help?guide=connect-a-charger#check-charging-after-the-move"
+              >
+                {t("fleet.setup.fieldTestGuide")}
+              </a>
+            </p>
+          )}
         </div>
       </li>
     </ol>
@@ -433,7 +473,7 @@ export function SetupChecklist({
       <details class="panel glass overview-setup">
         <summary>
           <strong>{t("fleet.setup.title")}</strong>
-          <span>{t("fleet.setup.progress", { done, total: setup.steps.length })}</span>
+          <span>{t("fleet.setup.progress", { done, total })}</span>
         </summary>
         {steps}
       </details>
@@ -445,14 +485,20 @@ export function SetupChecklist({
         <div>
           {/* One counting model everywhere: "Step n of 6", then the owner's own test. */}
           <p class="setup-kicker">
-            {t("fleet.setup.stepOf", {
-              step: Math.min(done + 1, setup.steps.length),
-              total: setup.steps.length,
-            })}
+            {t("fleet.setup.stepOf", { step: Math.min(done + 1, total), total })}
           </p>
           <h2 id="setup-title">
             {t(setup.state === "stopped" ? "fleet.setup.title" : "fleet.setup.notReady")}
           </h2>
+          {/* Why it matters, said once, beside the steps that fix it. */}
+          <p class="panel-sub">
+            {t(
+              setup.steps.some(({ id, state }) => id === "cards" && state === "done") &&
+                station.connected
+                ? "fleet.setup.stakeWorking"
+                : "fleet.setup.stake",
+            )}
+          </p>
         </div>
         {setup.state !== "in-progress" && (
           <span class={`state-chip ${setup.state === "stopped" ? "risk" : "idle"}`}>
@@ -499,7 +545,7 @@ function StepAction({
     return (
       <div class="setup-actions">
         <button
-          class="button primary compact"
+          class="button primary"
           type="button"
           disabled={!current.station.connected || action.value !== null}
           onClick={() => void runInspection()}
@@ -513,7 +559,7 @@ function StepAction({
     return (
       <div class="setup-actions">
         <button
-          class="button primary compact"
+          class="button primary"
           type="button"
           disabled={!current.station.connected}
           onClick={onRegisterCard}
@@ -530,7 +576,7 @@ function StepAction({
     return (
       <div class="setup-actions">
         <button
-          class="button primary compact"
+          class="button primary"
           type="button"
           disabled={!current.station.connected || action.value !== null}
           onClick={() => void runAuthorizationSync()}

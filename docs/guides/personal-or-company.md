@@ -4,10 +4,10 @@ chargeOS runs the same way for a person with one home charger and for a company 
 
 ## Which profile fits
 
-| You are…                                                                       | Profile    | The console opens on                                                                  |
-| ------------------------------------------------------------------------------ | ---------- | ------------------------------------------------------------------------------------- |
-| A person with your own charger, perhaps a second one at a holiday home         | `personal` | **Your charging**: kWh this month, last month and the past 12 months, plus your cards |
-| An employer, fleet manager or association running chargers for several drivers | `company`  | **Chargers**, **Employees** and **Usage** grouped by employee, with a CSV download    |
+| You are…                                                                       | Profile    | The console opens on                                                               |
+| ------------------------------------------------------------------------------ | ---------- | ---------------------------------------------------------------------------------- |
+| A person with your own charger, perhaps a second one at a holiday home         | `personal` | **Overview**: your charger and **Your charging**, the kWh you charged this month   |
+| An employer, fleet manager or association running chargers for several drivers | `company`  | **Chargers**, **Employees** and **Usage** grouped by employee, with a CSV download |
 
 Set it with `CHARGEOS_PROFILE=personal` or `CHARGEOS_PROFILE=company` in the server's environment file and restart. Without the setting chargeOS uses `personal`. The profile only arranges the console. It does not change who can charge, what the charger stores, or any safety check.
 
@@ -15,32 +15,34 @@ Set it with `CHARGEOS_PROFILE=personal` or `CHARGEOS_PROFILE=company` in the ser
 
 Every profile always has:
 
-- **Overview**: whether the charger is charging now, how much you charged, whether your cards work without internet, and the charger's status.
+- **Overview**: the setup steps while the charger is being set up, then whether the charger is charging now, how much you charged, and the charger's status.
 - **Chargers**: every charger with its name, person, cards and energy.
 - **People** (**Employees** with the company profile): who charges where, with their cards; see [Use the owner console](owner-console.md#name-chargers-people-and-cards).
-- **RFID cards**: add, name or remove the cards that may charge; see [Add or remove an RFID card](rfid.md).
-- **Station settings**: **Offline charging**, **Remote control**, **Sessions** and **Details** for the selected charger.
+- **Cards**: add, name or remove the cards that may charge; see [Add or remove an RFID card](rfid.md).
+- **Sessions**: every charging session on the selected charger, with this month's energy above the list.
+- **Station settings**: **Offline charging**, **Remote control** and **Details** for the selected charger.
 
 These **Station settings** tabs are optional:
 
-| Section                        | Tabs                                     | On by default for |
-| ------------------------------ | ---------------------------------------- | ----------------- |
-| **Switching and Freedom Test** | **Switching provider**, **Freedom Test** | nobody            |
-| **Shared access**              | **Shared access**                        | company           |
-| **Records**                    | **Records**                              | company           |
-| **AI help**                    | **AI help**                              | nobody            |
+| Section                | Tabs                                     | On by default for |
+| ---------------------- | ---------------------------------------- | ----------------- |
+| **Switching provider** | **Switching provider**, **Freedom Test** | nobody            |
+| **Shared access**      | **Shared access**                        | company           |
+| **Records**            | **Records**                              | company           |
+| **AI help**            | **AI help**                              | nobody            |
 
-To change them, click **Preferences** at the bottom of the sidebar and tick or untick a section. **Use profile defaults** undoes your choice. Your choice is kept in this browser only. Another browser or colleague starts from the profile defaults. **Preferences** also has the console **Language**.
+To change them, click **Preferences** below the pages in the sidebar (on a phone, tap **Menu** first). **Preferences** starts with the console **Language**, then **Extra sections**: tick a section to add it, or untick it to hide it. **Profile** comes last and only shows which profile your installer chose. **Use profile defaults** undoes your choice. Your choice is kept in this browser only. Another browser or colleague starts from the profile defaults.
 
-Hiding a section never switches anything off. Cards keep working offline, recorded evidence stays, and the server keeps every function. A hidden tab comes back on its own when it needs you: when someone still holds shared access, or when a switching step or Freedom Test is open, stopped or stale. If you are moving a charger away from a previous provider, turn on **Switching and Freedom Test** first; see [Connect a charging station](connect-a-charger.md).
+Hiding a section never switches anything off. Cards keep working offline, recorded evidence stays, and the server keeps every function. A hidden tab comes back on its own when it needs you: when someone still holds shared access, or when a switching step or Freedom Test is open, stopped or stale. If you are moving a charger away from a previous provider, turn on **Switching provider** first; see [Connect a charging station](connect-a-charger.md).
 
 ## See how much you charge
 
-On **Overview**, **Your charging** shows:
+On **Overview**, **Your charging** shows this month's energy in kWh with the number of sessions, and **Last session …**. Below it are **Measured by your charger’s own meter. Not a bill.**, the **How this is counted** disclosure and **See all sessions**, which opens **Sessions**. From your second month with charging, it shows instead:
 
 - **This month**, the previous month and **Last 12 months**, in kWh, with the number of sessions;
-- a column per month. Hover over or tab to a column for its exact value, or click **Show table**;
-- **This month by card**, when more than one card charged this month. Cards appear by the name you gave them, or by a short anonymous reference, never by card number.
+- a column per month. Hover over or tab to a column for its exact value, or click **Show table**.
+
+**This month by card** appears when more than one card charged this month. Cards appear by the name you gave them, or by a short anonymous reference, never by card number.
 
 A session belongs to the month it started, in your browser's time zone. Energy comes from the charger's own meter. A session still in progress counts once it stops. The figures are an overview, not a bill or an approved reimbursement.
 
@@ -48,7 +50,7 @@ A session belongs to the month it started, in your browser's time zone. Energy c
 
 With `CHARGEOS_PROFILE=company`, or with several chargers, the sidebar has **Usage**.
 
-1. Give every charger its person. Open **Employees** (or **People**), click **Add employee** for each person, then on **Chargers** click **Edit names** on each charger and choose the **Person**. Chargers without a person appear as **Nobody**.
+1. Give every charger its person. Open **Employees** (or **People**), click **Add employee** for each person, then on **Chargers** click **Name charger** or **Edit names** on each charger and choose the **Person**. Chargers without a person appear as **Nobody**.
 2. Open **Usage** and choose a **Month**.
 3. Read **Usage by person** (energy and sessions per person, across all their chargers) and **Usage by charger** below it.
 4. Click **Download CSV** for a file with one row per session. It lists the month, driver, charger, a unique `session_id`, start and stop times, energy in kWh, whether the session is complete, any evidence conflict, the card pseudonym and, with the company profile, `card_use` (`business`, `private` or empty when the card is not classified). **Usage by person** also shows the private part of each person's energy. Filter out private rows before importing reimbursements.
@@ -68,7 +70,7 @@ An administrator can also pre-fill names before the first start. In the private 
 
 To turn a month into a reimbursement statement in the employer workspace, filter the CSV to one driver. Then import it as described in [Review home-charging reimbursements](reimbursements.md). Map **Session ID** to `session_id`, **Station ID** to `charger_id`, start to `started_at`, end to `stopped_at` and energy to `energy_kwh` in kWh with a `.` decimal separator. Declare the employee alias for the import. Rows still in progress are refused instead of guessed.
 
-**If a warning appears:** "still charging" means some energy is not final yet, so export again after those sessions stop. "Conflicting stop values" means the charger reported a session twice with different results. The report uses the first value and marks the row `conflict`; check that session under **Station settings › Sessions** before paying it.
+**If a warning appears:** "still charging" means some energy is not final yet, so export again after those sessions stop. "Conflicting stop values" means the charger reported a session twice with different results. The report uses the first value and marks the row `conflict`; check that session on **Sessions** before paying it.
 
 ## Who controls the chargers
 

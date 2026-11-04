@@ -148,15 +148,33 @@ export function cardLabel(
   directory: OwnerDirectory | null,
   stationId: string,
   tagPseudonym: string,
+  /** Add the short reference to an unnamed card; only needed when several are unnamed. */
+  withReference = true,
 ): { name: string; holder: string | null; named: boolean } {
   const card = directory?.cards.find(
     (candidate) => candidate.stationId === stationId && candidate.tagPseudonym === tagPseudonym,
   );
   return {
     holder: personName(directory, card?.holderPersonId ?? null),
-    name: card?.name ?? t("cards.unnamedShort", { id: shortPseudonym(tagPseudonym) }),
+    name:
+      card?.name ??
+      (withReference
+        ? t("cards.unnamedShort", { id: shortPseudonym(tagPseudonym) })
+        : t("cards.unnamed")),
     named: Boolean(card?.name),
   };
+}
+
+/** Whether these cards include more than one unnamed card, so a reference must tell them apart. */
+export function unnamedCardsNeedReference(
+  directory: OwnerDirectory | null,
+  stationId: string,
+  tagPseudonyms: readonly string[],
+): boolean {
+  const unnamed = new Set(
+    tagPseudonyms.filter((tag) => !cardLabel(directory, stationId, tag).named),
+  );
+  return unnamed.size > 1;
 }
 
 export function shortPseudonym(tagPseudonym: string): string {
@@ -207,6 +225,13 @@ export function SessionTable({
   stationId: string;
 }) {
   if (!sessions.length) return <p class="empty-state">{t("sessions.empty")}</p>;
+  const withReference = unnamedCardsNeedReference(
+    directory,
+    stationId,
+    sessions.map(({ tagPseudonym }) => tagPseudonym),
+  );
+  // A connector column only helps when sessions used more than one connector.
+  const showConnector = new Set(sessions.map(({ connectorId }) => connectorId)).size > 1;
   return (
     <div class="table-scroll">
       <table>
@@ -214,14 +239,15 @@ export function SessionTable({
           <tr>
             <th>{t("sessions.started")}</th>
             <th>{t("sessions.card")}</th>
-            <th>{t("sessions.connector")}</th>
+            {showConnector && <th>{t("sessions.connector")}</th>}
+            <th>{t("sessions.duration")}</th>
             <th class="numeric">{t("sessions.energy")}</th>
             <th>{t("sessions.status")}</th>
           </tr>
         </thead>
         <tbody>
           {sessions.map((session) => {
-            const card = cardLabel(directory, stationId, session.tagPseudonym);
+            const card = cardLabel(directory, stationId, session.tagPseudonym, withReference);
             return (
               <tr key={session.transactionId}>
                 <td class="nowrap">{formatDate(session.startedAt)}</td>
@@ -232,7 +258,8 @@ export function SessionTable({
                     <small class="cell-sub risk-text">{t("sessions.cardRefused")}</small>
                   )}
                 </td>
-                <td>{session.connectorId}</td>
+                {showConnector && <td>{session.connectorId}</td>}
+                <td class="nowrap">{sessionDuration(session)}</td>
                 <td class="numeric">
                   {session.energyWh !== null ? (
                     formatKwh(session.energyWh)
@@ -272,29 +299,33 @@ export function SessionTable({
   );
 }
 
+/** How long a finished session lasted, in hours and minutes; open sessions show a dash. */
+function sessionDuration(session: ChargeSession): string {
+  if (!session.stoppedAt) return "—";
+  const minutes = Math.round(
+    (Date.parse(session.stoppedAt) - Date.parse(session.startedAt)) / 60_000,
+  );
+  if (!Number.isFinite(minutes) || minutes < 0) return "—";
+  if (minutes < 1) return t("sessions.underMinute");
+  const hours = Math.floor(minutes / 60);
+  return hours
+    ? t("sessions.hoursMinutes", { hours, minutes: String(minutes % 60).padStart(2, "0") })
+    : t("sessions.minutes", { minutes });
+}
+
 export function PageHead({
   title,
-  titleAside,
   lede,
   actions,
 }: {
   title: string;
-  /** A quiet inline action that belongs to the title itself, such as naming it. */
-  titleAside?: ComponentChildren;
   lede?: ComponentChildren;
   actions?: ComponentChildren;
 }) {
   return (
     <header class={`page-head${actions ? " with-actions" : ""}`}>
       <div>
-        {titleAside ? (
-          <div class="page-title-row">
-            <h1>{title}</h1>
-            {titleAside}
-          </div>
-        ) : (
-          <h1>{title}</h1>
-        )}
+        <h1>{title}</h1>
         {lede && <p class="lede">{lede}</p>}
       </div>
       {actions && <div class="head-actions">{actions}</div>}

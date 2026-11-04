@@ -21,7 +21,7 @@ In the local native SQLite trial, the operator retrieves an invitation using `pn
 
 ## Name the people who charge
 
-In the owner console, **People** (**Employees** with the company profile) lists the people who charge and links them to chargers and cards. Click **Add person**, then pick that person under **Edit names** on their charger or **Edit** on their card. Usage is reported per person. These names are labels in the owner console only: they create no account, give no access and never leave the owner console in exports or shared access. See [Name chargers, people and cards](owner-console.md#name-chargers-people-and-cards).
+In the owner console, **People** (**Employees** with the company profile) lists the people who charge and links them to chargers and cards. People are optional: click **Add person**, then pick that person under **Name charger** or **Edit names** on their charger, or **Name card** or **Edit** on their card. Usage is reported per person. These names are labels in the owner console only: they create no account, give no access and never leave the owner console in exports or shared access. See [Name chargers, people and cards](owner-console.md#name-chargers-people-and-cards).
 
 ## Give a professional temporary charger access
 

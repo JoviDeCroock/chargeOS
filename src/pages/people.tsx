@@ -57,10 +57,20 @@ export function PeoplePage({
       {!directory.writable && <p class="inline-alert warn">{t("directory.readOnly")}</p>}
 
       {directory.people.length === 0 ? (
-        <section class="panel glass empty-panel">
-          <p>{t(company ? "people.emptyCompany" : "people.empty")}</p>
+        <section class="panel glass empty-panel" aria-labelledby="people-empty-title">
+          <div>
+            <h2 id="people-empty-title">{t("people.emptyTitle")}</h2>
+            <p>{t(company ? "people.emptyCompany" : "people.empty")}</p>
+            {/* The privacy promise belongs with the list it describes. */}
+            <PrivacyNote short={t("people.privacyShort")} long={t("people.privacy")} />
+          </div>
           {directory.writable && (
-            <button class="button primary" type="button" onClick={() => setEditing("new")}>
+            // Optional for a household: a quiet button, so setup keeps the one primary action.
+            <button
+              class={`button ${company ? "primary" : "secondary"}`}
+              type="button"
+              onClick={() => setEditing("new")}
+            >
               {t(company ? "people.addCompany" : "people.add")}
             </button>
           )}
@@ -162,7 +172,9 @@ export function PeoplePage({
           })}
         </ul>
       )}
-      <PrivacyNote short={t("people.privacyShort")} long={t("people.privacy")} />
+      {directory.people.length > 0 && (
+        <PrivacyNote short={t("people.privacyShort")} long={t("people.privacy")} />
+      )}
 
       {editing && (
         <PersonDialog
