@@ -129,7 +129,7 @@ export const fleetFr: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.cards.copy": "Utiliser sur d’autres bornes…",
   "fleet.cards.lost": "Badge perdu : retirer partout",
   "fleet.cards.alsoAt": "Enregistré sur {station} · réception non confirmée",
-  "fleet.cards.more": "Plus",
+  "fleet.cards.more": "Autres actions",
   "fleet.cards.removeHere": "Retirer de cette borne",
   "fleet.cards.syncAll": "Vérifier la synchronisation",
   "fleet.cards.typeNumber": "Saisir un numéro de badge",
@@ -264,7 +264,7 @@ export const fleetFr: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.setup.expected": "Attendu : {vendor} {model}, {firmware}",
   "fleet.setup.offlineDetails": "Détails de la recharge hors ligne",
   "fleet.setup.otherWays": "Autres façons d’ajouter un badge",
-  "fleet.setup.progress": "{done} étapes sur {total} terminées",
+  "fleet.setup.progress": "Configuration : {done} étapes sur {total} terminées",
   "fleet.setup.reissue": "Créer un nouveau mot de passe",
   "fleet.setup.reissueConfirm":
     "Créer un nouveau mot de passe pour cette borne ? L’ancienne fiche d’installation ne fonctionnera plus.",
@@ -302,12 +302,12 @@ export const fleetFr: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.step.connected.title": "Borne connectée",
   "fleet.step.identity.body":
     "En attente de la marque, du modèle et du firmware annoncés par la borne.",
-  "fleet.step.identity.title": "Bonne borne",
+  "fleet.step.identity.title": "Informations de la borne conformes",
   "fleet.step.offline-ready.body":
-    "Vérifiez, et préparez si nécessaire, que la borne garde les badges pour un usage hors ligne.",
+    "chargeOS lit les paramètres de la borne ; rien ne change. S’il en manque un, vous pourrez ensuite activer la recharge sans internet.",
   "fleet.step.offline-ready.title": "Réglages hors ligne vérifiés",
   "fleet.step.test-charge.body":
     "Une fois les badges sur la borne, rechargez une fois avec un badge enregistré. Cela montre que le badge fonctionne ; le test hors ligne sur le terrain est une vérification distincte.",
-  "fleet.step.test-charge.title": "Recharge test avec un badge",
+  "fleet.step.test-charge.title": "Recharge test effectuée",
   "usage.privatePart": "dont privé : {energy}",
 };

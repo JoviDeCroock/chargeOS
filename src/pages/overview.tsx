@@ -13,6 +13,7 @@ import { TapCardDialog } from "./cards.js";
 import { SetupChecklist } from "./fleet-setup.js";
 import {
   cardLabel,
+  StatusPill,
   connectorStatusLabel,
   connectorTone,
   Fact,
@@ -68,12 +69,15 @@ export function OverviewPage({
           </>
         }
         actions={
-          !unnamed &&
-          onEdit && (
-            <button class="button secondary" type="button" onClick={onEdit}>
-              {t("stations.edit")}
-            </button>
-          )
+          <>
+            {/* The connection belongs to this charger's heading, not to a separate bar. */}
+            <StatusPill connected={station.connected} awaitingConnection={!station.boot} />
+            {!unnamed && onEdit && (
+              <button class="button secondary" type="button" onClick={onEdit}>
+                {t("stations.edit")}
+              </button>
+            )}
+          </>
         }
       />
 
@@ -95,8 +99,6 @@ export function OverviewPage({
 
       {connectionHelp && <ConnectChargerPanel key={station.id} snapshot={current} overview />}
 
-      <SetupChecklist snapshot={current} go={go} onRegisterCard={() => setRegistering(true)} />
-
       <OverviewStatus
         snapshot={current}
         directory={directory}
@@ -106,6 +108,8 @@ export function OverviewPage({
         refreshing={refreshing}
         compact={settingUp}
       />
+
+      <SetupChecklist snapshot={current} go={go} onRegisterCard={() => setRegistering(true)} />
 
       {/* The setup checklist already asks for the first card on a charger added here. */}
       {current.authorization.tagCount === 0 && !current.setup && (
@@ -234,12 +238,7 @@ function OverviewStatus({
       <header class="panel-head">
         <h2 id="overview-status-title">{t("overview.statusTitle")}</h2>
         {onRefresh && (
-          <button
-            class="button secondary compact"
-            type="button"
-            disabled={refreshing}
-            onClick={onRefresh}
-          >
+          <button class="text-button" type="button" disabled={refreshing} onClick={onRefresh}>
             {t(refreshing ? "overview.refreshing" : "overview.refresh")}
           </button>
         )}
@@ -260,26 +259,24 @@ function OverviewStatus({
             {t("overview.cardsOnCharger")}
           </dt>
           <dd>
+            {/* Lead with what the charger has; what chargeOS holds is the supporting line. */}
             <strong>
               {authorization.syncState === "current"
                 ? t("overview.listAccepted")
                 : authorization.syncState === "pending"
                   ? t("cards.sync.pending")
-                  : authorization.tagCount
-                    ? tn("overview.cardsRegistered", authorization.tagCount)
-                    : t("overview.noCards")}
+                  : !authorization.tagCount
+                    ? t("overview.noCards")
+                    : authorization.lastAttemptRevision === null &&
+                        authorization.pendingRevision === null
+                      ? t("overview.notSentValue")
+                      : t("overview.notConfirmedValue")}
             </strong>
-            {authorization.lastSyncAt ? (
+            {authorization.tagCount > 0 && (
+              <p>{tn("overview.cardsRegistered", authorization.tagCount)}</p>
+            )}
+            {authorization.lastSyncAt && (
               <p>{t("overview.lastCardList", { date: formatDate(authorization.lastSyncAt) })}</p>
-            ) : (
-              <p>
-                {t(
-                  authorization.lastAttemptRevision === null &&
-                    authorization.pendingRevision === null
-                    ? "overview.notSent"
-                    : "overview.noCardList",
-                )}
-              </p>
             )}
             {authorization.pendingRevision !== null && <p>{t("overview.cardListWaiting")}</p>}
             {authorization.pendingRevocations.length > 0 && (

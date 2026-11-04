@@ -588,7 +588,7 @@ describe("owner console", () => {
     expect(screen.getByText("Unknown")).toBeTruthy();
 
     // Cards: pending removals stay visible and the raw identifier is never rendered.
-    openSection("RFID cards");
+    openSection("Cards");
     expect(screen.getByText("1 removed card may still work at the charger")).toBeTruthy();
     expect(screen.getByText("2 changes are waiting to be sent to the charger")).toBeTruthy();
     expect(screen.getByText("Unnamed card")).toBeTruthy();
@@ -722,10 +722,8 @@ describe("owner console", () => {
     expect(startControls.getByRole("button", { name: "Start on connector 2" })).toBeTruthy();
     const availability = within(screen.getByRole("form", { name: "Connector availability" }));
     // The fixture reports connector 1 as available, so there is nothing to change.
-    expect(
-      (availability.getByRole("button", { name: "Already available" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+    expect(availability.getByText("Connector 1 is available. Nothing to change.")).toBeTruthy();
+    expect(availability.queryByRole("button")).toBeNull();
     expect(screen.getByText("Commands for Home charger.")).toBeTruthy();
     const maintenance = screen.getByText("Maintenance").closest("details")!;
     expect(maintenance.open).toBe(false);

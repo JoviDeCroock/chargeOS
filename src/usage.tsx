@@ -18,6 +18,7 @@ import {
   setModuleEnabled,
 } from "./console-modules.js";
 import {
+  formatDate,
   formatKwh,
   LOCALE_NAMES,
   LOCALES,
@@ -64,6 +65,10 @@ export function UsagePanel({
   const openSessions = thisMonthSessions.filter(({ status }) => status === "active").length;
   // Until an earlier month has charging, comparisons and a 12-month chart only repeat this month.
   const hasHistory = series.slice(0, -1).some(({ sessionCount }) => sessionCount > 0);
+  const lastSession = sessions.reduce<ChargeSession | null>(
+    (latest, session) => (!latest || session.startedAt > latest.startedAt ? session : latest),
+    null,
+  );
 
   return (
     <section class="panel glass usage-panel" aria-labelledby="usage-title">
@@ -74,12 +79,19 @@ export function UsagePanel({
         </div>
       </header>
 
-      <div class={`usage-tiles${hasHistory ? "" : " single"}`}>
+      <div class="usage-tiles">
         <UsageTile
           label={t("usage.thisMonth")}
           value={formatKwh(thisMonth?.energyWh ?? 0)}
           detail={`${tn("usage.sessions", thisMonth?.sessionCount ?? 0)}${openSessions ? `, ${tn("usage.stillCharging", openSessions)}` : ""}`}
         />
+        {!hasHistory && lastSession && (
+          <UsageTile
+            label={t("usage.lastSession")}
+            value={formatKwh(lastSession.energyWh ?? 0)}
+            detail={formatDate(lastSession.startedAt)}
+          />
+        )}
         {hasHistory && (
           <>
             <UsageTile

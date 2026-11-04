@@ -265,13 +265,7 @@ describe("console profiles", () => {
     // Without saved names, cards fall back to a short anonymous reference.
     expect(within(usage).getByText("Unnamed card · guest")).toBeTruthy();
 
-    expect(navLinks()).toEqual([
-      "Overview",
-      "Chargers",
-      "People",
-      "RFID cards",
-      "Station settings",
-    ]);
+    expect(navLinks()).toEqual(["Overview", "Chargers", "People", "Cards", "Station settings"]);
     expect(screen.queryByText("Next safe action")).toBeNull();
 
     fireEvent.click(within(usage).getByRole("button", { name: "Show table" }));
@@ -307,7 +301,12 @@ describe("console profiles", () => {
       expect(screen.getByRole("heading", { name: "Your charging" })).toBeTruthy(),
     );
 
-    fireEvent.change(screen.getByLabelText("Language"), { target: { value: "nl" } });
+    // The language picker lives in Preferences once signed in.
+    fireEvent.click(screen.getByRole("link", { name: "Preferences" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Language" }), {
+      target: { value: "nl" },
+    });
+    fireEvent.click(screen.getByRole("link", { name: "Overzicht" }));
     expect(localStorage.getItem("chargeos.locale")).toBe("nl");
     expect(document.documentElement.lang).toBe("nl");
     expect(navLinks("Onderdelen van de console")).toEqual([
@@ -322,7 +321,9 @@ describe("console profiles", () => {
     // Belgian number formatting.
     expect(screen.getByText("14,4 kWh", { selector: ".usage-tile strong" })).toBeTruthy();
 
-    fireEvent.change(screen.getByLabelText("Taal"), { target: { value: "fr" } });
+    fireEvent.click(screen.getByRole("link", { name: "Voorkeuren" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Taal" }), { target: { value: "fr" } });
+    fireEvent.click(screen.getByRole("link", { name: "Aperçu" }));
     expect(localStorage.getItem("chargeos.locale")).toBe("fr");
     expect(navLinks("Sections de la console")).toContain("Collaborateurs");
     expect(screen.getByRole("heading", { name: "Vos recharges" })).toBeTruthy();
@@ -469,12 +470,12 @@ describe("console profiles", () => {
     await openConsole();
     await waitFor(() => expect(screen.getByRole("heading", { name: "Chargers" })).toBeTruthy());
     expect(screen.getByText("Alice Peeters")).toBeTruthy();
-    expect(screen.getByText("Nobody")).toBeTruthy();
+    expect(screen.getByText("Not assigned")).toBeTruthy();
     expect(navLinks()).toEqual([
       "Overview",
       "Chargers2/2",
       "Employees",
-      "RFID cards",
+      "Cards",
       "Usage",
       "Station settings",
     ]);

@@ -46,7 +46,8 @@ export function PeoplePage({
         title={title}
         lede={t(company ? "people.ledeCompany" : "people.lede")}
         actions={
-          directory.writable && (
+          directory.writable &&
+          directory.people.length > 0 && (
             <button class="button secondary" type="button" onClick={() => setEditing("new")}>
               {t(company ? "people.addCompany" : "people.add")}
             </button>

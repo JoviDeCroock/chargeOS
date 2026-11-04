@@ -76,7 +76,7 @@
     --ground: #0d1720;
     --ink: #e7eef3;
     --ink-2: #a6b5c1;
-    --ink-3: #8b9ba7;
+    --ink-3: #97a6b1;
     --line: rgb(255 255 255 / 8%);
     --line-strong: rgb(255 255 255 / 15%);
     --glass: rgb(24 37 49 / 72%);
@@ -87,8 +87,8 @@
       inset 0 1px 0 rgb(255 255 255 / 6%);
     --field: rgb(8 16 23 / 45%);
     --field-hover: rgb(8 16 23 / 62%);
-    --current: #4fd1c1;
-    --current-hover: #6fe0d2;
+    --current: #3fb3ad;
+    --current-hover: #57c4be;
     --current-ink: #062421;
     --current-soft: rgb(79 209 193 / 13%);
     --halo: #4fe3cf;
@@ -2623,6 +2623,18 @@ body {
   display: block;
 }
 
+.token-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.token-label .text-link {
+  font-size: 0.86rem;
+}
+
 .token-card form .button {
   margin-top: 8px;
 }
@@ -2909,10 +2921,6 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
   margin-bottom: 20px;
-}
-
-.usage-tiles.single {
-  grid-template-columns: minmax(0, 340px);
 }
 
 .usage-history-hint {
@@ -3906,55 +3914,6 @@ body {
   padding-block: 28px;
 }
 
-.offline-steps ol {
-  display: grid;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  counter-reset: offline-step;
-}
-
-.offline-steps li {
-  position: relative;
-  padding: 12px 0 12px 40px;
-  border-top: 1px solid var(--line);
-  color: var(--ink-2);
-  counter-increment: offline-step;
-}
-
-.offline-steps li:first-child {
-  border-top: 0;
-}
-
-.offline-steps li::before {
-  position: absolute;
-  top: 10px;
-  left: 0;
-  display: grid;
-  width: 26px;
-  height: 26px;
-  place-items: center;
-  border: 1px solid var(--line-strong);
-  border-radius: 50%;
-  color: var(--ink-3);
-  font-size: 0.82rem;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  content: counter(offline-step);
-}
-
-.offline-steps li.current {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.offline-steps li.current::before {
-  border-color: var(--current);
-  background: var(--current);
-  color: var(--current-ink);
-}
-
 .tech-details {
   margin: 4px 0 14px;
   color: var(--ink-3);
@@ -4046,15 +4005,17 @@ body {
     cursor: pointer;
   }
 
-  .rail-menu-current {
-    color: var(--ink-3);
-    font-weight: 500;
+  /* Three short bars drawn with borders; no icon set is loaded. */
+  .rail-menu-icon {
+    width: 14px;
+    height: 10px;
+    border-top: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    background: linear-gradient(currentColor, currentColor) center / 100% 2px no-repeat;
   }
 
-  .rail-menu-current::after {
-    margin-left: 10px;
-    color: var(--line-strong);
-    content: "|";
+  .rail.menu-open .rail-menu-icon {
+    border-color: transparent;
   }
 
   .rail:not(.menu-open) .rail-nav,
@@ -4102,22 +4063,6 @@ body {
   gap: 14px 24px;
 }
 
-.offline-steps li {
-  display: grid;
-  gap: 2px;
-}
-
-.offline-steps li strong {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.offline-steps li span {
-  color: var(--ink-2);
-  font-weight: 400;
-  line-height: 1.5;
-}
-
 /* Extra-section rows read as body text, not as form-label fine print. */
 :where(.console-backdrop) .module-list label {
   color: var(--ink);
@@ -4146,4 +4091,45 @@ body {
 
 .stage-context .status-pill span {
   color: inherit;
+}
+
+.offline-step-of {
+  margin: 14px 0 0;
+  color: var(--ink-2);
+  font-size: 0.92rem;
+}
+
+/* The connection pill sits with the charger's own heading. */
+.page-head .head-actions {
+  align-items: center;
+}
+
+/* Remote control: one level of surface; tasks are separated by hairlines, not nested fills. */
+.remote-settings .command-form {
+  border: 1px solid var(--line);
+  background: transparent;
+}
+
+/* The pending dot lines up with the first line of the banner text. */
+.sync-banner.with-action {
+  align-items: flex-start;
+}
+
+.sync-banner.with-action .sync-icon {
+  margin-top: 6px;
+}
+
+.sync-banner.with-action .button {
+  align-self: center;
+}
+
+@media (max-width: 640px) {
+  .page-head.with-actions .button.secondary {
+    width: auto;
+  }
+
+  .page-head .head-actions {
+    justify-content: space-between;
+    width: 100%;
+  }
 }

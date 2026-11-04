@@ -124,7 +124,7 @@ export const fleetEn = {
   "fleet.cards.copy": "Use on other chargers…",
   "fleet.cards.lost": "Card lost: remove everywhere",
   "fleet.cards.alsoAt": "Registered at {station} · delivery unconfirmed",
-  "fleet.cards.more": "More",
+  "fleet.cards.more": "More actions",
   "fleet.cards.removeHere": "Remove from this charger",
   "fleet.cards.syncAll": "Review card sync",
   "fleet.cards.typeNumber": "Type a card number",
@@ -253,7 +253,7 @@ export const fleetEn = {
   "fleet.setup.expected": "Expected: {vendor} {model}, {firmware}",
   "fleet.setup.offlineDetails": "Offline charging details",
   "fleet.setup.otherWays": "Other ways to add a card",
-  "fleet.setup.progress": "{done} of {total} steps done",
+  "fleet.setup.progress": "Setup: {done} of {total} steps done",
   "fleet.setup.reissue": "Make a new password",
   "fleet.setup.reissueConfirm":
     "Make a new password for this charger? The old setup sheet stops working.",
@@ -289,12 +289,12 @@ export const fleetEn = {
   "fleet.step.connected.title": "Charger connected",
   "fleet.step.identity.body":
     "Waiting for the charger to say which make, model and firmware it is.",
-  "fleet.step.identity.title": "Right charger",
+  "fleet.step.identity.title": "Charger details match",
   "fleet.step.offline-ready.body":
-    "Check, and if needed prepare, the charger to keep cards for offline use.",
+    "chargeOS reads the charger’s settings; nothing changes. If one is missing, you can turn on offline charging next.",
   "fleet.step.offline-ready.title": "Offline settings checked",
   "fleet.step.test-charge.body":
     "Once the cards are on the charger, charge once with a registered card. This shows the card works; the offline field test is a separate check.",
-  "fleet.step.test-charge.title": "Test charge with a card",
+  "fleet.step.test-charge.title": "Test charge done",
   "usage.privatePart": "of which private: {energy}",
 } as const;

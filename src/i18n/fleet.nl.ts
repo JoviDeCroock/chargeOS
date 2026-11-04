@@ -128,7 +128,7 @@ export const fleetNl: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.cards.copy": "Gebruiken aan andere laadpalen…",
   "fleet.cards.lost": "Laadpas verloren: overal verwijderen",
   "fleet.cards.alsoAt": "Geregistreerd bij {station} · ontvangst onbevestigd",
-  "fleet.cards.more": "Meer",
+  "fleet.cards.more": "Meer acties",
   "fleet.cards.removeHere": "Verwijderen van deze laadpaal",
   "fleet.cards.syncAll": "Bekijk synchronisatie",
   "fleet.cards.typeNumber": "Laadpasnummer intypen",
@@ -260,7 +260,7 @@ export const fleetNl: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.setup.expected": "Verwacht: {vendor} {model}, {firmware}",
   "fleet.setup.offlineDetails": "Details over offline laden",
   "fleet.setup.otherWays": "Andere manieren om een laadpas toe te voegen",
-  "fleet.setup.progress": "{done} van {total} stappen klaar",
+  "fleet.setup.progress": "Installatie: {done} van {total} stappen klaar",
   "fleet.setup.reissue": "Nieuw wachtwoord maken",
   "fleet.setup.reissueConfirm":
     "Een nieuw wachtwoord maken voor deze laadpaal? Het oude installatieblad werkt dan niet meer.",
@@ -298,12 +298,12 @@ export const fleetNl: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.step.connected.title": "Laadpaal verbonden",
   "fleet.step.identity.body":
     "Wacht tot de laadpaal meldt welk merk, model en welke firmware ze heeft.",
-  "fleet.step.identity.title": "Juiste laadpaal",
+  "fleet.step.identity.title": "Gegevens van de laadpaal kloppen",
   "fleet.step.offline-ready.body":
-    "Kijk na, en bereid zo nodig voor, dat de laadpaal laadpassen bewaart voor offline gebruik.",
+    "chargeOS leest de instellingen van de laadpaal; er verandert niets. Ontbreekt er een, dan kun je daarna laden zonder internet aanzetten.",
   "fleet.step.offline-ready.title": "Offline instellingen gecontroleerd",
   "fleet.step.test-charge.body":
     "Laad één keer met een geregistreerde laadpas zodra de laadpassen op de laadpaal staan. Zo zie je dat de laadpas werkt; de offline praktijktest is een aparte controle.",
-  "fleet.step.test-charge.title": "Testlading met een laadpas",
+  "fleet.step.test-charge.title": "Testlading gedaan",
   "usage.privatePart": "waarvan privé: {energy}",
 };

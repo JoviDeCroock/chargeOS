@@ -14,7 +14,7 @@ import {
   setupSheet,
   stationRegistry,
 } from "../fleet-model.js";
-import { formatDate, t, type MessageKey } from "../i18n/index.js";
+import { formatDate, t, tn, type MessageKey } from "../i18n/index.js";
 import {
   action,
   fleet,
@@ -258,19 +258,39 @@ export function SetupSheetDialog({ label, onClose }: { label: string; onClose: (
 /* Setup checklist                                                     */
 /* ------------------------------------------------------------------ */
 
-const STEP_TEXT: Readonly<Record<SetupStepId, { title: MessageKey; body: MessageKey }>> = {
-  cards: { body: "fleet.step.cards.body", title: "fleet.step.cards.title" },
+const STEP_TEXT: Readonly<
+  Record<SetupStepId, { title: MessageKey; todo: MessageKey; body: MessageKey }>
+> = {
+  cards: {
+    body: "fleet.step.cards.body",
+    title: "fleet.step.cards.title",
+    todo: "fleet.step.cards.todo",
+  },
   "cards-on-charger": {
     body: "fleet.step.cards-on-charger.body",
     title: "fleet.step.cards-on-charger.title",
+    todo: "fleet.step.cards-on-charger.todo",
   },
-  connected: { body: "fleet.step.connected.body", title: "fleet.step.connected.title" },
-  identity: { body: "fleet.step.identity.body", title: "fleet.step.identity.title" },
+  connected: {
+    body: "fleet.step.connected.body",
+    title: "fleet.step.connected.title",
+    todo: "fleet.step.connected.todo",
+  },
+  identity: {
+    body: "fleet.step.identity.body",
+    title: "fleet.step.identity.title",
+    todo: "fleet.step.identity.todo",
+  },
   "offline-ready": {
     body: "fleet.step.offline-ready.body",
     title: "fleet.step.offline-ready.title",
+    todo: "fleet.step.offline-ready.todo",
   },
-  "test-charge": { body: "fleet.step.test-charge.body", title: "fleet.step.test-charge.title" },
+  "test-charge": {
+    body: "fleet.step.test-charge.body",
+    title: "fleet.step.test-charge.title",
+    todo: "fleet.step.test-charge.todo",
+  },
 };
 
 const DETAIL_TEXT: Readonly<Record<NonNullable<SetupStep["detail"]>, MessageKey>> = {
@@ -311,67 +331,98 @@ export function SetupChecklist({
     );
   }
   const done = setup.steps.filter(({ state }) => state === "done").length;
+  // Finished steps fold into one line once there are a few, so the next action stays near the top.
+  const foldDone = done >= 2 && setup.steps.slice(0, done).every(({ state }) => state === "done");
+  const renderStep = (step: SetupStep) => {
+    // Done without a comparison: the charger said what it is, but nobody said what to expect.
+    const uncompared = step.detail === "identity-unchecked" && step.state === "done";
+    // Pending steps read as the action to take; finished ones as the result.
+    const title =
+      step.state === "done"
+        ? uncompared
+          ? "fleet.step.identity.unchecked"
+          : STEP_TEXT[step.id].title
+        : STEP_TEXT[step.id].todo;
+    return (
+      <li key={step.id} class={`setup-step ${step.state}${uncompared ? " uncompared" : ""}`}>
+        <span class="setup-node" aria-hidden="true" />
+        <div class="setup-copy">
+          <strong>{t(title)}</strong>
+          {/* Future steps stay as short titles; only the current one explains itself. */}
+          {step.state !== "done" && step.state !== "waiting" && <p>{t(STEP_TEXT[step.id].body)}</p>}
+          {/* The report matters while identity is in question; Details keeps it afterwards. */}
+          {step.id === "identity" && station.boot && step.state !== "done" && (
+            <p class="setup-identity">
+              {t("fleet.setup.reported", {
+                firmware: station.boot.firmwareVersion ?? "—",
+                model: station.boot.model,
+                vendor: station.boot.vendor,
+              })}
+              {station.expected && (
+                <>
+                  <br />
+                  {t("fleet.setup.expected", {
+                    firmware: station.expected.firmwareVersion ?? t("fleet.setup.anyFirmware"),
+                    model: station.expected.model,
+                    vendor: station.expected.vendor,
+                  })}
+                </>
+              )}
+            </p>
+          )}
+          {step.detail && step.state !== "done" && (
+            <p class={step.state === "stopped" ? "setup-stop" : "setup-detail"}>
+              {t(DETAIL_TEXT[step.detail])}
+            </p>
+          )}
+          {uncompared && <p class="setup-detail">{t("fleet.detail.identity-unchecked")}</p>}
+          {step.state === "current" && (
+            <StepAction step={step.id} snapshot={current} go={go} onRegisterCard={onRegisterCard} />
+          )}
+        </div>
+      </li>
+    );
+  };
   const steps = (
     <ol class="setup-steps">
-      {setup.steps.map((step) => {
-        // Done without a comparison: the charger said what it is, but nobody said what to expect.
-        const uncompared = step.detail === "identity-unchecked" && step.state === "done";
-        return (
-          <li key={step.id} class={`setup-step ${step.state}${uncompared ? " uncompared" : ""}`}>
-            <span class="setup-node" aria-hidden="true" />
-            <div class="setup-copy">
-              <strong>
-                {t(uncompared ? "fleet.step.identity.unchecked" : STEP_TEXT[step.id].title)}
-              </strong>
-              {step.state !== "done" && (
-                <p
-                  class={
-                    step.state === "waiting" && step.id === "test-charge"
-                      ? "setup-later"
-                      : undefined
-                  }
-                >
-                  {t(STEP_TEXT[step.id].body)}
-                </p>
-              )}
-              {/* The report matters while identity is in question; Details keeps it afterwards. */}
-              {step.id === "identity" && station.boot && step.state !== "done" && (
-                <p class="setup-identity">
-                  {t("fleet.setup.reported", {
-                    firmware: station.boot.firmwareVersion ?? "—",
-                    model: station.boot.model,
-                    vendor: station.boot.vendor,
-                  })}
-                  {station.expected && (
-                    <>
-                      <br />
-                      {t("fleet.setup.expected", {
-                        firmware: station.expected.firmwareVersion ?? t("fleet.setup.anyFirmware"),
-                        model: station.expected.model,
-                        vendor: station.expected.vendor,
-                      })}
-                    </>
+      {foldDone ? (
+        <li class="setup-step done setup-folded">
+          <span class="setup-node" aria-hidden="true" />
+          <details class="setup-copy">
+            <summary>{tn("fleet.setup.doneSteps", done)}</summary>
+            <ul>
+              {setup.steps.slice(0, done).map((step) => (
+                <li key={step.id}>
+                  {t(
+                    step.detail === "identity-unchecked"
+                      ? "fleet.step.identity.unchecked"
+                      : STEP_TEXT[step.id].title,
                   )}
-                </p>
-              )}
-              {step.detail && step.state !== "done" && (
-                <p class={step.state === "stopped" ? "setup-stop" : "setup-detail"}>
-                  {t(DETAIL_TEXT[step.detail])}
-                </p>
-              )}
-              {uncompared && <p class="setup-detail">{t("fleet.detail.identity-unchecked")}</p>}
-              {step.state === "current" && (
-                <StepAction
-                  step={step.id}
-                  snapshot={current}
-                  go={go}
-                  onRegisterCard={onRegisterCard}
-                />
-              )}
-            </div>
-          </li>
-        );
-      })}
+                  {step.detail === "identity-unchecked" && (
+                    <small>{t("fleet.detail.identity-unchecked")}</small>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </details>
+        </li>
+      ) : (
+        setup.steps.slice(0, done).map(renderStep)
+      )}
+      {setup.steps.slice(done).map(renderStep)}
+      {/* Software cannot verify offline charging; the journey ends with the owner's own test. */}
+      <li class="setup-step field-test">
+        <span class="setup-node" aria-hidden="true" />
+        <div class="setup-copy">
+          <strong>{t("fleet.setup.fieldTest")}</strong>
+          <p class="setup-later">
+            {t("fleet.setup.fieldTestBody")}{" "}
+            <a class="text-link" href="/help?guide=connect-a-charger#check-charging-after-the-move">
+              {t("fleet.setup.fieldTestGuide")}
+            </a>
+          </p>
+        </div>
+      </li>
     </ol>
   );
   if (!station.connected && !station.boot && setup.state === "waiting-for-charger") {
@@ -389,16 +440,19 @@ export function SetupChecklist({
     <section class="panel glass setup-panel" aria-labelledby="setup-title">
       <header class="panel-head">
         <div>
-          <h2 id="setup-title">{t("fleet.setup.title")}</h2>
+          <p class="setup-kicker">
+            {t("fleet.setup.progress", { done, total: setup.steps.length })}
+          </p>
+          <h2 id="setup-title">
+            {t(setup.state === "stopped" ? "fleet.setup.title" : "fleet.setup.notReady")}
+          </h2>
           <p class="panel-sub">{t("fleet.setup.why")}</p>
         </div>
-        <span
-          class={`state-chip ${setup.state === "stopped" ? "risk" : setup.state === "waiting-for-charger" ? "idle" : "warn"}`}
-        >
-          {setup.state === "in-progress"
-            ? t("fleet.setup.progress", { done, total: setup.steps.length })
-            : t(`fleet.setup.state.${setup.state}` as MessageKey)}
-        </span>
+        {setup.state !== "in-progress" && (
+          <span class={`state-chip ${setup.state === "stopped" ? "risk" : "idle"}`}>
+            {t(`fleet.setup.state.${setup.state}` as MessageKey)}
+          </span>
+        )}
       </header>
       {steps}
     </section>
@@ -444,7 +498,7 @@ function StepAction({
           disabled={!current.station.connected || action.value !== null}
           onClick={() => void runInspection()}
         >
-          {action.value === "inspect" ? t("offline.checking") : t("offline.check")}
+          {action.value === "inspect" ? t("offline.checking") : t("offline.checkNow")}
         </button>
         <button
           class="button ghost compact"

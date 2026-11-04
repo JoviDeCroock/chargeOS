@@ -64,7 +64,11 @@ export function CardsPage({
     <div class="section-stack">
       <PageHead
         title={t("cards.title")}
-        lede={t("cards.lede", { station: current.station.label })}
+        lede={
+          current.station.label === current.station.id
+            ? t("cards.ledeThis")
+            : t("cards.lede", { station: current.station.label })
+        }
         actions={
           // Header actions stay secondary; the page's next step below is the one primary button.
           <button
@@ -149,7 +153,8 @@ export function CardsPage({
                     company && <span class="label-chip unset">{t("fleet.card.unclassified")}</span>
                   )}
                 </span>
-                <span class={`state-chip ${onCharger ? "ok" : "warn"}`}>
+                {/* The page banner explains pending delivery; the row stays neutral. */}
+                <span class={`state-chip ${onCharger ? "ok" : "idle"}`}>
                   {t(onCharger ? "cards.onCharger" : "cards.waiting")}
                 </span>
                 <div class="card-actions">

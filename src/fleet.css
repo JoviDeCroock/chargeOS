@@ -989,3 +989,79 @@
   font-size: 0.78rem;
   font-weight: 400;
 }
+
+.setup-kicker {
+  margin: 0 0 4px;
+  color: var(--ink-3);
+  font-size: 0.86rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Finished steps folded into one line, expandable. */
+.setup-folded .setup-copy summary {
+  width: fit-content;
+  color: var(--ink-2);
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.setup-folded ul {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  color: var(--ink-2);
+  font-size: 0.9rem;
+  list-style: none;
+}
+
+.setup-folded ul small {
+  display: block;
+  color: var(--ink-3);
+  font-size: 0.82rem;
+}
+
+/* The owner's own offline test closes the journey; software never ticks it. */
+.setup-step.field-test .setup-node {
+  border-style: dashed;
+  border-color: var(--idle);
+}
+
+.setup-step.field-test .setup-copy strong {
+  color: var(--ink-2);
+  font-weight: 550;
+}
+
+.setup-step.field-test .setup-copy p.setup-later {
+  display: block;
+  color: var(--ink-3);
+  font-size: 0.84rem;
+}
+
+/* The folded summary reads as a row with a quiet disclosure, not a stray arrow. */
+.setup-folded .setup-copy summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+}
+
+.setup-folded .setup-copy summary::-webkit-details-marker {
+  display: none;
+}
+
+.setup-folded .setup-copy summary::after {
+  width: 6px;
+  height: 6px;
+  margin-top: -2px;
+  border-right: 1.5px solid var(--ink-3);
+  border-bottom: 1.5px solid var(--ink-3);
+  transform: rotate(45deg);
+  content: "";
+}
+
+.setup-folded details[open] summary::after {
+  margin-top: 3px;
+  transform: rotate(-135deg);
+}

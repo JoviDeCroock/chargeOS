@@ -288,7 +288,7 @@ function StationCard({
         )}
         {onEdit && (
           <button class="button secondary compact" type="button" onClick={onEdit}>
-            {t("stations.edit")}
+            {t(station.label === station.id ? "stations.nameItShort" : "stations.edit")}
           </button>
         )}
         {onRetire && (

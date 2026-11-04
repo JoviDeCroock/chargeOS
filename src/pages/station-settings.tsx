@@ -91,7 +91,7 @@ export function StationSettingsPage({
       </nav>
 
       {tab === "offline" ? (
-        <OfflineTab snapshot={current} />
+        <OfflineTab snapshot={current} go={go} />
       ) : tab === "controls" ? (
         <ControlsTab key={current.station.id} snapshot={current} directory={directory} />
       ) : tab === "sessions" ? (
@@ -146,8 +146,19 @@ function EnglishOnly({ children }: { children: preact.ComponentChildren }) {
 /* Offline charging                                                    */
 /* ------------------------------------------------------------------ */
 
-function OfflineTab({ snapshot: current }: { snapshot: OwnerSnapshot }) {
+function OfflineTab({
+  snapshot: current,
+  go,
+}: {
+  snapshot: OwnerSnapshot;
+  go: (next: Route) => void;
+}) {
   const [confirmation, setConfirmation] = useState("");
+  // While setup runs, point back to the one checklist instead of repeating it here.
+  const setupStep =
+    current.setup && current.setup.state !== "active"
+      ? current.setup.steps.findIndex(({ id }) => id === "offline-ready") + 1
+      : 0;
   const readiness = current.readiness;
   const state = readiness?.state ?? "unknown";
   const authorization = current.authorization;
@@ -184,6 +195,21 @@ function OfflineTab({ snapshot: current }: { snapshot: OwnerSnapshot }) {
               {t("offline.fieldGuide")}
             </a>
           </div>
+          {setupStep > 0 && (
+            <p class="offline-step-of">
+              {t("offline.stepOf", { step: setupStep, total: current.setup!.steps.length })}{" "}
+              <a
+                class="text-link"
+                href="#/overview"
+                onClick={(event) => {
+                  event.preventDefault();
+                  go({ page: "overview" });
+                }}
+              >
+                {t("offline.allSteps")}
+              </a>
+            </p>
+          )}
           <div class="hero-actions">
             <button
               class="button primary"
@@ -218,29 +244,7 @@ function OfflineTab({ snapshot: current }: { snapshot: OwnerSnapshot }) {
         )}
       </section>
 
-      {!readiness ? (
-        <section class="panel glass offline-steps" aria-labelledby="offline-steps-title">
-          <header class="panel-head">
-            <h2 id="offline-steps-title">{t("offline.steps.title")}</h2>
-          </header>
-          {/* The same step names as the overview checklist, from the check onwards. */}
-          <ol>
-            <li class="current">
-              <strong>{t("fleet.step.offline-ready.title")}</strong>
-              <span>{t("offline.steps.check")}</span>
-            </li>
-            <li>
-              <strong>{t("fleet.step.cards-on-charger.title")}</strong>
-              <span>{t("offline.steps.send")}</span>
-            </li>
-            <li>
-              <strong>{t("offline.steps.fieldTitle")}</strong>
-              <span>{t("offline.steps.test")}</span>
-            </li>
-          </ol>
-          <p class="fine-print">{t("offline.physicalWork")}</p>
-        </section>
-      ) : (
+      {readiness && (
         <div class="cards-layout">
           <section class="panel glass" aria-labelledby="send-title">
             <header class="panel-head">
@@ -364,10 +368,8 @@ function ControlsTab({
   const [connectorId, setConnectorId] = useState(connectorIds[0] ?? 1);
   const [availabilityConnector, setAvailabilityConnector] = useState(connectorIds[0] ?? 1);
   const [unlockConnector, setUnlockConnector] = useState(connectorIds[0] ?? 1);
-  const name =
-    current.station.label === current.station.id
-      ? t("overview.unnamedTitle")
-      : current.station.label;
+  const unnamed = current.station.label === current.station.id;
+  const name = current.station.label;
   const [tagPseudonym, setTagPseudonym] = useState(current.authorization.tagPseudonyms[0] ?? "");
   const [resetType, setResetType] = useState<"Hard" | "Soft">("Soft");
   const [resetConfirmation, setResetConfirmation] = useState("");
@@ -384,7 +386,9 @@ function ControlsTab({
       <header class="panel-head">
         <h2 id="commands-title">{t("controls.title")}</h2>
       </header>
-      <p class="panel-intro">{t("controls.target", { name })}</p>
+      <p class="panel-intro">
+        {unnamed ? t("controls.targetThis") : t("controls.target", { name })}
+      </p>
       {offline && <p class="inline-alert warn">{t("controls.offline")}</p>}
 
       <div class="command-grid">
@@ -414,11 +418,7 @@ function ControlsTab({
               })}
             </select>
           </label>
-          <button
-            class="button secondary"
-            type="submit"
-            disabled={offline || busy || !tagPseudonym}
-          >
+          <button class="button primary" type="submit" disabled={offline || busy || !tagPseudonym}>
             {t("controls.startTarget", { connector: connectorId })}
           </button>
         </form>
@@ -467,20 +467,22 @@ function ControlsTab({
             value={availabilityConnector}
             onChange={setAvailabilityConnector}
           />
-          {availabilityStatus && availabilityStatus !== "Available" && (
-            <p class="muted">
-              {t("controls.availableNow", { status: connectorStatusLabel(availabilityStatus) })}
-            </p>
+          {availabilityStatus === "Available" ? (
+            <p class="muted">{t("controls.isAvailable", { connector: availabilityConnector })}</p>
+          ) : (
+            <>
+              {availabilityStatus && (
+                <p class="muted">
+                  {t("controls.availableNow", {
+                    status: connectorStatusLabel(availabilityStatus),
+                  })}
+                </p>
+              )}
+              <button class="button secondary" type="submit" disabled={offline || busy}>
+                {t("controls.makeAvailable", { connector: availabilityConnector })}
+              </button>
+            </>
           )}
-          <button
-            class="button secondary"
-            type="submit"
-            disabled={offline || busy || availabilityStatus === "Available"}
-          >
-            {availabilityStatus === "Available"
-              ? t("controls.alreadyAvailable")
-              : t("controls.makeAvailable", { connector: availabilityConnector })}
-          </button>
         </form>
       </div>
 
@@ -675,7 +677,7 @@ function DetailsTab({
         <h2 id="details-title">{t("details.title")}</h2>
         {onEdit && (
           <button class="button secondary compact" type="button" onClick={onEdit}>
-            {t("stations.edit")}
+            {t(station.label === station.id ? "stations.nameItShort" : "stations.edit")}
           </button>
         )}
       </header>

@@ -176,7 +176,7 @@ export function App() {
           aria-controls="console-menu"
           onClick={() => setMenuOpen(!menuOpen)}
         >
-          <span class="rail-menu-current">{pageTitle}</span>
+          <span class="rail-menu-icon" aria-hidden="true" />
           {t(menuOpen ? "app.closeMenu" : "app.menu")}
         </button>
 
@@ -217,7 +217,6 @@ export function App() {
         </nav>
 
         <div class="rail-foot">
-          <LanguagePicker />
           <a
             class={`rail-foot-link${resolved.page === "settings" ? " active" : ""}`}
             href="#/settings"
@@ -239,56 +238,47 @@ export function App() {
       </aside>
 
       <div class="stage">
-        <header class="stage-bar">
-          <div class="stage-context">
-            {/* The overview names the charger in its own heading; the bar only reports status. */}
-            {resolved.page === "overview" ? (
-              <StatusPill
-                connected={current.station.connected}
-                awaitingConnection={!current.station.boot}
-              />
-            ) : consolePage ? (
-              <>
-                <strong>
-                  {resolved.page === "people" && company
-                    ? t("people.titleCompany")
-                    : t(PAGE_LABELS[resolved.page as Page])}
-                </strong>
-                {hasMultipleStations && (
+        {/* With several chargers the bar names the selected one; with one, pages carry their own status. */}
+        {hasMultipleStations && (
+          <header class="stage-bar">
+            <div class="stage-context">
+              {consolePage ? (
+                <>
+                  <strong>
+                    {resolved.page === "people" && company
+                      ? t("people.titleCompany")
+                      : t(PAGE_LABELS[resolved.page as Page])}
+                  </strong>
                   <span>{tn("app.chargerCount", fleetSnapshot.totals.stations)}</span>
-                )}
-              </>
-            ) : (
-              <>
-                <strong>
-                  {current.station.label === current.station.id
-                    ? t("overview.unnamedTitle")
-                    : current.station.label}
-                </strong>
-                <span>
-                  {current.station.site}
-                  {current.station.driver ? `, ${current.station.driver}` : ""}
-                </span>
-              </>
-            )}
-          </div>
-          <div class="stage-status">
-            {resolved.page === "overview" ? null : consolePage && hasMultipleStations ? (
-              <FleetStatusPill fleet={fleetSnapshot} />
-            ) : (
-              <StatusPill
-                connected={current.station.connected}
-                awaitingConnection={!current.station.boot}
-              />
-            )}
-            <span class="stage-updated">
-              {t("app.updated")}{" "}
-              <time dateTime={consolePage ? fleetSnapshot.generatedAt : current.generatedAt}>
-                {formatTime(consolePage ? fleetSnapshot.generatedAt : current.generatedAt)}
-              </time>
-            </span>
-          </div>
-        </header>
+                </>
+              ) : (
+                <>
+                  <strong>{current.station.label}</strong>
+                  <span>
+                    {current.station.site}
+                    {current.station.driver ? `, ${current.station.driver}` : ""}
+                  </span>
+                </>
+              )}
+            </div>
+            <div class="stage-status">
+              {consolePage ? (
+                <FleetStatusPill fleet={fleetSnapshot} />
+              ) : (
+                <StatusPill
+                  connected={current.station.connected}
+                  awaitingConnection={!current.station.boot}
+                />
+              )}
+              <span class="stage-updated">
+                {t("app.updated")}{" "}
+                <time dateTime={consolePage ? fleetSnapshot.generatedAt : current.generatedAt}>
+                  {formatTime(consolePage ? fleetSnapshot.generatedAt : current.generatedAt)}
+                </time>
+              </span>
+            </div>
+          </header>
+        )}
 
         <main id="console-main" class="stage-main" tabIndex={-1}>
           {notice.value && (
@@ -438,9 +428,13 @@ function navTones(
     // Navigation stays quiet: a dot only where something waits on the owner or has stopped.
     // Setup progress itself lives on the overview checklist.
     cards:
-      current.authorization.syncState === "current"
-        ? { tone: "idle" }
-        : { hint: t("nav.hint.cardsWaiting"), tone: "warn" },
+      current.authorization.pendingRevocations.length > 0
+        ? { hint: t("nav.hint.cardsWaiting"), tone: "risk" }
+        : current.authorization.syncState !== "current" &&
+            readiness === "ready" &&
+            current.station.connected
+          ? { hint: t("nav.hint.cardsWaiting"), tone: "warn" }
+          : { tone: "idle" },
     overview:
       current.genesisPlan.state === "stop" || readiness === "blocked"
         ? { hint: t("nav.hint.attention"), tone: "risk" }
@@ -494,7 +488,12 @@ function TokenGate() {
               void refreshFleet().then(refreshFleetExtras);
             }}
           >
-            <label for="owner-token">{t("signin.token")}</label>
+            <div class="token-label">
+              <label for="owner-token">{t("signin.token")}</label>
+              <a class="text-link" href="/help?guide=owner-console#sign-in">
+                {t("signin.where")}
+              </a>
+            </div>
             <input
               id="owner-token"
               type="password"
