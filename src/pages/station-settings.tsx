@@ -42,7 +42,6 @@ import {
   connectorTone,
   Fact,
   PageHead,
-  SessionTable,
   type Tone,
 } from "../ui.js";
 import { Halo, offlineFieldState } from "./overview.js";
@@ -94,14 +93,6 @@ export function StationSettingsPage({
         <OfflineTab snapshot={current} go={go} />
       ) : tab === "controls" ? (
         <ControlsTab key={current.station.id} snapshot={current} directory={directory} />
-      ) : tab === "sessions" ? (
-        <section class="panel glass" aria-label={t("tab.sessions")}>
-          <SessionTable
-            sessions={current.sessions}
-            directory={directory}
-            stationId={current.station.id}
-          />
-        </section>
       ) : tab === "details" ? (
         <DetailsWithConnection snapshot={current} onEdit={onEdit} />
       ) : tab === "sharing" ? (
@@ -178,23 +169,48 @@ function OfflineTab({
             )}
           </h2>
           <p class="hero-text">{t("offline.explain")}</p>
-          <div class="offline-field-summary">
-            <strong>
-              {t("offline.fieldResult", { result: t(offlineFieldState(current.freedomTest)) })}
-            </strong>
-            <p>
-              {t(
-                state !== "ready"
-                  ? "offline.fieldAfterSettings"
-                  : authorization.syncState === "current"
-                    ? "offline.fieldNext"
-                    : "offline.fieldAfterCards",
-              )}
-            </p>
-            <a class="text-link" href="/help?guide=connect-a-charger#check-charging-after-the-move">
-              {t("offline.fieldGuide")}
-            </a>
-          </div>
+          {/* Two separate facts, worded as on the overview: what software checked, and the
+              owner's own test without internet, which software cannot do. */}
+          <dl class="offline-facts">
+            <div
+              class={`today-row ${state === "ready" ? "ok" : state === "blocked" ? "warn" : "idle"}`}
+            >
+              <dt>
+                <span
+                  class={`status-dot ${state === "ready" ? "ok" : state === "blocked" ? "warn" : "idle"}`}
+                  aria-hidden="true"
+                />
+                {t("offline.rowSettings")}
+              </dt>
+              <dd>
+                {t(
+                  state === "ready"
+                    ? "offline.pathPassed"
+                    : state === "blocked"
+                      ? "offline.pathProblem"
+                      : "offline.pathNotYet",
+                )}
+              </dd>
+            </div>
+            <div class="today-row idle">
+              <dt>
+                <span class="status-dot idle" aria-hidden="true" />
+                {t("offline.rowField")}
+              </dt>
+              <dd>
+                {t(offlineFieldState(current.freedomTest))}
+                <small>
+                  {t("fleet.setup.fieldTestBody")}{" "}
+                  <a
+                    class="text-link"
+                    href="/help?guide=connect-a-charger#check-charging-after-the-move"
+                  >
+                    {t("fleet.setup.fieldTestGuide")}
+                  </a>
+                </small>
+              </dd>
+            </div>
+          </dl>
           {setupStep > 0 && (
             <p class="offline-step-of">
               {t("offline.stepOf", { step: setupStep, total: current.setup!.steps.length })}{" "}
@@ -418,7 +434,12 @@ function ControlsTab({
               })}
             </select>
           </label>
-          <button class="button primary" type="submit" disabled={offline || busy || !tagPseudonym}>
+          <p class="fine-print">{t("controls.startHint")}</p>
+          <button
+            class="button secondary"
+            type="submit"
+            disabled={offline || busy || !tagPseudonym}
+          >
             {t("controls.startTarget", { connector: connectorId })}
           </button>
         </form>
@@ -681,7 +702,7 @@ function DetailsTab({
           </button>
         )}
       </header>
-      <dl class="facts">
+      <dl class="facts details-facts">
         <Fact
           label={t("stations.field.name")}
           value={

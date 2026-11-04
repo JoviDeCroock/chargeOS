@@ -15,7 +15,15 @@ import {
   runSaveCard,
 } from "../model.js";
 import type { Route } from "../routes.js";
-import { cardLabel, closeRowMenu, Dialog, PageHead, PersonSelect, shortPseudonym } from "../ui.js";
+import {
+  cardLabel,
+  closeRowMenu,
+  Dialog,
+  PageHead,
+  PersonSelect,
+  PrivacyNote,
+  shortPseudonym,
+} from "../ui.js";
 import { fleetCards, refreshFleetCards } from "../fleet-model.js";
 import { fleet as fleetSignal } from "../model.js";
 import type { MessageKey } from "../i18n/index.js";
@@ -69,16 +77,6 @@ export function CardsPage({
             ? t("cards.ledeThis")
             : t("cards.lede", { station: current.station.label })
         }
-        actions={
-          // Header actions stay secondary; the page's next step below is the one primary button.
-          <button
-            class="button secondary"
-            type="button"
-            onClick={() => setEditing({ kind: "tap" })}
-          >
-            {t("cards.add")}
-          </button>
-        }
       />
 
       {authorization.tagCount === 0 ? (
@@ -103,6 +101,16 @@ export function CardsPage({
       <section class="panel glass" aria-labelledby="card-list-title">
         <header class="panel-head">
           <h2 id="card-list-title">{tn("cards.count", authorization.tagCount)}</h2>
+          {/* Adding belongs with the list; the banner above keeps the page's one next step. */}
+          {authorization.tagCount > 0 && (
+            <button
+              class="button secondary compact"
+              type="button"
+              onClick={() => setEditing({ kind: "tap" })}
+            >
+              {t("cards.add")}
+            </button>
+          )}
         </header>
         <ul class="card-list">
           {authorization.tagPseudonyms.map((tag) => {
@@ -153,7 +161,7 @@ export function CardsPage({
                     company && <span class="label-chip unset">{t("fleet.card.unclassified")}</span>
                   )}
                 </span>
-                {/* The page banner explains pending delivery; the row stays neutral. */}
+                {/* The page banner carries the pending signal once; the row stays neutral. */}
                 <span class={`state-chip ${onCharger ? "ok" : "idle"}`}>
                   {t(onCharger ? "cards.onCharger" : "cards.waiting")}
                 </span>
@@ -191,6 +199,7 @@ export function CardsPage({
                           onClick={() => setEditing({ kind: "remove", tagPseudonym: tag })}
                         >
                           {t("fleet.cards.removeHere")}
+                          {authorization.tagCount <= 1 && <small>{t("cards.keepOne")}</small>}
                         </button>
                         <button
                           type="button"
@@ -217,10 +226,9 @@ export function CardsPage({
             );
           })}
         </ul>
-        {authorization.tagCount === 1 && <p class="fine-print">{t("cards.keepOne")}</p>}
       </section>
 
-      <p class="fine-print">{t("cards.privacy")}</p>
+      <PrivacyNote short={t("cards.privacyShort")} long={t("cards.privacy")} />
 
       {editing?.kind === "tap" && (
         <TapCardDialog

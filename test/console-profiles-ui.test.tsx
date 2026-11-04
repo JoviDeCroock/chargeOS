@@ -210,7 +210,7 @@ async function settingsTabs(): Promise<string[]> {
     .map((link) => link.textContent ?? "");
 }
 
-const EVERYDAY_TABS = ["Offline charging", "Remote control", "Sessions", "Details"];
+const EVERYDAY_TABS = ["Offline charging", "Remote control", "Details"];
 
 async function openConsole() {
   render(<App />);
@@ -266,7 +266,14 @@ describe("console profiles", () => {
     // Without saved names, cards fall back to a short anonymous reference.
     expect(within(usage).getByText("Unnamed card · guest")).toBeTruthy();
 
-    expect(navLinks()).toEqual(["Overview", "Chargers", "People", "Cards", "Station settings"]);
+    expect(navLinks()).toEqual([
+      "Overview",
+      "Chargers",
+      "People",
+      "Cards",
+      "Sessions",
+      "Station settings",
+    ]);
     expect(screen.queryByText("Next safe action")).toBeNull();
 
     fireEvent.click(within(usage).getByRole("button", { name: "Show table" }));
@@ -315,6 +322,7 @@ describe("console profiles", () => {
       "Laadpalen",
       "Werknemers",
       "Laadpassen",
+      "Laadbeurten",
       "Verbruik",
       "Laadpaalinstellingen",
     ]);
@@ -477,6 +485,7 @@ describe("console profiles", () => {
       "Chargers2/2",
       "Employees",
       "Cards",
+      "Sessions",
       "Usage",
       "Station settings",
     ]);

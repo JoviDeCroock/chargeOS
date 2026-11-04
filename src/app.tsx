@@ -28,6 +28,7 @@ import { refreshFleetExtras } from "./fleet-model.js";
 import { FinanceFeedPanel } from "./pages/finance-feed.js";
 import { OverviewPage } from "./pages/overview.js";
 import { PeoplePage } from "./pages/people.js";
+import { SessionsPage } from "./pages/sessions.js";
 import { StationSettingsPage } from "./pages/station-settings.js";
 import { StationEditDialog, StationsPage } from "./pages/stations.js";
 import {
@@ -139,6 +140,7 @@ export function App() {
     },
     { label: t(company ? "people.titleCompany" : "nav.people"), route: { page: "people" } },
     { label: t("nav.cards"), route: { page: "cards" }, ...tones.cards },
+    { label: t("nav.sessions"), route: { page: "sessions" } },
     ...(showUsageReport ? [{ label: t("nav.usage"), route: { page: "usage" } as Route }] : []),
     {
       label: t("nav.advanced"),
@@ -308,6 +310,8 @@ export function App() {
             <PeoplePage directory={names} fleet={fleetSnapshot} company={company} />
           ) : resolved.page === "cards" ? (
             <CardsPage snapshot={current} directory={names} go={go} company={company} />
+          ) : resolved.page === "sessions" ? (
+            <SessionsPage snapshot={current} directory={names} />
           ) : resolved.page === "usage" ? (
             <div class="section-stack">
               <UsageReportSection profile={profile ?? "personal"} />

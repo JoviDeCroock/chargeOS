@@ -47,11 +47,14 @@ export function UsagePanel({
   sessions,
   stationId,
   directory,
+  onSessions,
   now = new Date(),
 }: {
   sessions: readonly ChargeSession[];
   stationId: string;
   directory: OwnerDirectory | null;
+  /** Opens the full session list (under Station settings). */
+  onSessions?: () => void;
   now?: Date;
 }) {
   const timeZone = browserTimeZone();
@@ -65,6 +68,7 @@ export function UsagePanel({
   const openSessions = thisMonthSessions.filter(({ status }) => status === "active").length;
   // Until an earlier month has charging, comparisons and a 12-month chart only repeat this month.
   const hasHistory = series.slice(0, -1).some(({ sessionCount }) => sessionCount > 0);
+  const thisMonthDetail = `${tn("usage.sessions", thisMonth?.sessionCount ?? 0)}${openSessions ? `, ${tn("usage.stillCharging", openSessions)}` : ""}`;
   const lastSession = sessions.reduce<ChargeSession | null>(
     (latest, session) => (!latest || session.startedAt > latest.startedAt ? session : latest),
     null,
@@ -75,51 +79,49 @@ export function UsagePanel({
       <header class="panel-head">
         <div>
           <h2 id="usage-title">{t("usage.panelTitle")}</h2>
-          <p class="panel-sub">{t("usage.panelSub", { timeZone })}</p>
+          <p class="panel-sub">{t("usage.panelSubShort")}</p>
         </div>
       </header>
 
-      <div class="usage-tiles">
-        <UsageTile
-          label={t("usage.thisMonth")}
-          value={formatKwh(thisMonth?.energyWh ?? 0)}
-          detail={`${tn("usage.sessions", thisMonth?.sessionCount ?? 0)}${openSessions ? `, ${tn("usage.stillCharging", openSessions)}` : ""}`}
-        />
-        {!hasHistory && lastSession && (
+      {hasHistory ? (
+        <div class="usage-tiles">
           <UsageTile
-            label={t("usage.lastSession")}
-            value={formatKwh(lastSession.energyWh ?? 0)}
-            detail={formatDate(lastSession.startedAt)}
+            label={t("usage.thisMonth")}
+            value={formatKwh(thisMonth?.energyWh ?? 0)}
+            detail={thisMonthDetail}
           />
-        )}
-        {hasHistory && (
-          <>
-            <UsageTile
-              label={lastMonth ? monthLabel(lastMonth.month) : t("usage.lastMonth")}
-              value={formatKwh(lastMonth?.energyWh ?? 0)}
-              detail={tn("usage.sessions", lastMonth?.sessionCount ?? 0)}
-            />
-            <UsageTile
-              label={t("usage.last12")}
-              value={formatKwh(yearWh)}
-              detail={tn(
-                "usage.sessions",
-                series.reduce((total, { sessionCount }) => total + sessionCount, 0),
-              )}
-            />
-          </>
-        )}
-      </div>
+          <UsageTile
+            label={lastMonth ? monthLabel(lastMonth.month) : t("usage.lastMonth")}
+            value={formatKwh(lastMonth?.energyWh ?? 0)}
+            detail={tn("usage.sessions", lastMonth?.sessionCount ?? 0)}
+          />
+          <UsageTile
+            label={t("usage.last12")}
+            value={formatKwh(yearWh)}
+            detail={tn(
+              "usage.sessions",
+              series.reduce((total, { sessionCount }) => total + sessionCount, 0),
+            )}
+          />
+        </div>
+      ) : (
+        // One month of charging is one figure; comparisons would only repeat it.
+        <p class="usage-summary">
+          <strong>{formatKwh(thisMonth?.energyWh ?? 0)}</strong>
+          <span>
+            {t("usage.thisMonthLower")} · {thisMonthDetail}
+            {lastSession && (
+              <small>{t("usage.lastOn", { date: formatDate(lastSession.startedAt) })}</small>
+            )}
+          </span>
+        </p>
+      )}
 
       {sessions.length === 0 ? (
         <p class="empty-state">{t("usage.empty")}</p>
       ) : (
         <>
-          {hasHistory ? (
-            <MonthlyColumns series={series} />
-          ) : (
-            <p class="usage-history-hint">{t("usage.historyHint")}</p>
-          )}
+          {hasHistory && <MonthlyColumns series={series} />}
           {cards.length > 1 && (
             <div class="usage-cards">
               <h3>{t("usage.byCard")}</h3>
@@ -140,7 +142,29 @@ export function UsagePanel({
           )}
         </>
       )}
-      <p class="fine-print">{t("usage.meterNote")}</p>
+      {/* One quiet line; the counting rules stay one click away. */}
+      <div class="usage-foot">
+        <p class="fine-print">{t("usage.meterShort")}</p>
+        <details class="usage-how">
+          <summary>{t("usage.howCounted")}</summary>
+          <p>
+            {!hasHistory && sessions.length > 0 && <>{t("usage.historyHint")} </>}
+            {t("usage.meterNoteZone", { timeZone })}
+          </p>
+        </details>
+        {onSessions && sessions.length > 0 && (
+          <a
+            class="text-link"
+            href="#/sessions"
+            onClick={(event) => {
+              event.preventDefault();
+              onSessions();
+            }}
+          >
+            {t("usage.allSessions")}
+          </a>
+        )}
+      </div>
     </section>
   );
 }
@@ -450,17 +474,6 @@ export function ConsoleSettingsSection({ profile }: { profile: ConsoleProfile })
         <p class="fine-print">{t("prefs.languageNote")}</p>
       </section>
 
-      <section class="panel glass" aria-labelledby="profile-title">
-        <header class="panel-head">
-          <h2 id="profile-title">{t("prefs.profile")}</h2>
-          <span class="state-chip idle">
-            {t(profile === "company" ? "prefs.company" : "prefs.personal")}
-          </span>
-        </header>
-        <p>{t(profile === "company" ? "prefs.companyText" : "prefs.personalText")}</p>
-        <p class="fine-print">{t("prefs.profileNote")}</p>
-      </section>
-
       <section class="panel glass" aria-labelledby="modules-title">
         <header class="panel-head">
           <div>
@@ -500,6 +513,18 @@ export function ConsoleSettingsSection({ profile }: { profile: ConsoleProfile })
           ))}
         </ul>
         <p class="fine-print">{t("prefs.modulesNote")}</p>
+      </section>
+
+      {/* Read-only context goes after the choices the owner can make here. */}
+      <section class="panel glass" aria-labelledby="profile-title">
+        <header class="panel-head">
+          <h2 id="profile-title">{t("prefs.profile")}</h2>
+          <span class="state-chip idle">
+            {t(profile === "company" ? "prefs.company" : "prefs.personal")}
+          </span>
+        </header>
+        <p>{t(profile === "company" ? "prefs.companyText" : "prefs.personalText")}</p>
+        <p class="fine-print">{t("prefs.profileNote")}</p>
       </section>
     </div>
   );

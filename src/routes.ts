@@ -3,14 +3,21 @@ import { useEffect, useState } from "preact/hooks";
 import type { MessageKey } from "./i18n/index.js";
 import type { OptionalModule } from "./console-modules.js";
 
-export const PAGES = ["overview", "stations", "people", "cards", "usage", "settings"] as const;
+export const PAGES = [
+  "overview",
+  "stations",
+  "people",
+  "cards",
+  "sessions",
+  "usage",
+  "settings",
+] as const;
 export type Page = (typeof PAGES)[number];
 
 /** Station settings tabs, in menu order. Everything technical or optional lives here. */
 export const ADVANCED_TABS = [
   "offline",
   "controls",
-  "sessions",
   "details",
   "sharing",
   "evidence",
@@ -29,6 +36,7 @@ export const PAGE_LABELS: Readonly<Record<Page | "advanced", MessageKey>> = {
   cards: "nav.cards",
   overview: "nav.overview",
   people: "nav.people",
+  sessions: "nav.sessions",
   settings: "nav.preferences",
   stations: "nav.stations",
   usage: "nav.usage",
@@ -41,7 +49,6 @@ export const TAB_LABELS: Readonly<Record<AdvancedTab, MessageKey>> = {
   evidence: "tab.evidence",
   freedom: "tab.freedom",
   offline: "tab.offline",
-  sessions: "tab.sessions",
   sharing: "tab.sharing",
   switching: "tab.switching",
 };
@@ -71,6 +78,8 @@ export function parseRoute(hash: string): Route | null {
   if (!match) return null;
   const [, page = "", tab] = match;
   if (page === "advanced") {
+    // Charging sessions are everyday owner data and moved out of Station settings.
+    if (tab === "sessions") return { page: "sessions" };
     return (ADVANCED_TABS as readonly string[]).includes(tab ?? "")
       ? { page: "advanced", tab: tab as AdvancedTab }
       : { page: "advanced", tab: "offline" };

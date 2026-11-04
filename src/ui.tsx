@@ -27,19 +27,26 @@ export function Fact({
 export function StatusPill({
   connected,
   awaitingConnection = false,
+  inline = false,
 }: {
   connected: boolean;
   awaitingConnection?: boolean;
+  /** A quiet dot-and-word form for a heading's subtitle line. */
+  inline?: boolean;
 }) {
   return (
-    <span class={`status-pill ${connected ? "connected" : "offline"}`}>
+    <span class={`status-pill ${connected ? "connected" : "offline"}${inline ? " inline" : ""}`}>
       <span class="signal-dot" aria-hidden="true" />
       {t(
         connected
-          ? "status.connected"
+          ? inline
+            ? "status.connectedShort"
+            : "status.connected"
           : awaitingConnection
             ? "overview.notConnected"
-            : "status.offline",
+            : inline
+              ? "status.offlineShort"
+              : "status.offline",
       )}
     </span>
   );
@@ -267,17 +274,27 @@ export function SessionTable({
 
 export function PageHead({
   title,
+  titleAside,
   lede,
   actions,
 }: {
   title: string;
+  /** A quiet inline action that belongs to the title itself, such as naming it. */
+  titleAside?: ComponentChildren;
   lede?: ComponentChildren;
   actions?: ComponentChildren;
 }) {
   return (
     <header class={`page-head${actions ? " with-actions" : ""}`}>
       <div>
-        <h1>{title}</h1>
+        {titleAside ? (
+          <div class="page-title-row">
+            <h1>{title}</h1>
+            {titleAside}
+          </div>
+        ) : (
+          <h1>{title}</h1>
+        )}
         {lede && <p class="lede">{lede}</p>}
       </div>
       {actions && <div class="head-actions">{actions}</div>}
@@ -289,4 +306,21 @@ export function PageHead({
 export function closeRowMenu(event: MouseEvent): void {
   const menu = (event.currentTarget as HTMLElement | null)?.closest("details");
   if (menu) menu.open = false;
+}
+
+/** The server's placeholder location; it says nothing to an owner, so everyday pages omit it. */
+const DEFAULT_SITE = "Primary site";
+
+export function visibleSite(site: string | null | undefined): string | null {
+  return site && site !== DEFAULT_SITE ? site : null;
+}
+
+/** A one-line privacy promise with its full explanation one click away. */
+export function PrivacyNote({ short, long }: { short: string; long: string }) {
+  return (
+    <details class="privacy-note">
+      <summary>{short}</summary>
+      <p>{long}</p>
+    </details>
+  );
 }

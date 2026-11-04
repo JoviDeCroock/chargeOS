@@ -759,7 +759,7 @@ describe("owner console", () => {
       expect(screen.queryByRole("button", { name: "Change offline settings" })).toBeNull(),
     );
 
-    openTab("Sessions");
+    openSection("Sessions");
     expect(screen.getByText("3 repeated messages")).toBeTruthy();
     expect(screen.getByText("conflicting data")).toBeTruthy();
 
@@ -783,6 +783,7 @@ describe("owner console", () => {
         ],
       },
     };
+    openSection("Station settings");
     openTab("Remote control");
     expect(screen.getByText("Command history")).toBeTruthy();
     expect(screen.getByText("uncertain")).toBeTruthy();

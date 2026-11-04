@@ -100,7 +100,9 @@ export function ConnectChargerPanel({
       aria-labelledby="connect-title"
     >
       <header class="panel-head">
-        <h2 id="connect-title">{t("connect.title")}</h2>
+        <h2 id="connect-title">
+          {t(station.connected && station.boot ? "connect.titleConnected" : "connect.title")}
+        </h2>
         {(!overview || station.connected) && (
           <span
             class={`state-chip ${station.connected && station.boot ? "ok" : refused ? "warn" : "idle"}`}

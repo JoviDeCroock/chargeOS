@@ -14,7 +14,7 @@ import {
   setupSheet,
   stationRegistry,
 } from "../fleet-model.js";
-import { formatDate, t, tn, type MessageKey } from "../i18n/index.js";
+import { formatDate, t, type MessageKey } from "../i18n/index.js";
 import {
   action,
   fleet,
@@ -333,6 +333,7 @@ export function SetupChecklist({
   const done = setup.steps.filter(({ state }) => state === "done").length;
   // Finished steps fold into one line once there are a few, so the next action stays near the top.
   const foldDone = done >= 2 && setup.steps.slice(0, done).every(({ state }) => state === "done");
+  const [next, ...later] = setup.steps.slice(done);
   const renderStep = (step: SetupStep) => {
     // Done without a comparison: the charger said what it is, but nobody said what to expect.
     const uncompared = step.detail === "identity-unchecked" && step.state === "done";
@@ -389,7 +390,7 @@ export function SetupChecklist({
         <li class="setup-step done setup-folded">
           <span class="setup-node" aria-hidden="true" />
           <details class="setup-copy">
-            <summary>{tn("fleet.setup.doneSteps", done)}</summary>
+            <summary>{t("fleet.setup.showDone")}</summary>
             <ul>
               {setup.steps.slice(0, done).map((step) => (
                 <li key={step.id}>
@@ -409,7 +410,9 @@ export function SetupChecklist({
       ) : (
         setup.steps.slice(0, done).map(renderStep)
       )}
-      {setup.steps.slice(done).map(renderStep)}
+      {next && renderStep(next)}
+      {/* Later steps stay as one-line titles, so the whole path is visible. */}
+      {later.map(renderStep)}
       {/* Software cannot verify offline charging; the journey ends with the owner's own test. */}
       <li class="setup-step field-test">
         <span class="setup-node" aria-hidden="true" />
@@ -440,13 +443,16 @@ export function SetupChecklist({
     <section class="panel glass setup-panel" aria-labelledby="setup-title">
       <header class="panel-head">
         <div>
+          {/* One counting model everywhere: "Step n of 6", then the owner's own test. */}
           <p class="setup-kicker">
-            {t("fleet.setup.progress", { done, total: setup.steps.length })}
+            {t("fleet.setup.stepOf", {
+              step: Math.min(done + 1, setup.steps.length),
+              total: setup.steps.length,
+            })}
           </p>
           <h2 id="setup-title">
             {t(setup.state === "stopped" ? "fleet.setup.title" : "fleet.setup.notReady")}
           </h2>
-          <p class="panel-sub">{t("fleet.setup.why")}</p>
         </div>
         {setup.state !== "in-progress" && (
           <span class={`state-chip ${setup.state === "stopped" ? "risk" : "idle"}`}>
@@ -498,14 +504,7 @@ function StepAction({
           disabled={!current.station.connected || action.value !== null}
           onClick={() => void runInspection()}
         >
-          {action.value === "inspect" ? t("offline.checking") : t("offline.checkNow")}
-        </button>
-        <button
-          class="button ghost compact"
-          type="button"
-          onClick={() => go({ page: "advanced", tab: "offline" })}
-        >
-          {t("fleet.setup.offlineDetails")}
+          {action.value === "inspect" ? t("offline.checking") : t("offline.check")}
         </button>
       </div>
     );

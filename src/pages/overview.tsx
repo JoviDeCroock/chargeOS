@@ -13,6 +13,7 @@ import { TapCardDialog } from "./cards.js";
 import { SetupChecklist } from "./fleet-setup.js";
 import {
   cardLabel,
+  visibleSite,
   StatusPill,
   connectorStatusLabel,
   connectorTone,
@@ -54,35 +55,56 @@ export function OverviewPage({
   // A charger nobody has named yet only has its technical ID; lead with a plain title instead.
   const unnamed = station.label === station.id;
   const settingUp = Boolean(current.setup && current.setup.state !== "active");
+  const report = currentChargingReport(station);
+  const activity =
+    report.status === "charging"
+      ? "stations.chargingNow"
+      : report.status === "idle" && station.connected
+        ? "overview.notCharging"
+        : null;
+  const liveOrAlert =
+    unavailable || current.authorization.pendingRevocations.length > 0 || charging;
   return (
     <div class="section-stack">
       <PageHead
         title={unnamed ? t("overview.unnamedTitle") : station.label}
         lede={
           <>
-            {[unnamed ? station.id : null, station.site, station.driver]
-              .filter(Boolean)
-              .join(" · ")}
-            {unnamed && onEdit && (
-              <>
-                {" · "}
-                <button class="text-button name-action" type="button" onClick={onEdit}>
-                  {t("stations.nameItShort")}
-                </button>
-              </>
-            )}
+            {/* Connection, what the charger is doing and where it is, in one quiet line.
+                Separators trail each part so a wrapped line never starts with a dot. */}
+            <span class="lede-parts">
+              <span class="lede-part">
+                <StatusPill
+                  connected={station.connected}
+                  awaitingConnection={!station.boot}
+                  inline
+                />
+              </span>
+              {/* While setup hides the status summary, the activity stays on this line. */}
+              {settingUp && !liveOrAlert && activity && (
+                <span class="lede-part">{t(activity)}</span>
+              )}
+              {[visibleSite(station.site), station.driver].filter(Boolean).map((part) => (
+                <span key={part} class="lede-part">
+                  {part}
+                </span>
+              ))}
+            </span>
           </>
         }
+        titleAside={
+          unnamed && onEdit ? (
+            <button class="text-button name-action" type="button" onClick={onEdit}>
+              {t("stations.nameItShort")}
+            </button>
+          ) : undefined
+        }
         actions={
-          <>
-            {/* The connection belongs to this charger's heading, not to a separate bar. */}
-            <StatusPill connected={station.connected} awaitingConnection={!station.boot} />
-            {!unnamed && onEdit && (
-              <button class="button secondary" type="button" onClick={onEdit}>
-                {t("stations.edit")}
-              </button>
-            )}
-          </>
+          !unnamed && onEdit ? (
+            <button class="button secondary" type="button" onClick={onEdit}>
+              {t("stations.edit")}
+            </button>
+          ) : undefined
         }
       />
 
@@ -104,15 +126,21 @@ export function OverviewPage({
 
       {connectionHelp && <ConnectChargerPanel key={station.id} snapshot={current} overview />}
 
-      <OverviewStatus
-        snapshot={current}
-        directory={directory}
-        go={go}
-        unavailable={unavailable}
-        onRefresh={station.boot || unavailable ? refresh : null}
-        refreshing={refreshing}
-        compact={settingUp}
-      />
+      {/* During setup the checklist already reports cards and offline settings, so the
+          summary only appears when something there needs attention or is live. */}
+      {(!settingUp || liveOrAlert) && (
+        <OverviewStatus
+          snapshot={current}
+          directory={directory}
+          go={go}
+          unavailable={unavailable}
+          onRefresh={station.boot || unavailable ? refresh : null}
+          refreshing={refreshing}
+          compact={settingUp}
+        />
+      )}
+
+      {settingUp && station.boot && <ChargingToday snapshot={current} />}
 
       <SetupChecklist snapshot={current} go={go} onRegisterCard={() => setRegistering(true)} />
 
@@ -149,11 +177,55 @@ export function OverviewPage({
 
       {!awaitingFirstConnection && (
         <>
-          <UsagePanel sessions={current.sessions} stationId={station.id} directory={directory} />
+          <UsagePanel
+            sessions={current.sessions}
+            stationId={station.id}
+            directory={directory}
+            onSessions={() => go({ page: "sessions" })}
+          />
           {showStatusBoard && <StatusBoard snapshot={current} go={go} visibleTabs={visibleTabs} />}
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * What the owner can rely on today, while setup is still running: charging with internet
+ * (chargeOS approves registered cards) and charging without internet (not ready until setup
+ * and the owner's own test at the charger). It never claims more than chargeOS has seen.
+ */
+function ChargingToday({ snapshot: current }: { snapshot: OwnerSnapshot }) {
+  const { station, authorization, setup } = current;
+  const online: { tone: Tone; text: string } = !station.connected
+    ? { text: t("today.onlineDisconnected"), tone: "idle" }
+    : authorization.tagCount === 0
+      ? { text: t("today.onlineNoCard"), tone: "warn" }
+      : { text: t("today.onlineWorks"), tone: "ok" };
+  return (
+    <section class="panel glass charging-today" aria-labelledby="charging-today-title">
+      <h2 id="charging-today-title" class="visually-hidden">
+        {t("today.title")}
+      </h2>
+      <dl>
+        <div class={`today-row ${online.tone}`}>
+          <dt>
+            <span class={`status-dot ${online.tone}`} aria-hidden="true" />
+            {t("today.online")}
+          </dt>
+          <dd>{online.text}</dd>
+        </div>
+        <div class="today-row idle">
+          <dt>
+            <span class="status-dot idle" aria-hidden="true" />
+            {t("today.offline")}
+          </dt>
+          <dd>
+            {t(setup?.state === "stopped" ? "today.offlineStopped" : "today.offlineNotReady")}
+          </dd>
+        </div>
+      </dl>
+    </section>
   );
 }
 

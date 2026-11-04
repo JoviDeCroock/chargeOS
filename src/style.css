@@ -560,9 +560,9 @@ body {
 .page-head h1 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 1.4rem + 1.9vw, 2.9rem);
+  font-size: clamp(1.8rem, 1.35rem + 1.3vw, 2.35rem);
   font-weight: 700;
-  line-height: 1.06;
+  line-height: 1.1;
   letter-spacing: -0.032em;
   text-wrap: balance;
 }
@@ -820,7 +820,8 @@ body {
 :where(.console-backdrop) input:not([type="checkbox"], [type="radio"], [type="file"]):hover,
 :where(.console-backdrop) select:hover,
 :where(.console-backdrop) textarea:hover {
-  background: var(--field-hover);
+  /* Colour only: the shorthand would also erase a select's chevron image. */
+  background-color: var(--field-hover);
 }
 
 :where(.console-backdrop) input:not([type="checkbox"], [type="radio"], [type="file"]):focus-visible,
@@ -2911,9 +2912,14 @@ body {
   }
 }
 
+/* Same active style as the main sections: a raised surface, not a tint. */
 .rail-foot-link.active {
-  background: var(--current-soft);
+  background: var(--glass-strong);
   color: var(--ink);
+  font-weight: 600;
+  box-shadow:
+    0 1px 2px rgb(15 31 43 / 8%),
+    inset 0 0 0 1px var(--glass-edge);
 }
 
 .usage-tiles {
@@ -4132,4 +4138,406 @@ body {
     justify-content: space-between;
     width: 100%;
   }
+}
+
+/* One disclosure style across the console: a quiet chevron after the label. */
+.command-maintenance > summary,
+.tech-details > summary,
+.overview-disclosure > summary,
+.overview-setup > summary,
+.retired-list > summary,
+.dialog-more > summary,
+.usage-how > summary,
+.privacy-note > summary,
+.genesis-more > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+}
+
+.command-maintenance > summary::-webkit-details-marker,
+.tech-details > summary::-webkit-details-marker,
+.overview-disclosure > summary::-webkit-details-marker,
+.overview-setup > summary::-webkit-details-marker,
+.retired-list > summary::-webkit-details-marker,
+.dialog-more > summary::-webkit-details-marker,
+.usage-how > summary::-webkit-details-marker,
+.privacy-note > summary::-webkit-details-marker,
+.genesis-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.command-maintenance > summary::after,
+.tech-details > summary::after,
+.overview-disclosure > summary::after,
+.overview-setup > summary::after,
+.retired-list > summary::after,
+.dialog-more > summary::after,
+.usage-how > summary::after,
+.privacy-note > summary::after,
+.genesis-more > summary::after {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-top: -2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  opacity: 0.7;
+  transform: rotate(45deg);
+  content: "";
+}
+
+.command-maintenance[open] > summary::after,
+.tech-details[open] > summary::after,
+.overview-disclosure[open] > summary::after,
+.overview-setup[open] > summary::after,
+.retired-list[open] > summary::after,
+.dialog-more[open] > summary::after,
+.usage-how[open] > summary::after,
+.privacy-note[open] > summary::after,
+.genesis-more[open] > summary::after {
+  margin-top: 3px;
+  transform: rotate(-135deg);
+}
+
+/* Connection state on a heading's subtitle line: a dot and a word, no pill. */
+.status-pill.inline {
+  min-height: 0;
+  padding: 0;
+  background: none;
+  font-size: inherit;
+  vertical-align: baseline;
+}
+
+.status-pill.inline.offline {
+  color: var(--ink-2);
+}
+
+/* Settings check, cards and field test are three separate facts, in order. */
+.hero-title {
+  font-size: 1.4rem;
+  font-weight: 650;
+  letter-spacing: -0.016em;
+}
+
+/* Technical commands are deliberate, not the loudest thing on the page. */
+.remote-settings .command-form .button {
+  align-self: flex-start;
+}
+
+.remote-settings .command-form .fine-print {
+  margin: 0;
+}
+
+.row-menu-list button small {
+  display: block;
+  max-width: 28ch;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+/* A flat status dot; the ring made it read like a radio button. */
+.sync-banner .sync-icon {
+  width: 8px;
+  height: 8px;
+  box-shadow: none;
+}
+
+.card-tags:empty {
+  display: none;
+}
+
+/* On phones the delivery state stays beside the card's name; actions go below. */
+@media (max-width: 640px) {
+  .card-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .card-row .card-main {
+    min-width: 0;
+  }
+
+  .card-row .card-tags,
+  .card-row .card-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+/* One charger gets a readable card, not a third of the page. */
+.entity-grid.single {
+  grid-template-columns: minmax(0, 760px);
+}
+
+.entity-grid.single .entity-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  column-gap: 32px;
+}
+
+/* A larger, brand-coloured checkbox aligned with its label's first line. */
+.module-list input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--current);
+}
+
+/* The opened phone menu is a plain vertical list, one destination per row. */
+@media (max-width: 900px) {
+  .rail.menu-open .rail-group {
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+
+  .rail.menu-open .rail-link {
+    width: 100%;
+  }
+}
+
+.lede-parts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  row-gap: 2px;
+}
+
+.lede-part {
+  white-space: nowrap;
+}
+
+.lede-part:not(:last-child)::after {
+  margin-inline: 0.45em;
+  color: var(--ink-3);
+  content: "·";
+}
+
+/* One month of charging: one figure with its context beside it. */
+.usage-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 0 0 8px;
+}
+
+.usage-summary strong {
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-summary span {
+  color: var(--ink-2);
+}
+
+/* Usage footer: one quiet line, the rules on request and a way to every session. */
+.usage-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 18px;
+  margin-top: 12px;
+}
+
+.usage-foot .fine-print {
+  margin: 0;
+}
+
+.usage-how {
+  color: var(--ink-3);
+  font-size: 0.86rem;
+}
+
+.usage-how > summary {
+  cursor: pointer;
+  font-weight: 550;
+}
+
+.usage-how[open] {
+  flex-basis: 100%;
+  order: 3;
+}
+
+.usage-how p {
+  max-width: 70ch;
+  margin: 6px 0 0;
+  line-height: 1.55;
+}
+
+.usage-foot .text-link {
+  margin-inline-start: auto;
+  font-size: 0.9rem;
+}
+
+/* A secondary header action keeps its own width on phones; only primaries stretch. */
+@media (max-width: 640px) {
+  .page-head .head-actions .button.secondary {
+    flex: none;
+  }
+}
+
+/* Charging today: two quiet rows that say what works now and what does not yet. */
+.charging-today {
+  padding-block: 14px;
+}
+
+.charging-today dl {
+  display: grid;
+  margin: 0;
+}
+
+.today-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 180px) minmax(0, 1fr);
+  gap: 4px 16px;
+  align-items: baseline;
+  padding: 8px 0;
+}
+
+.today-row + .today-row {
+  border-top: 1px solid var(--line);
+}
+
+.today-row dt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.today-row dd {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+@media (max-width: 640px) {
+  .today-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .today-row dd {
+    padding-inline-start: 16px;
+  }
+}
+
+/* Naming sits with the title as a quiet link, not as a header button. */
+.page-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+}
+
+.page-title-row .name-action {
+  font-size: 0.95rem;
+}
+
+.usage-summary small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: 0.86rem;
+}
+
+.usage-summary span {
+  display: block;
+}
+
+/* Registered cards read as real objects, not as a disabled placeholder. */
+.rfid-chip {
+  background: var(--current-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--current) 30%, transparent);
+}
+
+.rfid-chip::after {
+  background: color-mix(in srgb, var(--current) 45%, transparent);
+}
+
+/* Details: values sit beside their labels, so a row can be read at a glance. */
+.details-facts {
+  max-width: 680px;
+}
+
+.details-facts > div {
+  display: grid;
+  grid-template-columns: minmax(130px, 200px) minmax(0, 1fr);
+}
+
+.details-facts dd {
+  text-align: start;
+}
+
+.station-panel .connector-list {
+  max-width: 680px;
+}
+
+/* One charger spans the content width; its facts use two columns. */
+.entity-grid.single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.privacy-note {
+  color: var(--ink-3);
+  font-size: 0.86rem;
+}
+
+.privacy-note > summary {
+  cursor: pointer;
+}
+
+.privacy-note p {
+  max-width: 70ch;
+  margin: 6px 0 0;
+  line-height: 1.55;
+}
+
+/* Offline tab: the same two-row fact layout as the overview's summary. */
+.offline-facts {
+  max-width: 760px;
+  margin: 16px 0 4px;
+  border-block: 1px solid var(--line);
+}
+
+.offline-facts .today-row dd small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: 0.86rem;
+}
+
+/* The banner's action lines up with the card actions below it. */
+.sync-banner.with-action {
+  padding: 16px 24px;
+}
+
+/* A disabled sign-in button still reads as the brand's button, only dimmed. */
+.token-gate .button.primary:disabled {
+  border-color: transparent;
+  background: var(--current);
+  color: #fff;
+  opacity: 0.5;
+}
+
+/* Disclosures and quiet links get finger-sized targets on phones. */
+@media (max-width: 640px) {
+  .setup-folded .setup-copy summary,
+  .usage-how > summary,
+  .privacy-note > summary,
+  .command-maintenance > summary,
+  .rail-foot-link {
+    min-height: 44px;
+  }
+}
+
+/* A number column needs room before the status that follows it. */
+th.numeric,
+td.numeric {
+  padding-inline-end: 28px;
 }

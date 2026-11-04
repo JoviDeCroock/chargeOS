@@ -262,7 +262,6 @@ export const fleetFr: Readonly<Record<keyof typeof fleetEn, string>> = {
     "Toutes les étapes ont réussi le {time}. La borne a sa liste de badges et les réglages pour charger sans internet. Seul un vrai test sans internet le prouve.",
   "fleet.setup.done.title": "Configuration terminée pour {name}",
   "fleet.setup.expected": "Attendu : {vendor} {model}, {firmware}",
-  "fleet.setup.offlineDetails": "Détails de la recharge hors ligne",
   "fleet.setup.otherWays": "Autres façons d’ajouter un badge",
   "fleet.setup.progress": "Configuration : {done} étapes sur {total} terminées",
   "fleet.setup.reissue": "Créer un nouveau mot de passe",
@@ -303,11 +302,10 @@ export const fleetFr: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.step.identity.body":
     "En attente de la marque, du modèle et du firmware annoncés par la borne.",
   "fleet.step.identity.title": "Informations de la borne conformes",
-  "fleet.step.offline-ready.body":
-    "chargeOS lit les paramètres de la borne ; rien ne change. S’il en manque un, vous pourrez ensuite activer la recharge sans internet.",
+  "fleet.step.offline-ready.body": "Lit les réglages hors ligne de votre borne, sans les modifier.",
   "fleet.step.offline-ready.title": "Réglages hors ligne vérifiés",
   "fleet.step.test-charge.body":
-    "Une fois les badges sur la borne, rechargez une fois avec un badge enregistré. Cela montre que le badge fonctionne ; le test hors ligne sur le terrain est une vérification distincte.",
-  "fleet.step.test-charge.title": "Recharge test effectuée",
+    "Borne en ligne, rechargez une fois avec un badge enregistré. Cela montre que le badge fonctionne ; le test sans internet vient ensuite.",
+  "fleet.step.test-charge.title": "Une recharge faite avec un badge",
   "usage.privatePart": "dont privé : {energy}",
 };

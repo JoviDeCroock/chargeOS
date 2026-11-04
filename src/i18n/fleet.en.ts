@@ -251,7 +251,6 @@ export const fleetEn = {
     "Every setup step passed on {time}. The charger has its card list and the settings for charging without internet. One real test with the internet unplugged is still the only proof.",
   "fleet.setup.done.title": "Setup complete for {name}",
   "fleet.setup.expected": "Expected: {vendor} {model}, {firmware}",
-  "fleet.setup.offlineDetails": "Offline charging details",
   "fleet.setup.otherWays": "Other ways to add a card",
   "fleet.setup.progress": "Setup: {done} of {total} steps done",
   "fleet.setup.reissue": "Make a new password",
@@ -290,11 +289,10 @@ export const fleetEn = {
   "fleet.step.identity.body":
     "Waiting for the charger to say which make, model and firmware it is.",
   "fleet.step.identity.title": "Charger details match",
-  "fleet.step.offline-ready.body":
-    "chargeOS reads the charger’s settings; nothing changes. If one is missing, you can turn on offline charging next.",
+  "fleet.step.offline-ready.body": "Reads your charger’s offline settings. This won’t change them.",
   "fleet.step.offline-ready.title": "Offline settings checked",
   "fleet.step.test-charge.body":
-    "Once the cards are on the charger, charge once with a registered card. This shows the card works; the offline field test is a separate check.",
-  "fleet.step.test-charge.title": "Test charge done",
+    "With the charger online, charge once with a registered card. This shows the card works; testing without internet comes after.",
+  "fleet.step.test-charge.title": "Charged once with a card",
   "usage.privatePart": "of which private: {energy}",
 } as const;

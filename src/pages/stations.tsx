@@ -4,7 +4,15 @@ import type { FleetSnapshot, FleetStationSummary } from "../../shared/contracts.
 import { DIRECTORY_NAME_MAX_LENGTH, type OwnerDirectory } from "../../shared/directory.js";
 import { formatDate, formatKwh, t, tn, type MessageKey } from "../i18n/index.js";
 import { action, runSaveStation } from "../model.js";
-import { closeRowMenu, Dialog, PageHead, personName, PersonSelect } from "../ui.js";
+import {
+  closeRowMenu,
+  Dialog,
+  PageHead,
+  personName,
+  PersonSelect,
+  StatusPill,
+  visibleSite,
+} from "../ui.js";
 import { runSetOwnership, setupSheet, stationRegistry } from "../fleet-model.js";
 import type { Route } from "../routes.js";
 import { FleetSyncDialog } from "./fleet-sync.js";
@@ -18,6 +26,21 @@ const ATTENTION_KEYS: Readonly<Record<FleetStationSummary["attention"][number], 
   "no-cards": "attention.no-cards",
   offline: "attention.offline",
 };
+
+const ATTENTION_PROBLEMS: ReadonlySet<FleetStationSummary["attention"][number]> = new Set([
+  "offline",
+  "evidence-conflict",
+]);
+
+/** Attention follows the order the owner can act on it, matching the setup steps. */
+const ATTENTION_ORDER: readonly FleetStationSummary["attention"][number][] = [
+  "offline",
+  "evidence-conflict",
+  "no-cards",
+  "continuity-unproven",
+  "authorization-pending",
+  "migration-action",
+];
 
 export function StationsPage({
   fleet,
@@ -89,15 +112,19 @@ export function StationsPage({
         </section>
       )}
 
-      <ul class="entity-grid" aria-label={t("stations.title")}>
+      <ul
+        class={`entity-grid${fleet.stations.length === 1 ? " single" : ""}`}
+        aria-label={t("stations.title")}
+      >
         {fleet.stations.map((station) => (
           <StationCard
             key={station.id}
             station={station}
+            single={fleet.stations.length === 1}
             directory={directory}
-            attention={station.attention.filter(
-              (item) => showSwitching || item !== "migration-action",
-            )}
+            attention={station.attention
+              .filter((item) => showSwitching || item !== "migration-action")
+              .toSorted((a, b) => ATTENTION_ORDER.indexOf(a) - ATTENTION_ORDER.indexOf(b))}
             onOpen={(route) => onOpen(station.id, route)}
             onEdit={directory?.writable ? () => setEditing(station.id) : null}
             onRetire={
@@ -124,7 +151,8 @@ export function StationsPage({
         </details>
       )}
 
-      <p class="fine-print">{t("stations.independence")}</p>
+      {/* Per-charger independence only needs saying once there is more than one. */}
+      {fleet.stations.length > 1 && <p class="fine-print">{t("stations.independence")}</p>}
 
       {reviewingSync && <FleetSyncDialog fleet={fleet} onClose={() => setReviewingSync(false)} />}
 
@@ -167,6 +195,7 @@ export function StationsPage({
 
 function StationCard({
   station,
+  single = false,
   directory,
   attention,
   onOpen,
@@ -174,6 +203,7 @@ function StationCard({
   onRetire,
 }: {
   station: FleetStationSummary;
+  single?: boolean;
   directory: OwnerDirectory | null;
   attention: FleetStationSummary["attention"];
   onOpen: (route?: Route) => void;
@@ -205,12 +235,14 @@ function StationCard({
       <header class="entity-head">
         <span class={`entity-icon station ${state}`} aria-hidden="true" />
         <div class="entity-title">
-          <h2>{station.label}</h2>
-          <span>{station.site}</span>
+          {/* One unnamed charger needs no technical ID as its name; several still do. */}
+          <h2>
+            {single && station.label === station.id ? t("overview.unnamedTitle") : station.label}
+          </h2>
+          {visibleSite(station.site) && <span>{station.site}</span>}
         </div>
-        <span class={`state-chip ${state === "live" ? "live" : state === "ok" ? "ok" : "idle"}`}>
-          {t(station.connected ? "station.connected" : "station.offline")}
-        </span>
+        {/* The same dot-and-word connection as the overview header. */}
+        <StatusPill connected={station.connected} inline />
       </header>
       {(station.setup === "stopped" || station.ownership) && (
         <div class="station-badges">
@@ -271,7 +303,11 @@ function StationCard({
         <ul class="attention-list" aria-label={t("stations.attention")}>
           {attention.map((item) => (
             <li key={item}>
-              <span class="status-dot warn" aria-hidden="true" />
+              {/* Setup work reads as neutral pending; only real problems are amber. */}
+              <span
+                class={`status-dot ${ATTENTION_PROBLEMS.has(item) ? "warn" : "idle"}`}
+                aria-hidden="true"
+              />
               {t(ATTENTION_KEYS[item])}
             </li>
           ))}

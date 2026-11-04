@@ -10,7 +10,7 @@ import {
 import { fleetCards } from "../fleet-model.js";
 import { t, tn } from "../i18n/index.js";
 import { action, runAddPerson, runRemovePerson, runRenamePerson } from "../model.js";
-import { Dialog, initials, PageHead, shortPseudonym } from "../ui.js";
+import { Dialog, initials, PageHead, PrivacyNote, shortPseudonym } from "../ui.js";
 import { EmployeeAccessDialog, OffboardDialog } from "./offboarding.js";
 
 export function PeoplePage({
@@ -162,7 +162,7 @@ export function PeoplePage({
           })}
         </ul>
       )}
-      <p class="fine-print">{t("people.privacy")}</p>
+      <PrivacyNote short={t("people.privacyShort")} long={t("people.privacy")} />
 
       {editing && (
         <PersonDialog

@@ -258,7 +258,6 @@ export const fleetNl: Readonly<Record<keyof typeof fleetEn, string>> = {
     "Alle stappen zijn gelukt op {time}. De laadpaal heeft zijn lijst met laadpassen en de instellingen om zonder internet te laden. Alleen een echte test zonder internet bewijst dat het werkt.",
   "fleet.setup.done.title": "Installatie voltooid voor {name}",
   "fleet.setup.expected": "Verwacht: {vendor} {model}, {firmware}",
-  "fleet.setup.offlineDetails": "Details over offline laden",
   "fleet.setup.otherWays": "Andere manieren om een laadpas toe te voegen",
   "fleet.setup.progress": "Installatie: {done} van {total} stappen klaar",
   "fleet.setup.reissue": "Nieuw wachtwoord maken",
@@ -300,10 +299,10 @@ export const fleetNl: Readonly<Record<keyof typeof fleetEn, string>> = {
     "Wacht tot de laadpaal meldt welk merk, model en welke firmware ze heeft.",
   "fleet.step.identity.title": "Gegevens van de laadpaal kloppen",
   "fleet.step.offline-ready.body":
-    "chargeOS leest de instellingen van de laadpaal; er verandert niets. Ontbreekt er een, dan kun je daarna laden zonder internet aanzetten.",
+    "Leest de offline-instellingen van je laadpaal. Er verandert niets.",
   "fleet.step.offline-ready.title": "Offline instellingen gecontroleerd",
   "fleet.step.test-charge.body":
-    "Laad één keer met een geregistreerde laadpas zodra de laadpassen op de laadpaal staan. Zo zie je dat de laadpas werkt; de offline praktijktest is een aparte controle.",
-  "fleet.step.test-charge.title": "Testlading gedaan",
+    "Laad met de laadpaal online één keer met een geregistreerde laadpas. Zo zie je dat de laadpas werkt; testen zonder internet komt daarna.",
+  "fleet.step.test-charge.title": "Eén keer geladen met een laadpas",
   "usage.privatePart": "waarvan privé: {energy}",
 };

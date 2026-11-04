@@ -12,14 +12,7 @@ export const en = {
   "stations.resolveSetup": "Review setup issue",
   "stations.connectionHelp": "Open connection help",
   "stations.metric.unknown": "Charging status unknown",
-  "offline.fieldAfterSettings":
-    "Finish the settings check before sending cards or running the field test.",
-  "offline.fieldAfterCards":
-    "Send the card list and wait for the charger to accept it before testing.",
-  "offline.fieldNext":
-    "The charger accepted the current list. Follow the guide to test at the charger.",
   "offline.fieldGuide": "Open the field test guide",
-  "offline.fieldResult": "Field test · {result}",
   "controls.maintenance": "Maintenance",
   "controls.availability": "Connector availability",
   "controls.startTarget": "Start on connector {connector}",
@@ -29,7 +22,7 @@ export const en = {
   "advanced.englishOnly":
     "This section is only available in English for now, because its safety wording must be reviewed before it is translated.",
   "advanced.lede":
-    "Technical tools for this charger. You only need these to set up offline charging, control the charger remotely or review records.",
+    "Technical tools for your charger. You only need them to set up offline charging, control the charger remotely or review records.",
   "advanced.tabs": "Station settings sections",
 
   "app.charger": "Charger",
@@ -46,7 +39,7 @@ export const en = {
   "app.snapshot": "Updated {date}",
   "app.updated": "Updated",
 
-  "attention.authorization-pending": "Cards waiting to be sent",
+  "attention.authorization-pending": "Cards not sent to the charger yet",
   "attention.continuity-unproven": "Offline charging not checked",
   "attention.evidence-conflict": "Conflicting session data",
   "attention.migration-action": "Switching step open",
@@ -135,7 +128,7 @@ export const en = {
   "cards.title": "Cards",
   "cards.unnamed": "Unnamed card",
   "cards.unnamedShort": "Unnamed card · {id}",
-  "cards.waiting": "Waiting to be sent",
+  "cards.waiting": "Not sent yet",
 
   "command.message.accepted":
     "{name}: the charger said yes. Check what happened afterwards below; a yes alone is not proof.",
@@ -280,16 +273,15 @@ export const en = {
   "evidence.system": "chargeOS",
   "evidence.toCharger": "To charger",
 
-  "module.assist.description": "Ask your own AI provider for read-only troubleshooting advice.",
+  "module.assist.description":
+    "Ask your own AI service for troubleshooting tips. It can’t change anything.",
   "module.assist.label": "AI help",
-  "module.evidence.description":
-    "See and download the record of what chargeOS observed, sealed so later changes would show.",
+  "module.evidence.description": "See and download what chargeOS recorded about your charger.",
   "module.evidence.label": "Records",
-  "module.liberation.description":
-    "Move a charger away from its previous provider, then test offline charging with a witness.",
+  "module.liberation.description": "Move a charger away from its previous provider, step by step.",
   "module.liberation.label": "Switching provider",
   "module.sharing.description":
-    "Give an installer, employer or energy provider temporary read-only access.",
+    "Give an installer, employer or energy provider temporary view-only access.",
   "module.sharing.label": "Shared access",
 
   "nav.advanced": "Station settings",
@@ -366,7 +358,7 @@ export const en = {
   "offline.unanswered": "Waiting for the charger to answer",
   "offline.unknownText":
     "Check whether the charger can accept your cards when the internet is down. Checking only reads settings.",
-  "offline.unknownTitle": "Not checked yet",
+  "offline.unknownTitle": "Settings not checked yet",
 
   "overview.cardDetails": "View RFID cards",
   "overview.cardListWaiting": "A card list update has no reply yet.",
@@ -414,7 +406,7 @@ export const en = {
 
   "people.add": "Add person",
   "people.addCompany": "Add employee",
-  "people.empty": "No people yet. Add someone to give chargers and cards a name.",
+  "people.empty": "No people yet. Add the people who charge here so you can link their cards.",
   "people.emptyCompany": "No employees yet. Add an employee, then assign their charger and cards.",
   "people.field.name": "Name",
   "people.lede": "The people who charge here, with their chargers and cards.",
@@ -442,12 +434,14 @@ export const en = {
   "prefs.language": "Language",
   "prefs.languageNote":
     "Saved in this browser. Help guides and some advanced sections are in English.",
-  "prefs.lede": "Choose how this console looks. Your choices only apply in this browser.",
+  "prefs.lede":
+    "Choose your language and which sections appear. Your choices only apply in this browser.",
   "prefs.modules": "Extra sections",
   "prefs.modulesCustom": "Using your choice in this browser.",
-  "prefs.modulesDefault": "Following the profile defaults.",
+  "prefs.modulesDefault":
+    "Showing the standard sections for your profile. Tick a section to show it.",
   "prefs.modulesNote":
-    "Hiding a section only changes what this browser shows. It does not switch off cards, offline charging or anything already recorded. A hidden section comes back while it needs your attention.",
+    "Hiding a section changes only this browser; cards, offline charging and records keep working. A hidden section comes back when it needs you.",
   "prefs.onByDefault": "On by default.",
   "prefs.personal": "Personal",
   "prefs.personalText":
@@ -504,7 +498,7 @@ export const en = {
   "sharing.status.revoked": "revoked",
 
   "signin.body":
-    "Enter the owner token from your chargeOS setup. It stays in this browser tab only.",
+    "Enter the owner token you received when chargeOS was set up. If you don’t have it, ask whoever installed chargeOS. It stays in this browser tab only.",
   "signin.help": "Setup and help guides",
   "signin.open": "Open console",
   "signin.title": "Welcome to your chargers",
@@ -584,12 +578,9 @@ export const en = {
   "usage.ledeCompany":
     "Energy recorded on every charger, grouped by the employee each charger belongs to. Use the download for reimbursement or payroll review.",
   "usage.loading": "Loading usage…",
-  "usage.meterNote":
-    "Measured by the charger's own meter. A session counts once it stops. This is an overview, not a bill or an approved reimbursement.",
   "usage.notLoaded": "No report loaded.",
   "usage.openNote.one": "{count} session is still charging; it counts once it stops.",
   "usage.openNote.other": "{count} sessions are still charging; they count once they stop.",
-  "usage.panelSub": "Energy per month, by the month each session started ({timeZone}).",
   "usage.panelTitle": "Your charging",
   "usage.reportNote":
     "Months follow {timeZone}; a session belongs to the month it started. Figures come from each charger's own meter. The download uses anonymous card references, never card numbers, and is not an approved reimbursement statement.",
@@ -607,7 +598,7 @@ export const en = {
   "overview.unnamedTitle": "Your charger",
   "stations.nameIt": "Name this charger",
   "fleet.step.identity.unchecked": "Charger details received",
-  "usage.historyHint": "A monthly chart appears once there is more than one month of charging.",
+  "usage.historyHint": "A monthly chart appears from your second month.",
   "offline.techDetails": "Settings this changes",
   "cards.noPerson": "No person linked",
   "cards.addName": "Add a name",
@@ -626,25 +617,58 @@ export const en = {
   "fleet.step.cards.todo": "Register a card",
   "fleet.step.offline-ready.todo": "Check offline settings",
   "fleet.step.cards-on-charger.todo": "Send the cards to the charger",
-  "fleet.step.test-charge.todo": "Test charge with a card",
-  "fleet.setup.doneSteps.one": "{count} step done",
-  "fleet.setup.doneSteps.other": "{count} steps done",
-  "fleet.setup.fieldTest": "After setup: field test at the charger",
+  "fleet.step.test-charge.todo": "Charge once after sending the cards",
+  "fleet.setup.fieldTest": "Afterwards: test charging without internet",
   "fleet.setup.fieldTestBody":
-    "Unplug the internet and charge with your card. Only you can do this check.",
-  "fleet.setup.fieldTestGuide": "Field test guide",
+    "At the charger, unplug the internet and charge with your card. Only you can do this.",
+  "fleet.setup.fieldTestGuide": "How to test",
   "controls.targetThis": "Commands for this charger.",
   "controls.isAvailable": "Connector {connector} is available. Nothing to change.",
   "signin.where": "Where do I find it?",
-  "fleet.setup.notReady": "Offline charging isn’t set up yet",
-  "offline.checkNow": "Check now",
-  "cards.ledeThis": "Charging cards and key fobs registered for this charger.",
+  "fleet.setup.notReady": "Set up charging without internet",
+  "cards.ledeThis": "Charging cards and key fobs that can start your charger.",
   "overview.notSentValue": "Not sent to the charger yet",
   "overview.notConfirmedValue": "Not yet accepted by the charger",
   "overview.connectedNotCharging": "Connected · not charging",
   "offline.stepOf": "This is step {step} of {total} in setting up this charger.",
   "offline.allSteps": "See all steps on the overview",
-  "usage.lastSession": "Last session",
+  "fleet.setup.whyOnline":
+    "Your cards are approved while the charger is online. These steps prepare charging without internet.",
+  "offline.pathPassed": "Passed",
+  "offline.pathProblem": "Needs fixing",
+  "offline.pathNotYet": "Not done yet",
+  "usage.panelSubShort": "Energy measured by your charger, per month.",
+  "usage.thisMonthLower": "this month",
+  "usage.lastOn": "last on {date}",
+  "usage.meterNoteZone":
+    "Measured by the charger's own meter and counted when a session stops, in the month it started ({timeZone}). Not a bill or an approved reimbursement.",
+  "controls.startHint":
+    "Plug in the car first. The charger then starts as if this card was presented.",
+  "connect.titleConnected": "Connection",
+  "fleet.setup.showDone": "Show finished steps",
+  "status.connectedShort": "Connected to chargeOS",
+  "status.offlineShort": "Offline",
+  "usage.meterShort": "Measured by your charger's own meter. Not a bill.",
+  "usage.howCounted": "How this is counted",
+  "usage.allSessions": "See all sessions",
+  "today.title": "Charging today",
+  "today.online": "Online",
+  "today.offline": "If the internet drops",
+  "today.onlineWorks": "Works. chargeOS approves your cards while the charger is connected.",
+  "today.onlineNoCard": "Register a card first.",
+  "today.onlineDisconnected": "The charger isn’t connected right now.",
+  "nav.sessions": "Sessions",
+  "sessions.title": "Charging sessions",
+  "sessions.ledeThis": "Every charging session on your charger, newest first.",
+  "sessions.lede": "Every charging session on {station}, newest first.",
+  "sessions.note": "Energy comes from the charger’s own meter and is final once a session stops.",
+  "fleet.setup.stepOf": "Step {step} of {total}",
+  "today.offlineNotReady": "Setup isn’t finished, so charging without internet isn’t verified yet.",
+  "today.offlineStopped": "Setup has stopped, so charging without internet isn’t verified.",
+  "offline.rowSettings": "Offline settings",
+  "offline.rowField": "Test without internet",
+  "cards.privacyShort": "Card names stay private to this console.",
+  "people.privacyShort": "Names stay private to this console.",
   ...fleetEn,
 } as const;
 
