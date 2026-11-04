@@ -98,6 +98,9 @@ export interface DelegateDiagnostics extends DelegateStationStatus {
 export interface DelegateSessionExport {
   readonly exportedAt: string;
   readonly schemaVersion: 1;
-  readonly sessions: readonly Omit<import("./contracts.js").ChargeSession, "tagPseudonym">[];
+  readonly sessions: readonly Omit<
+    import("./contracts.js").ChargeSession,
+    "latestMeterReading" | "tagPseudonym"
+  >[];
   readonly stationId: string;
 }

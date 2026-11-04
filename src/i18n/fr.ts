@@ -377,6 +377,9 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "overview.cardsRegistered.one": "{count} badge enregistré dans chargeOS",
   "overview.cardsRegistered.other": "{count} badges enregistrés dans chargeOS",
   "overview.chargingNow": "Recharge en ce moment",
+  "overview.chargedSoFar": "{energy} jusqu’ici, selon le relevé du compteur de la borne à {date}",
+  "overview.chargingSince": "Début : {date}",
+  "overview.noMeterReading": "En attente du premier relevé du compteur de la borne",
   "overview.chargingOn": "La prise {connector} signale une recharge",
   "overview.chargingUnknown": "Inconnue",
   "overview.connectFirst":
@@ -461,6 +464,7 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "prefs.title": "Préférences",
   "prefs.useDefaults": "Utiliser les réglages du profil",
 
+  "sessions.soFar": "jusqu’ici",
   "sessions.active": "en charge",
   "sessions.card": "Badge",
   "sessions.cardRefused": "badge refusé",

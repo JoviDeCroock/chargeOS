@@ -33,6 +33,11 @@ export interface ChargeSession {
   readonly connectorId: number;
   readonly energyWh: number | null;
   readonly integrity: "consistent" | "conflict";
+  /**
+   * Latest in-session energy register reading the charger reported with MeterValues, as energy
+   * since `meterStart`. A progress indication only: `energyWh` stays the StopTransaction result.
+   */
+  readonly latestMeterReading: { readonly at: string; readonly energyWh: number } | null;
   readonly meterStart: number;
   readonly meterStop: number | null;
   readonly replayedMessageCount: number;

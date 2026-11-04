@@ -167,6 +167,85 @@ describe("owner projections", () => {
     ]);
   });
 
+  it("shows energy so far from the latest whole-meter reading of an open session", () => {
+    const station = (message: string, payload: unknown) =>
+      evidenceEvent("STATION_1", "station-to-csms", message, payload);
+    const reading = (timestamp: string, sampledValue: unknown[]) =>
+      station("MeterValues", {
+        connectorId: 1,
+        meterValue: [{ sampledValue, timestamp }],
+        transactionId: 2,
+      });
+    const energy = (value: string, extra: Record<string, unknown> = {}) => ({
+      context: "Sample.Periodic",
+      measurand: "Energy.Active.Import.Register",
+      unit: "kWh",
+      value,
+      ...extra,
+    });
+    const gateway = {
+      getRuntime: () => ({ connected: true, connectedAt: "2026-11-04T10:00:00.000Z" }),
+    } satisfies Pick<ChargeGateway, "getRuntime">;
+    const start = station("StartTransaction", {
+      authorizationStatus: "Accepted",
+      connectorId: 1,
+      idTag: "tag_pseudonym",
+      meterStart: 1_242_132,
+      timestamp: "2026-11-04T10:18:30Z",
+      transactionId: 2,
+    });
+    const latest = reading("2026-11-04T11:03:32Z", [energy("1244.220")]);
+    const events = [
+      start,
+      reading("2026-11-04T10:18:30Z", [{ context: "Transaction.Begin", value: "1242132" }]),
+      reading("2026-11-04T10:48:32Z", [energy("1243.511")]),
+      latest,
+      // A replayed earlier reading arriving late must not move progress backwards.
+      reading("2026-11-04T10:33:32Z", [energy("1242.830")]),
+      // Per-phase, EV-side, other measurands, unknown units and junk values are not the session total.
+      reading("2026-11-04T11:10:00Z", [
+        energy("1250.000", { phase: "L1" }),
+        energy("1250.000", { location: "EV" }),
+        { measurand: "Power.Active.Import", unit: "W", value: "7400" },
+        energy("1250.000", { unit: "varh" }),
+        energy("not-a-number"),
+        energy("   "),
+      ]),
+      station("MeterValues", {
+        meterValue: [{ sampledValue: [energy("1250")] }],
+        transactionId: 2,
+      }),
+      latest,
+    ];
+    const [session] = buildOwnerSnapshot(config, gateway, events).sessions;
+    expect(session).toMatchObject({
+      energyWh: null,
+      latestMeterReading: { at: "2026-11-04T11:03:32.000Z", energyWh: 2_088 },
+      replayedMessageCount: 1,
+      status: "active",
+    });
+    // The delegate export keeps its fixed schema-1 session shape.
+    expect(buildDelegateSessionExport(config, events).sessions[0]).not.toHaveProperty(
+      "latestMeterReading",
+    );
+
+    // A meter reset below meterStart is not negative energy; the stop result stays authoritative.
+    const stopped = buildOwnerSnapshot(config, gateway, [
+      ...events,
+      reading("2026-11-04T11:20:00Z", [{ unit: "Wh", value: "5" }]),
+      station("StopTransaction", {
+        meterStop: 1_244_600,
+        timestamp: "2026-11-04T11:21:00Z",
+        transactionId: 2,
+      }),
+    ]).sessions[0];
+    expect(stopped).toMatchObject({
+      energyWh: 2_468,
+      latestMeterReading: { at: "2026-11-04T11:20:00.000Z", energyWh: 0 },
+      status: "complete",
+    });
+  });
+
   it("keeps desired tags separate from the last accepted charger list", () => {
     const oldTag = `tag_${pseudonymizeTag("old-owner-tag", config.stationSecret)}`;
     const newTag = `tag_${pseudonymizeTag("new-owner-tag", config.stationSecret)}`;

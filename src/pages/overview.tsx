@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 
 import type { CapabilityAssessment, OwnerSnapshot } from "../../shared/contracts.js";
 import type { OwnerDirectory } from "../../shared/directory.js";
-import { formatDate, t, tn } from "../i18n/index.js";
+import { formatDate, formatKwh, t, tn } from "../i18n/index.js";
 import { action, pollSnapshot, runStationCommand } from "../model.js";
 import type { Route } from "../routes.js";
 import { freedomStatusLabel, migrationStatusLabel } from "../switching.js";
@@ -36,11 +36,16 @@ export function OverviewPage({
 }) {
   const station = current.station;
   const [registering, setRegistering] = useState(false);
-  // A snapshot replays the station's evidence. Keep periodic reads to setup, where
-  // they already drive progress; owners can refresh an established charger on demand.
+  // A snapshot replays the station's evidence. Read often during setup, where it drives
+  // progress, and once a minute while charging so the energy so far keeps up with the
+  // charger's meter reports; owners can refresh an idle established charger on demand.
   const waitingForSetup =
     !station.boot || Boolean(current.setup && current.setup.state !== "active");
-  const { refresh, refreshing, unavailableFor } = useOverviewRefresh(station.id, waitingForSetup);
+  const charging = currentChargingReport(station).status === "charging";
+  const { refresh, refreshing, unavailableFor } = useOverviewRefresh(
+    station.id,
+    waitingForSetup ? 5_000 : charging ? 60_000 : null,
+  );
   const unavailable = unavailableFor === current;
   const awaitingFirstConnection =
     !station.connected && !station.boot && !current.sessions.length && !current.readiness;
@@ -152,7 +157,7 @@ export function OverviewPage({
   );
 }
 
-function useOverviewRefresh(stationId: string, automatic: boolean) {
+function useOverviewRefresh(stationId: string, intervalMs: number | null) {
   const [unavailableFor, setUnavailableFor] = useState<OwnerSnapshot | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const request = useRef<(() => Promise<void>) | null>(null);
@@ -171,7 +176,7 @@ function useOverviewRefresh(stationId: string, automatic: boolean) {
     };
     request.current = refresh;
     setRefreshing(false);
-    const timer = automatic ? setInterval(() => void refresh(), 5_000) : undefined;
+    const timer = intervalMs === null ? undefined : setInterval(() => void refresh(), intervalMs);
     const onVisibility = () => void refresh();
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
@@ -180,7 +185,7 @@ function useOverviewRefresh(stationId: string, automatic: boolean) {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [stationId, automatic]);
+  }, [stationId, intervalMs]);
   return { refresh: () => void request.current?.(), refreshing, unavailableFor };
 }
 
@@ -367,6 +372,19 @@ function ChargingStatus({
             <li key={connector.connectorId}>
               <div>
                 <strong>{t("overview.chargingOn", { connector: connector.connectorId })}</strong>
+                {session && (
+                  <p>
+                    {session.latestMeterReading
+                      ? t("overview.chargedSoFar", {
+                          date: formatDate(session.latestMeterReading.at),
+                          energy: formatKwh(session.latestMeterReading.energyWh),
+                        })
+                      : t("overview.noMeterReading")}
+                  </p>
+                )}
+                {session && (
+                  <p>{t("overview.chargingSince", { date: formatDate(session.startedAt) })}</p>
+                )}
                 <p>{t("overview.lastChargingReport", { date: formatDate(connector.updatedAt) })}</p>
                 {card && <p>{card.holder ? `${card.name} · ${card.holder}` : card.name}</p>}
               </div>

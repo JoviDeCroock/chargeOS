@@ -36,6 +36,7 @@ Each page has its own address, so the browser's back button and bookmarks work.
 ### Read the charger status
 
 - **Charging right now**: the console uses connector reports from the current connection. It shows **Unknown** when the charger is disconnected, a current report is missing, or the console can’t refresh. An open session in the records can outlast a connection. Use **Refresh status** to request the latest report from chargeOS.
+- **Energy so far**: while a session is open, the overview and the session list show the energy since the session started, from the charger’s latest meter reading, and when that reading was taken. Many chargers report only every 15 minutes, so the number trails the car. While the charger reports charging, the overview refreshes once a minute. The final figure comes from the charger when the session stops.
 - **Cards on the charger**: registering a card adds it to chargeOS. The charger confirms delivery separately by accepting the list. Until it accepts the updated list, removed cards may still work at the charger.
 - **Charging without internet**: a settings check can tell you what the charger reports. It does not prove offline charging. Test at the charger using the [field test guide](connect-a-charger.md#check-charging-after-the-move). Recorded field results still need review, and results from an outdated test do not carry forward.
 

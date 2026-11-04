@@ -227,7 +227,16 @@ export function SessionTable({
                 </td>
                 <td>{session.connectorId}</td>
                 <td class="numeric">
-                  {session.energyWh === null ? "—" : formatKwh(session.energyWh)}
+                  {session.energyWh !== null ? (
+                    formatKwh(session.energyWh)
+                  ) : session.status === "active" && session.latestMeterReading ? (
+                    <>
+                      {formatKwh(session.latestMeterReading.energyWh)}
+                      <small class="cell-sub">{t("sessions.soFar")}</small>
+                    </>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td>
                   <span

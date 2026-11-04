@@ -182,6 +182,7 @@ const OWNER_SNAPSHOT = {
       connectorId: 1,
       energyWh: 1_000,
       integrity: "conflict",
+      latestMeterReading: null,
       meterStart: 10_000,
       meterStop: 11_000,
       replayedMessageCount: 3,
@@ -464,9 +465,17 @@ describe("owner console", () => {
     expect(status.getByText("1 removed card may still work at the charger")).toBeTruthy();
     expect(status.getByText("Not verified")).toBeTruthy();
 
+    expect(status.queryByText(/so far/)).toBeNull();
+
     response = {
       ...cached,
-      sessions: [{ ...openSession, startedAt: liveAt }],
+      sessions: [
+        {
+          ...openSession,
+          latestMeterReading: { at: liveAt, energyWh: 2_088 },
+          startedAt: liveAt,
+        },
+      ],
       station: {
         ...cached.station,
         connectors: [
@@ -478,6 +487,8 @@ describe("owner console", () => {
       fireEvent.click(status.getByRole("button", { name: "Refresh status" }));
       expect(status.getByText("Connector 1 reports charging")).toBeTruthy();
     });
+    expect(status.getByText(/^2\.1 kWh so far, from the charger’s meter reading at /)).toBeTruthy();
+    expect(status.getByText(/^Started /)).toBeTruthy();
     expect(status.getByRole("button", { name: "Stop charging" })).toBeTruthy();
 
     unavailable = true;

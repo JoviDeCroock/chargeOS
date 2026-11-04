@@ -374,6 +374,9 @@ export const en = {
   "overview.cardsRegistered.one": "{count} card registered in chargeOS",
   "overview.cardsRegistered.other": "{count} cards registered in chargeOS",
   "overview.chargingNow": "Charging right now",
+  "overview.chargedSoFar": "{energy} so far, from the charger’s meter reading at {date}",
+  "overview.chargingSince": "Started {date}",
+  "overview.noMeterReading": "Waiting for the charger’s first meter reading",
   "overview.chargingOn": "Connector {connector} reports charging",
   "overview.chargingUnknown": "Unknown",
   "overview.connectFirst":
@@ -455,6 +458,7 @@ export const en = {
   "prefs.title": "Preferences",
   "prefs.useDefaults": "Use profile defaults",
 
+  "sessions.soFar": "so far",
   "sessions.active": "charging",
   "sessions.card": "Card",
   "sessions.cardRefused": "card refused",

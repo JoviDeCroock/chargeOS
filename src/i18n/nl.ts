@@ -378,6 +378,9 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "overview.cardsRegistered.one": "{count} laadpas geregistreerd in chargeOS",
   "overview.cardsRegistered.other": "{count} laadpassen geregistreerd in chargeOS",
   "overview.chargingNow": "Laden op dit moment",
+  "overview.chargedSoFar": "{energy} tot nu toe, volgens de meterstand van de laadpaal om {date}",
+  "overview.chargingSince": "Gestart {date}",
+  "overview.noMeterReading": "Wachten op de eerste meterstand van de laadpaal",
   "overview.chargingOn": "Aansluiting {connector} meldt dat er geladen wordt",
   "overview.chargingUnknown": "Onbekend",
   "overview.connectFirst":
@@ -461,6 +464,7 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "prefs.title": "Voorkeuren",
   "prefs.useDefaults": "Standaard van het profiel gebruiken",
 
+  "sessions.soFar": "tot nu toe",
   "sessions.active": "aan het laden",
   "sessions.card": "Laadpas",
   "sessions.cardRefused": "laadpas geweigerd",
