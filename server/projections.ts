@@ -1,4 +1,5 @@
 import { currentChargingReport } from "../shared/charging-status.js";
+import { METER_TRACE_MAX_POINTS } from "../shared/contracts.js";
 import type {
   CapabilityAssessment,
   ChargeSession,
@@ -242,8 +243,12 @@ export function buildDelegateSessionExport(
     schemaVersion: 1,
     // Schema 1 is fixed: in-progress meter readings are an owner-console indication only.
     sessions: sessionProjection(events.filter((event) => event.stationId === config.stationId)).map(
-      ({ latestMeterReading: _latestMeterReading, tagPseudonym: _tagPseudonym, ...session }) =>
-        session,
+      ({
+        latestMeterReading: _latestMeterReading,
+        meterTrace: _meterTrace,
+        tagPseudonym: _tagPseudonym,
+        ...session
+      }) => session,
     ),
     stationId: config.stationId,
   };
@@ -459,6 +464,8 @@ export function stationSessions(
 function sessionProjection(events: readonly EvidenceEvent[]): readonly ChargeSession[] {
   interface WorkingSession {
     session: ChargeSession;
+    /** Charger timestamp (ms) → energy since meterStart; one reading per timestamp. */
+    readonly readings: Map<number, number>;
     readonly meterFingerprints: Set<string>;
     readonly stopFingerprints: Set<string>;
   }
@@ -479,6 +486,7 @@ function sessionProjection(events: readonly EvidenceEvent[]): readonly ChargeSes
       if (sessions.has(payload.transactionId)) continue;
       sessions.set(payload.transactionId, {
         meterFingerprints: new Set(),
+        readings: new Map(),
         session: {
           authorizationStatus:
             payload.authorizationStatus === "Accepted" || payload.authorizationStatus === "Invalid"
@@ -489,6 +497,7 @@ function sessionProjection(events: readonly EvidenceEvent[]): readonly ChargeSes
           integrity: "consistent",
           latestMeterReading: null,
           meterStart: payload.meterStart,
+          meterTrace: [],
           meterStop: null,
           replayedMessageCount: 0,
           startedAt: payload.timestamp,
@@ -523,6 +532,9 @@ function sessionProjection(events: readonly EvidenceEvent[]): readonly ChargeSes
         continue;
       }
       working.meterFingerprints.add(fingerprint);
+      for (const sample of energyRegisterReadings(payload.meterValue)) {
+        working.readings.set(sample.time, Math.max(0, sample.wh - working.session.meterStart));
+      }
       const reading = latestEnergyRegister(payload.meterValue);
       const previous = working.session.latestMeterReading;
       // Offline replays can arrive out of order, so keep the reading the charger timestamped last.
@@ -565,7 +577,7 @@ function sessionProjection(events: readonly EvidenceEvent[]): readonly ChargeSes
     }
   }
   return [...sessions.values()]
-    .map(({ session }) => session)
+    .map(({ readings, session }) => ({ ...session, meterTrace: meterTrace(readings) }))
     .sort((left, right) => right.startedAt.localeCompare(left.startedAt));
 }
 
@@ -595,29 +607,58 @@ function evidenceHistoryProjection(events: readonly EvidenceEvent[]): {
 
 const ENERGY_REGISTER = "Energy.Active.Import.Register";
 
-/**
- * The charger-timestamped total active import register (Wh) in a MeterValues `meterValue` list.
- * Only whole-meter outlet readings count: per-phase, EV-side, or other measurands are ignored.
- */
-function latestEnergyRegister(meterValue: unknown): { at: string; wh: number } | null {
-  if (!Array.isArray(meterValue)) return null;
-  let latest: { at: string; time: number; wh: number } | null = null;
+/** Session traces are thinned to this many points so long sessions keep snapshots small. */
+export { METER_TRACE_MAX_POINTS };
+
+function meterTrace(readings: ReadonlyMap<number, number>): ChargeSession["meterTrace"] {
+  const ordered = [...readings.entries()].sort(([left], [right]) => left - right);
+  const step = Math.max(1, (ordered.length - 1) / (METER_TRACE_MAX_POINTS - 1));
+  const picked =
+    ordered.length <= METER_TRACE_MAX_POINTS
+      ? ordered
+      : Array.from(
+          { length: METER_TRACE_MAX_POINTS },
+          (_, index) => ordered[Math.min(ordered.length - 1, Math.round(index * step))]!,
+        );
+  return picked.map(([time, energyWh]) => ({ at: new Date(time).toISOString(), energyWh }));
+}
+
+/** Every whole-meter energy register reading (charger time, Wh) in a MeterValues list. */
+function energyRegisterReadings(meterValue: unknown): { time: number; wh: number }[] {
+  if (!Array.isArray(meterValue)) return [];
+  const readings: { time: number; wh: number }[] = [];
   for (const entry of meterValue) {
     const { sampledValue, timestamp } = recordPayloadValue(entry);
     const time = typeof timestamp === "string" ? Date.parse(timestamp) : Number.NaN;
     if (!Number.isFinite(time) || !Array.isArray(sampledValue)) continue;
     for (const sample of sampledValue) {
-      const { location, measurand, phase, unit, value } = recordPayloadValue(sample);
-      if ((measurand ?? ENERGY_REGISTER) !== ENERGY_REGISTER) continue;
-      if (phase !== undefined || (location !== undefined && location !== "Outlet")) continue;
-      const scale = unit === undefined || unit === "Wh" ? 1 : unit === "kWh" ? 1_000 : null;
-      const number = typeof value === "string" && value.trim() ? Number(value) : Number.NaN;
-      if (scale === null || !Number.isFinite(number)) continue;
-      if (latest && time < latest.time) continue;
-      latest = { at: new Date(time).toISOString(), time, wh: Math.round(number * scale) };
+      const wh = energyRegisterWh(sample);
+      if (wh !== null) readings.push({ time, wh });
     }
   }
-  return latest && { at: latest.at, wh: latest.wh };
+  return readings;
+}
+
+/** A sampled value's whole-meter outlet active import register in Wh, or null. */
+function energyRegisterWh(sample: unknown): number | null {
+  const { location, measurand, phase, unit, value } = recordPayloadValue(sample);
+  if ((measurand ?? ENERGY_REGISTER) !== ENERGY_REGISTER) return null;
+  if (phase !== undefined || (location !== undefined && location !== "Outlet")) return null;
+  const scale = unit === undefined || unit === "Wh" ? 1 : unit === "kWh" ? 1_000 : null;
+  const number = typeof value === "string" && value.trim() ? Number(value) : Number.NaN;
+  return scale === null || !Number.isFinite(number) ? null : Math.round(number * scale);
+}
+
+/**
+ * The charger-timestamped total active import register (Wh) in a MeterValues `meterValue` list.
+ * Only whole-meter outlet readings count: per-phase, EV-side, or other measurands are ignored.
+ */
+function latestEnergyRegister(meterValue: unknown): { at: string; wh: number } | null {
+  let latest: { time: number; wh: number } | null = null;
+  for (const reading of energyRegisterReadings(meterValue)) {
+    if (!latest || reading.time >= latest.time) latest = reading;
+  }
+  return latest && { at: new Date(latest.time).toISOString(), wh: latest.wh };
 }
 
 function incrementReplay(working: { session: ChargeSession } | undefined): void {

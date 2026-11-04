@@ -28,6 +28,9 @@ export interface CapabilityAssessment {
   readonly state: "ready" | "blocked" | "unknown";
 }
 
+/** At most this many points in a session's `meterTrace`; longer sessions are thinned evenly. */
+export const METER_TRACE_MAX_POINTS = 24;
+
 export interface ChargeSession {
   readonly authorizationStatus: "Accepted" | "Invalid" | "Unknown";
   readonly connectorId: number;
@@ -38,6 +41,11 @@ export interface ChargeSession {
    * since `meterStart`. A progress indication only: `energyWh` stays the StopTransaction result.
    */
   readonly latestMeterReading: { readonly at: string; readonly energyWh: number } | null;
+  /**
+   * The session's whole-meter readings in charger time order, as energy since `meterStart`,
+   * thinned to at most `METER_TRACE_MAX_POINTS` (first and last kept). Presentation only.
+   */
+  readonly meterTrace: readonly { readonly at: string; readonly energyWh: number }[];
   readonly meterStart: number;
   readonly meterStop: number | null;
   readonly replayedMessageCount: number;

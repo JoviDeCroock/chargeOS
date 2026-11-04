@@ -44,6 +44,7 @@ import {
 } from "./routes.js";
 import { StatusPill, type Tone } from "./ui.js";
 import { ConsoleSettingsSection, LanguagePicker, UsageReportSection } from "./usage.js";
+import { startChargingNotifications } from "./notifications.js";
 
 /** Pages about every charger at once; the rest act on the selected charger. */
 const CONSOLE_PAGES: ReadonlySet<Page> = new Set(["stations", "people", "usage", "settings"]);
@@ -56,6 +57,7 @@ export function App() {
   useEffect(() => {
     applyDocumentLanguage();
     if (ownerToken.value) void refreshFleet().then(refreshFleetExtras);
+    startChargingNotifications();
   }, []);
 
   const current = snapshot.value;

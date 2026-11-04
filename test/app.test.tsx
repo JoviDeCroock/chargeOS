@@ -183,6 +183,7 @@ const OWNER_SNAPSHOT = {
       energyWh: 1_000,
       integrity: "conflict",
       latestMeterReading: null,
+      meterTrace: [],
       meterStart: 10_000,
       meterStop: 11_000,
       replayedMessageCount: 3,
@@ -464,8 +465,10 @@ describe("owner console", () => {
     const status = within(await screen.findByRole("region", { name: "What chargeOS knows" }));
     await waitFor(() => expect(status.getByText("Connector 1 reports charging")).toBeTruthy());
     // Started before this connection and last metered before it: show progress, not a stop.
-    expect(status.getByText(/^1\.5 kWh so far, from the charger’s meter reading at /)).toBeTruthy();
-    expect(status.getByText(/^Started /)).toBeTruthy();
+    expect(status.getByText("1.5 kWh")).toBeTruthy();
+    expect(status.getByText("so far")).toBeTruthy();
+    expect(status.getByText(/^Since /)).toBeTruthy();
+    expect(status.getByText(/^Meter read at /)).toBeTruthy();
     expect(status.queryByRole("button", { name: "Stop charging" })).toBeNull();
 
     // A reading the charger timestamped on this connection proves the session is current.
@@ -477,9 +480,66 @@ describe("owner console", () => {
     };
     await waitFor(() => {
       fireEvent.click(status.getByRole("button", { name: "Refresh status" }));
-      expect(status.getByText(/^1\.8 kWh so far/)).toBeTruthy();
+      expect(status.getByText("1.8 kWh")).toBeTruthy();
     });
     expect(status.getByRole("button", { name: "Stop charging" })).toBeTruthy();
+  });
+
+  it("says who paused a charge and keeps its progress, average speed and estimated cost", async () => {
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    const { setEnergyPrice } = await import("../src/live-charging.js");
+    setEnergyPrice({ amount: 0.3, currency: "EUR" });
+    const open = {
+      ...OWNER_SNAPSHOT.sessions[0]!,
+      latestMeterReading: { at: "2026-08-14T12:30:00.000Z", energyWh: 2_800 },
+      meterTrace: [
+        { at: "2026-08-14T11:45:00.000Z", energyWh: 700 },
+        { at: "2026-08-14T12:00:00.000Z", energyWh: 1_400 },
+        { at: "2026-08-14T12:15:00.000Z", energyWh: 2_100 },
+        { at: "2026-08-14T12:30:00.000Z", energyWh: 2_800 },
+      ],
+      startedAt: "2026-08-14T11:30:00.000Z",
+      status: "active",
+      stoppedAt: null,
+    } as const;
+    const response: OwnerSnapshot = {
+      ...OWNER_SNAPSHOT,
+      sessions: [open],
+      station: {
+        ...OWNER_SNAPSHOT.station,
+        connectedAt: "2026-08-14T11:00:00.000Z",
+        connectors: [
+          {
+            connectorId: 1,
+            errorCode: "NoError",
+            status: "SuspendedEV",
+            updatedAt: "2026-08-14T12:31:00.000Z",
+          },
+        ],
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (path) => {
+        if (path === "/api/v1/fleet") return json(SINGLE_FLEET);
+        if (path === "/api/v1/directory") return json(EMPTY_DIRECTORY);
+        return json(response);
+      }),
+    );
+
+    render(<App />);
+    signIn();
+    const status = within(await screen.findByRole("region", { name: "What chargeOS knows" }));
+    await waitFor(() => expect(status.getByText("Connector 1: paused by the car")).toBeTruthy());
+    expect(status.getByText("2.8 kWh")).toBeTruthy();
+    expect(status.getByText(/about 2\.8 kW on average/)).toBeTruthy();
+    expect(status.getByText(/^About €0\.84 so far at €0\.30\/kWh/)).toBeTruthy();
+    expect(
+      status.getByRole("img", {
+        name: "Charging speed during this session, between 2.8 kW and 2.8 kW",
+      }),
+    ).toBeTruthy();
+    setEnergyPrice(null);
   });
 
   it("keeps stale charging reports, acknowledged cards and field review independent", async () => {
@@ -545,8 +605,8 @@ describe("owner console", () => {
       fireEvent.click(status.getByRole("button", { name: "Refresh status" }));
       expect(status.getByText("Connector 1 reports charging")).toBeTruthy();
     });
-    expect(status.getByText(/^2\.1 kWh so far, from the charger’s meter reading at /)).toBeTruthy();
-    expect(status.getByText(/^Started /)).toBeTruthy();
+    expect(status.getByText("2.1 kWh")).toBeTruthy();
+    expect(status.getByText(/^Since /)).toBeTruthy();
     expect(status.getByRole("button", { name: "Stop charging" })).toBeTruthy();
 
     unavailable = true;

@@ -1,9 +1,10 @@
-import { currentChargingReport } from "../../shared/charging-status.js";
+import { currentChargingReport, currentPausedConnectors } from "../../shared/charging-status.js";
 import { useEffect, useRef, useState } from "preact/hooks";
 
-import type { CapabilityAssessment, OwnerSnapshot } from "../../shared/contracts.js";
+import type { CapabilityAssessment, ChargeSession, OwnerSnapshot } from "../../shared/contracts.js";
 import type { OwnerDirectory } from "../../shared/directory.js";
-import { formatDate, formatKwh, t, tn } from "../i18n/index.js";
+import { formatDate, t, tn } from "../i18n/index.js";
+import { isPauseStatus, LiveReadout, PAUSE_COPY } from "../live-charging.js";
 import { action, pollSnapshot, runStationCommand } from "../model.js";
 import type { Route } from "../routes.js";
 import { freedomStatusLabel, migrationStatusLabel } from "../switching.js";
@@ -22,6 +23,19 @@ import {
   type Tone,
 } from "../ui.js";
 
+/** Paused connectors that still have exactly one open session, so the pause belongs to a charge. */
+function pausedSessionConnectors(
+  station: OwnerSnapshot["station"],
+  sessions: readonly ChargeSession[],
+) {
+  return currentPausedConnectors(station).filter(
+    ({ connectorId }) =>
+      sessions.filter(
+        (session) => session.status === "active" && session.connectorId === connectorId,
+      ).length === 1,
+  );
+}
+
 export function OverviewPage({
   snapshot: current,
   directory,
@@ -38,11 +52,13 @@ export function OverviewPage({
   const station = current.station;
   const [registering, setRegistering] = useState(false);
   // A snapshot replays the station's evidence. Read often during setup, where it drives
-  // progress, and once a minute while charging so the energy so far keeps up with the
-  // charger's meter reports; owners can refresh an idle established charger on demand.
+  // progress, and once a minute while charging or paused so the energy so far and the pause
+  // reason keep up with the charger's reports; owners refresh an idle charger on demand.
   const waitingForSetup =
     !station.boot || Boolean(current.setup && current.setup.state !== "active");
-  const charging = currentChargingReport(station).status === "charging";
+  const charging =
+    currentChargingReport(station).status === "charging" ||
+    currentPausedConnectors(station).length > 0;
   const { refresh, refreshing, unavailableFor } = useOverviewRefresh(
     station.id,
     waitingForSetup ? 5_000 : charging ? 60_000 : null,
@@ -277,7 +293,12 @@ function OverviewStatus({
   const { authorization, readiness, freedomTest } = current;
   const fieldState = offlineFieldState(freedomTest);
   const report = unavailable ? null : currentChargingReport(current.station);
-  const chargingTone: Tone = report?.status === "charging" ? "live" : "idle";
+  const chargingTone: Tone =
+    report?.status === "charging"
+      ? "live"
+      : report && pausedSessionConnectors(current.station, current.sessions).length
+        ? "warn"
+        : "idle";
   const cardsTone: Tone =
     authorization.pendingRevocations.length > 0
       ? "risk"
@@ -408,15 +429,20 @@ function ChargingStatus({
   const { station, sessions } = current;
   const connectedAt = station.connectedAt ? Date.parse(station.connectedAt) : Number.NaN;
   const report = unavailable ? null : currentChargingReport(station);
-  const charging = report?.status === "charging" ? report.connectors : [];
-  if (charging.length) {
+  const openOn = (connectorId: number) =>
+    sessions.filter(
+      (session) => session.status === "active" && session.connectorId === connectorId,
+    );
+  const paused = unavailable ? [] : pausedSessionConnectors(station, sessions);
+  const live = [...(report?.status === "charging" ? report.connectors : []), ...paused].sort(
+    (left, right) => left.connectorId - right.connectorId,
+  );
+  if (live.length) {
     return (
       <ul class="overview-live">
-        {charging.map((connector) => {
-          const active = sessions.filter(
-            ({ status, connectorId }) =>
-              status === "active" && connectorId === connector.connectorId,
-          );
+        {live.map((connector) => {
+          const active = openOn(connector.connectorId);
+          const pause = isPauseStatus(connector.status) ? PAUSE_COPY[connector.status] : null;
           // One open session on a connector that reports charging is what it is charging,
           // also when it started before chargeOS last reconnected (a restart mid-charge).
           const session = active.length === 1 ? active[0]! : null;
@@ -434,21 +460,18 @@ function ChargingStatus({
           return (
             <li key={connector.connectorId}>
               <div>
-                <strong>{t("overview.chargingOn", { connector: connector.connectorId })}</strong>
-                {session && (
-                  <p>
-                    {session.latestMeterReading
-                      ? t("overview.chargedSoFar", {
-                          date: formatDate(session.latestMeterReading.at),
-                          energy: formatKwh(session.latestMeterReading.energyWh),
-                        })
-                      : t("overview.noMeterReading")}
+                <strong class={pause ? "live-paused" : undefined}>
+                  {t(pause ? pause.title : "overview.chargingOn", {
+                    connector: connector.connectorId,
+                  })}
+                </strong>
+                {pause && <p class="live-pause-hint">{t(pause.hint)}</p>}
+                {session && <LiveReadout session={session} paused={Boolean(pause)} />}
+                {(!session?.latestMeterReading || pause) && (
+                  <p class="live-sub">
+                    {t("overview.lastChargingReport", { date: formatDate(connector.updatedAt) })}
                   </p>
                 )}
-                {session && (
-                  <p>{t("overview.chargingSince", { date: formatDate(session.startedAt) })}</p>
-                )}
-                <p>{t("overview.lastChargingReport", { date: formatDate(connector.updatedAt) })}</p>
                 {card && <p>{card.holder ? `${card.name} · ${card.holder}` : card.name}</p>}
               </div>
               {stoppable && (

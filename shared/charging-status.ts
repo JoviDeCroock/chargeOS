@@ -13,6 +13,21 @@ const NON_CHARGING_STATUSES = new Set([
   "Faulted",
 ]);
 
+/**
+ * Connectors that report a pause on the current connection: the car (`SuspendedEV`) or the charger
+ * (`SuspendedEVSE`) is holding back power. Reports from before the connection are not current.
+ */
+export function currentPausedConnectors(station: StationConnection): readonly ConnectorStatus[] {
+  if (!station.connected || !station.connectedAt) return [];
+  const connectedAt = Date.parse(station.connectedAt);
+  return station.connectors.filter(
+    ({ connectorId, status, updatedAt }) =>
+      connectorId > 0 &&
+      (status === "SuspendedEV" || status === "SuspendedEVSE") &&
+      Date.parse(updatedAt) >= connectedAt,
+  );
+}
+
 export type ReportedChargingStatus = "charging" | "idle" | "unknown";
 
 export function currentChargingReport(station: StationConnection): {

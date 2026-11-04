@@ -4,6 +4,13 @@ import { useEffect, useRef } from "preact/hooks";
 import type { ChargeSession } from "../shared/contracts.js";
 import type { OwnerDirectory } from "../shared/directory.js";
 import { formatDate, formatKwh, t, tn, type MessageKey } from "./i18n/index.js";
+import {
+  averagePowerKw,
+  energyPrice,
+  estimatedCost,
+  formatKw,
+  SessionSparkline,
+} from "./live-charging.js";
 
 export type Tone = "ok" | "warn" | "risk" | "live" | "idle";
 
@@ -232,6 +239,7 @@ export function SessionTable({
   );
   // A connector column only helps when sessions used more than one connector.
   const showConnector = new Set(sessions.map(({ connectorId }) => connectorId)).size > 1;
+  const priced = energyPrice.value !== null;
   return (
     <div class="table-scroll">
       <table>
@@ -242,6 +250,8 @@ export function SessionTable({
             {showConnector && <th>{t("sessions.connector")}</th>}
             <th>{t("sessions.duration")}</th>
             <th class="numeric">{t("sessions.energy")}</th>
+            {priced && <th class="numeric">{t("sessions.cost")}</th>}
+            <th>{t("sessions.speed")}</th>
             <th>{t("sessions.status")}</th>
           </tr>
         </thead>
@@ -270,6 +280,24 @@ export function SessionTable({
                     </>
                   ) : (
                     "—"
+                  )}
+                </td>
+                {priced && (
+                  <td class="numeric">
+                    {(() => {
+                      const energyWh = session.energyWh ?? session.latestMeterReading?.energyWh;
+                      return energyWh === undefined || energyWh === null
+                        ? "—"
+                        : (estimatedCost(energyWh) ?? "—");
+                    })()}
+                  </td>
+                )}
+                <td class="sparkline-cell">
+                  <SessionSparkline session={session} />
+                  {averagePowerKw(session) !== null && (
+                    <small class="cell-sub">
+                      {t("live.average", { power: formatKw(averagePowerKw(session)!) })}
+                    </small>
                   )}
                 </td>
                 <td>

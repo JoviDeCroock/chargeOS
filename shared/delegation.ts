@@ -100,7 +100,7 @@ export interface DelegateSessionExport {
   readonly schemaVersion: 1;
   readonly sessions: readonly Omit<
     import("./contracts.js").ChargeSession,
-    "latestMeterReading" | "tagPseudonym"
+    "latestMeterReading" | "meterTrace" | "tagPseudonym"
   >[];
   readonly stationId: string;
 }

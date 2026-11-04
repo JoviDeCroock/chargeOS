@@ -5099,3 +5099,207 @@ td.numeric {
   margin-inline-start: 8px;
   vertical-align: 2px;
 }
+
+/* ------------------------------------------------------------------ */
+/* Live charging: readout, pause, chart segment, sparkline, preferences */
+/* ------------------------------------------------------------------ */
+
+.live-dot {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--live);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--live) 55%, transparent);
+  animation: live-pulse 1.8s ease-out infinite;
+  vertical-align: middle;
+}
+
+.live-dot.paused {
+  background: var(--warn);
+  animation: none;
+}
+
+@keyframes live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--live) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 9px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.live-readout {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.overview-live .live-readout p {
+  margin: 0;
+}
+
+.live-figure {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.live-kwh {
+  color: var(--ink);
+  font-size: 2rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.live-unit,
+.live-meta {
+  color: var(--ink-2);
+}
+
+.live-sub {
+  color: var(--ink-3);
+  font-size: 0.85rem;
+}
+
+.overview-live strong.live-paused {
+  color: var(--warn);
+}
+
+.live-pause-hint {
+  max-width: 44ch;
+  color: var(--ink-2);
+}
+
+.live-readout .sparkline {
+  margin: 6px 0 2px;
+}
+
+.sparkline {
+  display: block;
+  overflow: visible;
+}
+
+.sparkline-line {
+  fill: none;
+  stroke: var(--live);
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.sparkline-area {
+  fill: color-mix(in srgb, var(--live) 16%, transparent);
+  stroke: none;
+}
+
+.sparkline-cell {
+  min-width: 104px;
+}
+
+.usage-tile strong .live-dot,
+.usage-summary .live-dot {
+  margin-right: 8px;
+}
+
+.usage-summary small {
+  display: block;
+}
+
+.usage-cost {
+  color: var(--ink-2);
+}
+
+.usage-live {
+  display: block;
+  width: min(24px, 70%);
+  margin-bottom: -4px;
+  border-radius: 4px 4px 0 0;
+  background: repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--live) 55%, transparent) 0 5px,
+      color-mix(in srgb, var(--live) 28%, transparent) 5px 10px
+    )
+    0 0 / 28px 28px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--live) 70%, transparent);
+  animation: usage-flow 1.6s linear infinite;
+}
+
+@keyframes usage-flow {
+  to {
+    background-position: 28px 0;
+  }
+}
+
+.usage-column.under-live {
+  border-radius: 0;
+}
+
+.usage-cap.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 2px 6px;
+  border-radius: 999px;
+  background: var(--live-soft);
+  color: var(--live);
+}
+
+.usage-cap.live .live-dot {
+  width: 8px;
+  height: 8px;
+}
+
+.usage-columns li.current .usage-tip {
+  min-width: 232px;
+}
+
+.usage-tip-live {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--live);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.usage-tip-live .live-dot {
+  width: 8px;
+  height: 8px;
+}
+
+.usage-tip-rule {
+  display: block;
+  margin: 6px 0;
+  border-top: 1px solid var(--line);
+}
+
+.price-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.price-form label {
+  display: grid;
+  gap: 4px;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+}
+
+.price-form input {
+  width: 9ch;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot,
+  .usage-live {
+    animation: none;
+  }
+}

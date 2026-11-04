@@ -6,6 +6,7 @@ import type { ChargeGateway } from "../server/gateway.js";
 import {
   buildDelegateSessionExport,
   buildOwnerSnapshot,
+  METER_TRACE_MAX_POINTS,
   buildRedactedContinuityExport,
 } from "../server/projections.js";
 import { pseudonymizeTag } from "../server/tag.js";
@@ -224,10 +225,32 @@ describe("owner projections", () => {
       replayedMessageCount: 1,
       status: "active",
     });
+    // The speed trace is in charger time order, deduplicated, and ignores the same junk.
+    expect(session?.meterTrace).toEqual([
+      { at: "2026-11-04T10:18:30.000Z", energyWh: 0 },
+      { at: "2026-11-04T10:33:32.000Z", energyWh: 698 },
+      { at: "2026-11-04T10:48:32.000Z", energyWh: 1_379 },
+      { at: "2026-11-04T11:03:32.000Z", energyWh: 2_088 },
+    ]);
     // The delegate export keeps its fixed schema-1 session shape.
-    expect(buildDelegateSessionExport(config, events).sessions[0]).not.toHaveProperty(
-      "latestMeterReading",
-    );
+    const exported = buildDelegateSessionExport(config, events).sessions[0];
+    expect(exported).not.toHaveProperty("latestMeterReading");
+    expect(exported).not.toHaveProperty("meterTrace");
+
+    // A long session is thinned evenly, keeping its first and latest reading.
+    const long = buildOwnerSnapshot(config, gateway, [
+      start,
+      ...Array.from({ length: 100 }, (_, index) =>
+        reading(new Date(Date.parse("2026-11-04T10:20:00Z") + index * 300_000).toISOString(), [
+          energy(String(1242.132 + (index + 1) * 0.2)),
+        ]),
+      ),
+    ]).sessions[0]!.meterTrace;
+    expect(long).toHaveLength(METER_TRACE_MAX_POINTS);
+    expect(long[0]).toEqual({ at: "2026-11-04T10:20:00.000Z", energyWh: 200 });
+    expect(long.at(-1)).toEqual({ at: "2026-11-04T18:35:00.000Z", energyWh: 20_000 });
+    const times = long.map(({ at }) => Date.parse(at));
+    expect(times).toEqual(times.toSorted((left, right) => left - right));
 
     // A meter reset below meterStart is not negative energy; the stop result stays authoritative.
     const stopped = buildOwnerSnapshot(config, gateway, [

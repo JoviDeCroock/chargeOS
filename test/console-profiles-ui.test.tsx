@@ -88,6 +88,7 @@ function ownerSnapshot(
     energyWh,
     integrity: "consistent" as const,
     latestMeterReading: null,
+    meterTrace: [],
     meterStart: 0,
     meterStop: energyWh,
     replayedMessageCount: 0,

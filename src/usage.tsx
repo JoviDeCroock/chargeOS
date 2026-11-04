@@ -20,6 +20,7 @@ import {
 import {
   formatDate,
   formatKwh,
+  formatTime,
   LOCALE_NAMES,
   LOCALES,
   locale,
@@ -37,7 +38,39 @@ import {
   usageLoading,
   usageReport,
 } from "./model.js";
+import {
+  averagePowerKw,
+  energyPrice,
+  estimatedCost,
+  formatKw,
+  MAX_PRICE_PER_KWH,
+  PRICE_CURRENCIES,
+  priceLabel,
+  setEnergyPrice,
+  type PriceCurrency,
+} from "./live-charging.js";
+import {
+  disableNotifications,
+  enableNotifications,
+  notificationsEnabled,
+  notificationSupport,
+  type NotificationSupport,
+} from "./notifications.js";
 import { cardLabel } from "./ui.js";
+
+/** Open sessions' energy so far, from the charger's latest meter readings. */
+export function liveUsage(sessions: readonly ChargeSession[]): {
+  readonly energyWh: number;
+  readonly sessions: readonly ChargeSession[];
+} {
+  const open = sessions.filter(
+    ({ status, latestMeterReading }) => status === "active" && latestMeterReading !== null,
+  );
+  return {
+    energyWh: open.reduce((total, session) => total + session.latestMeterReading!.energyWh, 0),
+    sessions: open,
+  };
+}
 
 /* ------------------------------------------------------------------ */
 /* Per-charger usage on the overview                                   */
@@ -63,12 +96,17 @@ export function UsagePanel({
   const thisMonth = series.at(-1);
   const lastMonth = series.at(-2);
   const thisMonthSessions = thisMonth ? sessionsInMonth(sessions, thisMonth.month, timeZone) : [];
+  // Finished sessions carry the charger's final figure; open ones add their energy so far.
+  const live = liveUsage(thisMonthSessions);
+  const thisMonthWh = (thisMonth?.energyWh ?? 0) + live.energyWh;
   const cards = usageByCard(thisMonthSessions);
-  const yearWh = series.reduce((total, { energyWh }) => total + energyWh, 0);
+  const yearWh = series.reduce((total, { energyWh }) => total + energyWh, 0) + live.energyWh;
   const openSessions = thisMonthSessions.filter(({ status }) => status === "active").length;
   // Until an earlier month has charging, comparisons and a 12-month chart only repeat this month.
   const hasHistory = series.slice(0, -1).some(({ sessionCount }) => sessionCount > 0);
-  const thisMonthDetail = `${tn("usage.sessions", thisMonth?.sessionCount ?? 0)}${openSessions ? `, ${tn("usage.stillCharging", openSessions)}` : ""}`;
+  const thisMonthDetail = live.energyWh
+    ? t("usage.inclLive", { energy: formatKwh(live.energyWh) })
+    : `${tn("usage.sessions", thisMonth?.sessionCount ?? 0)}${openSessions ? `, ${tn("usage.stillCharging", openSessions)}` : ""}`;
   const lastSession = sessions.reduce<ChargeSession | null>(
     (latest, session) => (!latest || session.startedAt > latest.startedAt ? session : latest),
     null,
@@ -86,17 +124,21 @@ export function UsagePanel({
         <div class="usage-tiles">
           <UsageTile
             label={t("usage.thisMonth")}
-            value={formatKwh(thisMonth?.energyWh ?? 0)}
+            value={formatKwh(thisMonthWh)}
             detail={thisMonthDetail}
+            cost={estimatedCost(thisMonthWh)}
+            live={live.energyWh > 0}
           />
           <UsageTile
             label={lastMonth ? monthLabel(lastMonth.month) : t("usage.lastMonth")}
             value={formatKwh(lastMonth?.energyWh ?? 0)}
             detail={tn("usage.sessions", lastMonth?.sessionCount ?? 0)}
+            cost={estimatedCost(lastMonth?.energyWh ?? 0)}
           />
           <UsageTile
             label={t("usage.last12")}
             value={formatKwh(yearWh)}
+            cost={estimatedCost(yearWh)}
             detail={tn(
               "usage.sessions",
               series.reduce((total, { sessionCount }) => total + sessionCount, 0),
@@ -107,9 +149,13 @@ export function UsagePanel({
         // One month of charging is one figure; comparisons would only repeat it.
         <div class="usage-summary-block">
           <p class="usage-summary">
-            <strong>{formatKwh(thisMonth?.energyWh ?? 0)}</strong>
+            {live.energyWh > 0 && <span class="live-dot" aria-hidden="true" />}
+            <strong>{formatKwh(thisMonthWh)}</strong>
             <span>
               {t("usage.thisMonthLower")} · {thisMonthDetail}
+              {estimatedCost(thisMonthWh) && (
+                <small>{t("usage.costEstimate", { cost: estimatedCost(thisMonthWh)! })}</small>
+              )}
             </span>
           </p>
           {lastSession && (
@@ -124,7 +170,7 @@ export function UsagePanel({
         <p class="empty-state">{t("usage.empty")}</p>
       ) : (
         <>
-          {hasHistory && <MonthlyColumns series={series} />}
+          {hasHistory && <MonthlyColumns series={series} live={live.sessions} />}
           {cards.length > 1 && (
             <div class="usage-cards">
               <h3>{t("usage.byCard")}</h3>
@@ -172,12 +218,29 @@ export function UsagePanel({
   );
 }
 
-function UsageTile({ label, value, detail }: { label: string; value: string; detail: string }) {
+function UsageTile({
+  label,
+  value,
+  detail,
+  cost = null,
+  live = false,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  /** Estimate at the owner's own price, when one is set. */
+  cost?: string | null;
+  live?: boolean;
+}) {
   return (
     <div class="usage-tile">
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong>
+        {live && <span class="live-dot" aria-hidden="true" />}
+        {value}
+      </strong>
       <small>{detail}</small>
+      {cost && <small class="usage-cost">{t("usage.costEstimate", { cost })}</small>}
     </div>
   );
 }
@@ -201,20 +264,39 @@ export function MonthSummary({
   if (sessions.length === 0) return null;
   const timeZone = browserTimeZone();
   const thisMonth = monthlyUsage(sessions, recentMonths(now, timeZone, 1), timeZone).at(-1);
+  const live = thisMonth ? liveUsage(sessionsInMonth(sessions, thisMonth.month, timeZone)) : null;
+  const energyWh = (thisMonth?.energyWh ?? 0) + (live?.energyWh ?? 0);
+  const cost = estimatedCost(energyWh);
   return (
     <p class="usage-summary sessions-summary">
-      <strong>{formatKwh(thisMonth?.energyWh ?? 0)}</strong>
+      {live?.energyWh ? <span class="live-dot" aria-hidden="true" /> : null}
+      <strong>{formatKwh(energyWh)}</strong>
       <span>
         {t("usage.thisMonthLower")} · {tn("usage.sessions", thisMonth?.sessionCount ?? 0)}
+        {live?.energyWh ? ` · ${t("usage.inclLive", { energy: formatKwh(live.energyWh) })}` : ""}
+        {cost && <small>{t("usage.costEstimate", { cost })}</small>}
       </span>
     </p>
   );
 }
 
-export function MonthlyColumns({ series }: { series: readonly MonthlyUsage[] }) {
+export function MonthlyColumns({
+  series,
+  live = [],
+}: {
+  series: readonly MonthlyUsage[];
+  /** Open sessions this month; their energy so far stacks on the current month. */
+  live?: readonly ChargeSession[];
+}) {
   const [showTable, setShowTable] = useState(false);
-  const maxKwh = niceCeiling(Math.max(...series.map(({ energyWh }) => energyWh / 1_000), 0));
   const current = series.at(-1);
+  const liveWh = liveUsage(live).energyWh;
+  const liveIn = (bucket: MonthlyUsage) => (bucket.month === current?.month ? liveWh : 0);
+  const totalOf = (bucket: MonthlyUsage) => bucket.energyWh + liveIn(bucket);
+  const maxKwh = niceCeiling(Math.max(...series.map((bucket) => totalOf(bucket) / 1_000), 0));
+  const single = live.length === 1 ? live[0]! : null;
+  const average = single ? averagePowerKw(single) : null;
+  const priced = energyPrice.value !== null;
   return (
     <figure class="usage-chart">
       <figcaption>
@@ -236,6 +318,7 @@ export function MonthlyColumns({ series }: { series: readonly MonthlyUsage[] }) 
                 <th>{t("usage.col.month")}</th>
                 <th class="numeric">{t("usage.col.sessions")}</th>
                 <th class="numeric">{t("usage.col.energy")}</th>
+                {priced && <th class="numeric">{t("usage.col.cost")}</th>}
               </tr>
             </thead>
             <tbody>
@@ -243,7 +326,15 @@ export function MonthlyColumns({ series }: { series: readonly MonthlyUsage[] }) 
                 <tr key={bucket.month}>
                   <td>{monthLabel(bucket.month)}</td>
                   <td class="numeric">{bucket.sessionCount}</td>
-                  <td class="numeric">{formatKwh(bucket.energyWh)}</td>
+                  <td class="numeric">
+                    {formatKwh(totalOf(bucket))}
+                    {liveIn(bucket) > 0 && (
+                      <small class="cell-sub">
+                        {t("usage.inclLive", { energy: formatKwh(liveIn(bucket)) })}
+                      </small>
+                    )}
+                  </td>
+                  {priced && <td class="numeric">{estimatedCost(totalOf(bucket))}</td>}
                 </tr>
               ))}
             </tbody>
@@ -259,24 +350,68 @@ export function MonthlyColumns({ series }: { series: readonly MonthlyUsage[] }) 
           <ol class="usage-columns" aria-label={t("usage.chartTitle")}>
             {series.map((bucket) => {
               const height = (bucket.energyWh / 1_000 / maxKwh) * 100;
-              const label = `${monthLabel(bucket.month)}: ${formatKwh(bucket.energyWh)}, ${tn("usage.sessions", bucket.sessionCount)}`;
+              const liveHere = liveIn(bucket);
+              const liveHeight = (liveHere / 1_000 / maxKwh) * 100;
+              const cost = estimatedCost(totalOf(bucket));
+              // Screen readers hear the same totals the chart shows, including a charge in progress.
+              const label = [
+                liveHere
+                  ? t("usage.liveColumnLabel", {
+                      live: formatKwh(liveHere),
+                      month: monthLabel(bucket.month),
+                      total: formatKwh(totalOf(bucket)),
+                    })
+                  : `${monthLabel(bucket.month)}: ${formatKwh(bucket.energyWh)}`,
+                tn("usage.sessions", bucket.sessionCount),
+                cost ? t("usage.costEstimate", { cost }) : null,
+              ]
+                .filter(Boolean)
+                .join(", ");
               const isCurrent = bucket.month === current?.month;
               return (
                 <li key={bucket.month} class={isCurrent ? "current" : undefined}>
-                  <span class="usage-slot" tabIndex={0} aria-label={label}>
-                    {isCurrent && bucket.energyWh > 0 && (
-                      <span class="usage-cap" aria-hidden="true">
-                        {formatKwh(bucket.energyWh)}
+                  <span class="usage-slot" role="img" tabIndex={0} aria-label={label}>
+                    {isCurrent && totalOf(bucket) > 0 && (
+                      <span class={`usage-cap${liveHere ? " live" : ""}`} aria-hidden="true">
+                        {liveHere > 0 && <span class="live-dot" />}
+                        {formatKwh(totalOf(bucket))}
                       </span>
                     )}
+                    {liveHere > 0 && (
+                      <span
+                        class="usage-live"
+                        aria-hidden="true"
+                        style={{ height: `${Math.max(liveHeight, 3)}%` }}
+                      />
+                    )}
                     <span
-                      class="usage-column"
+                      class={`usage-column${liveHere ? " under-live" : ""}`}
                       style={{ height: `${bucket.energyWh > 0 ? Math.max(height, 1.5) : 0}%` }}
                     />
-                    <span class="usage-tip" role="tooltip">
+                    {/* The slot's label already carries these values for assistive technology. */}
+                    <span class="usage-tip" aria-hidden="true">
                       <strong>{monthLabel(bucket.month)}</strong>
-                      {formatKwh(bucket.energyWh)}
+                      {liveHere > 0 && (
+                        <>
+                          <span class="usage-tip-live">
+                            <span class="live-dot" />
+                            {t("usage.tipLive", { energy: formatKwh(liveHere) })}
+                          </span>
+                          {single && (
+                            <small>
+                              {t("usage.tipSince", { time: formatTime(single.startedAt) })}
+                              {average !== null &&
+                                ` · ${t("live.average", { power: formatKw(average) })}`}
+                            </small>
+                          )}
+                          <span class="usage-tip-rule" />
+                        </>
+                      )}
+                      {liveHere > 0
+                        ? t("usage.tipFinished", { energy: formatKwh(bucket.energyWh) })
+                        : formatKwh(bucket.energyWh)}
                       <small>{tn("usage.sessions", bucket.sessionCount)}</small>
+                      {cost && <small>{t("usage.costEstimate", { cost })}</small>}
                     </span>
                   </span>
                   <span class="usage-month" aria-hidden="true">
@@ -505,6 +640,9 @@ export function ConsoleSettingsSection({ profile }: { profile: ConsoleProfile })
         <p class="fine-print">{t("prefs.languageNote")}</p>
       </section>
 
+      <PriceSettings />
+      <NotificationSettings />
+
       <section class="panel glass" aria-labelledby="modules-title">
         <header class="panel-head">
           <div>
@@ -561,5 +699,130 @@ export function ConsoleSettingsSection({ profile }: { profile: ConsoleProfile })
         <p class="fine-print">{t("prefs.profileNote")}</p>
       </section>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Preferences: energy price and notifications (this browser only)     */
+/* ------------------------------------------------------------------ */
+
+function PriceSettings() {
+  const saved = energyPrice.value;
+  const [amount, setAmount] = useState(saved ? String(saved.amount) : "");
+  const [currency, setCurrency] = useState<PriceCurrency>(saved?.currency ?? "EUR");
+  const [error, setError] = useState(false);
+  const save = (event: Event) => {
+    event.preventDefault();
+    const value = Number(amount.replace(",", "."));
+    if (!Number.isFinite(value) || value <= 0 || value > MAX_PRICE_PER_KWH) {
+      setError(true);
+      return;
+    }
+    setError(false);
+    setEnergyPrice({ amount: value, currency });
+  };
+  return (
+    <section class="panel glass" aria-labelledby="price-title">
+      <header class="panel-head">
+        <div>
+          <h2 id="price-title">{t("prefs.price.title")}</h2>
+          <p class="panel-sub">
+            {saved ? t("prefs.price.current", { price: priceLabel(saved) }) : t("prefs.price.none")}
+          </p>
+        </div>
+        {saved && (
+          <button
+            class="button secondary compact"
+            type="button"
+            onClick={() => {
+              setEnergyPrice(null);
+              setAmount("");
+            }}
+          >
+            {t("prefs.price.remove")}
+          </button>
+        )}
+      </header>
+      <form class="price-form" onSubmit={save}>
+        <label>
+          <span>{t("prefs.price.amount")}</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            value={amount}
+            aria-invalid={error}
+            aria-describedby={error ? "price-error" : undefined}
+            onInput={(event) => setAmount(event.currentTarget.value)}
+          />
+        </label>
+        <label>
+          <span>{t("prefs.price.currency")}</span>
+          <select
+            value={currency}
+            onChange={(event) => setCurrency(event.currentTarget.value as PriceCurrency)}
+          >
+            {PRICE_CURRENCIES.map((code) => (
+              <option key={code} value={code}>
+                {code}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button class="button" type="submit">
+          {t("prefs.price.save")}
+        </button>
+      </form>
+      {error && (
+        <p id="price-error" class="inline-alert warn" role="alert">
+          {t("prefs.price.invalid", { max: MAX_PRICE_PER_KWH })}
+        </p>
+      )}
+      <p class="fine-print">{t("prefs.price.note")}</p>
+    </section>
+  );
+}
+
+const SUPPORT_COPY: Readonly<Record<NotificationSupport, MessageKey>> = {
+  default: "prefs.notify.off",
+  denied: "prefs.notify.denied",
+  granted: "prefs.notify.off",
+  insecure: "prefs.notify.insecure",
+  unsupported: "prefs.notify.unsupported",
+};
+
+function NotificationSettings() {
+  const [support, setSupport] = useState<NotificationSupport>(notificationSupport);
+  const enabled = notificationsEnabled.value && support === "granted";
+  const available = support === "default" || support === "granted";
+  return (
+    <section class="panel glass" aria-labelledby="notify-title">
+      <header class="panel-head">
+        <div>
+          <h2 id="notify-title">{t("prefs.notify.title")}</h2>
+          <p class="panel-sub" role="status">
+            {t(enabled ? "prefs.notify.on" : SUPPORT_COPY[support])}
+          </p>
+        </div>
+        {available && (
+          <button
+            class={`button ${enabled ? "secondary " : ""}compact`}
+            type="button"
+            onClick={() => {
+              if (enabled) {
+                disableNotifications();
+                setSupport(notificationSupport());
+              } else {
+                void enableNotifications().then(setSupport);
+              }
+            }}
+          >
+            {t(enabled ? "prefs.notify.turnOff" : "prefs.notify.turnOn")}
+          </button>
+        )}
+      </header>
+      <p>{t("prefs.notify.what")}</p>
+      <p class="fine-print">{t("prefs.notify.note")}</p>
+    </section>
   );
 }
