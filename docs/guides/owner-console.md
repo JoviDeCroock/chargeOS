@@ -19,7 +19,7 @@ If the console reports that the token is not valid, paste it again without extra
 The sidebar has the same everyday pages for everyone:
 
 - **Overview**: the selected charger at a glance. Start with **What chargeOS knows**. It shows the charger’s latest charging report, whether the charger accepted the card list, and whether offline charging has been checked in a field test. **Your charging** shows recorded energy in kWh per month.
-- **Chargers**: every charger as a card, with its name, location, person, cards, recorded energy and anything that needs attention. Click **Open** to work on one charger, or **Edit names** to rename it.
+- **Chargers**: every charger as a card, with its name, location, person, cards, recorded energy and anything that needs attention. Use the next action on a charger card or open its overview. In fleet mode, **Review card sync** shows which chargers can receive their lists and why others are skipped. Confirm the send and check each charger’s result.
 - **People** (**Employees** with the company profile): everyone who charges, with their charger and cards. See [Name chargers, people and cards](owner-console.md#name-chargers-people-and-cards).
 - **RFID cards**: the cards that may start charging at the selected charger. See [Add or remove an RFID card](rfid.md).
 - **Usage** (company profile, or several chargers): energy per person and per charger for a month, with a CSV download. See [Set up for yourself or for a company](personal-or-company.md).
@@ -66,17 +66,17 @@ The names are stored in `directory.json` beside the records. They are not part o
 
 Turn the optional tabs on or off under **Preferences**. A hidden tab comes back on its own while it needs you; see [Set up for yourself or for a company](personal-or-company.md).
 
-**Ready** on **Offline charging** means the charger reported every setting it needs. It is not a physical test. Do one real test: disconnect the internet and charge with your card.
+**Settings check passed** describes the charger’s reported settings. The separate **Field test** line shows recorded test status. Wait for the charger to accept its current card list, then follow the field test guide.
 
 ## Control the charger remotely
 
 **Station settings › Remote control** works only while the charger shows **Connected**, and only you (the owner) can use it. **Stop charging** on the **Overview** does the same as **Stop session** here.
 
-- **Start remotely**: pick a connector and one of your cards. The charger starts a session as if that card had been presented.
+- **Start on connector …**: pick a connector and one of your cards. The charger starts a session as if that card had been presented.
 - **Stop session #…**: appears for each session that is currently charging.
-- **Make connector … available**: asks the charger to accept sessions again, for example after a previous provider disabled it. chargeOS never switches a charger off. Chargers remember "off" even after a restart, so if chargeOS stopped running you could be locked out.
-- **Unlock** releases the cable. Type the exact phrase shown first, and only do this when you are at the charger.
-- **Restart** restarts the charger. **Soft** ends charging cleanly first; **Hard** is immediate. Type the exact phrase shown first.
+- **Connector availability**: choose its connector, then use **Make connector … available** to ask the charger to accept sessions again, for example after a previous provider disabled it. chargeOS never switches a charger off. Chargers remember "off" even after a restart, so if chargeOS stopped running you could be locked out.
+- **Unlock**, under **Maintenance**, releases the cable. Type the exact phrase shown first, and only do this when you are at the charger.
+- **Restart**, under **Maintenance**, restarts the charger. **Soft** ends charging cleanly first; **Hard** is immediate. Type the exact phrase shown first.
 
 Each command appears in **Command history** with the charger's answer and, separately, **What happened afterwards**:
 

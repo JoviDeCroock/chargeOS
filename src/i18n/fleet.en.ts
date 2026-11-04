@@ -3,6 +3,29 @@
  * finance feed. Spread into the reference catalog; Dutch and French must match these keys.
  */
 export const fleetEn = {
+  "fleet.sync.state.changed": "Skipped · charger or list changed",
+  "fleet.sync.state.failed": "Acceptance unconfirmed · check the charger",
+  "fleet.sync.state.synced": "Charger accepted the list",
+  "fleet.sync.state.no-cards": "Skipped · no registered cards",
+  "fleet.sync.state.not-ready": "Skipped · settings check needed",
+  "fleet.sync.state.offline": "Skipped · charger disconnected",
+  "fleet.sync.state.already-current": "Skipped · current list already accepted",
+  "fleet.sync.state.eligible": "Ready to send",
+  "fleet.sync.send.other": "Send to {count} chargers",
+  "fleet.sync.send.one": "Send to {count} charger",
+  "fleet.sync.revision": "List version {revision}",
+  "fleet.sync.changes": "Additions: {additions} · Removals: {removals}",
+  "fleet.sync.reviewAgain": "Review again",
+  "fleet.sync.retryBody":
+    "The review is unavailable or has changed. Review the current lists before trying again.",
+  "fleet.sync.loading": "Checking which chargers can receive their card list…",
+  "fleet.sync.resultBody":
+    "Check which chargers accepted their list and which still need attention.",
+  "fleet.sync.result": "Card sync results",
+  "fleet.sync.reviewBody":
+    "Each eligible charger will receive its own full card list. Check the additions and removals before sending.",
+  "fleet.sync.review": "Review card sync",
+  "fleet.cards.alsoAccepted": "Card list accepted at {station}",
   "driver.addPersonal": "Add a personal card",
   "driver.cardCount.one": "{count} card on this charger.",
   "driver.cardCount.other": "{count} cards on this charger.",
@@ -100,10 +123,10 @@ export const fleetEn = {
   "fleet.cards.classify": "Company or personal…",
   "fleet.cards.copy": "Use on other chargers…",
   "fleet.cards.lost": "Card lost: remove everywhere",
-  "fleet.cards.alsoAt": "Also works at {stations}",
+  "fleet.cards.alsoAt": "Registered at {station} · delivery unconfirmed",
   "fleet.cards.more": "More",
   "fleet.cards.removeHere": "Remove from this charger",
-  "fleet.cards.syncAll": "Send to all ready chargers",
+  "fleet.cards.syncAll": "Review card sync",
   "fleet.cards.typeNumber": "Type a card number",
 
   "fleet.classify.everywhere": "This applies to the same card on every charger.",
@@ -226,7 +249,7 @@ export const fleetEn = {
   "fleet.setup.anyFirmware": "any firmware",
   "fleet.setup.done.body":
     "Every setup step passed on {time}. The charger has its card list and the settings for charging without internet. One real test with the internet unplugged is still the only proof.",
-  "fleet.setup.done.title": "{name} is ready",
+  "fleet.setup.done.title": "Setup complete for {name}",
   "fleet.setup.expected": "Expected: {vendor} {model}, {firmware}",
   "fleet.setup.offlineDetails": "Offline charging details",
   "fleet.setup.otherWays": "Other ways to add a card",
@@ -269,7 +292,7 @@ export const fleetEn = {
   "fleet.step.identity.title": "Right charger",
   "fleet.step.offline-ready.body":
     "Check, and if needed prepare, the charger to keep cards for offline use.",
-  "fleet.step.offline-ready.title": "Offline charging checked",
+  "fleet.step.offline-ready.title": "Offline settings checked",
   "fleet.step.test-charge.body":
     "Charge once with the registered card. Setup finishes when that charge is accepted.",
   "fleet.step.test-charge.title": "First charge",

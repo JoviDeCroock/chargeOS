@@ -11,6 +11,7 @@ import type {
   StationOwnership,
   StationRegistryProjection,
   SyncReadyResult,
+  SyncReadyReview,
 } from "../shared/contracts.js";
 import type { CardOwnership, CardUse } from "../shared/cards.js";
 import { OWNER_TAG_REVOCATION_CONFIRMATION } from "../shared/owner-tags.js";
@@ -83,8 +84,12 @@ export function setFleetCardPolicy(
   return postJson("/api/v1/fleet-cards/policy", token, { card: reference(card), ownership, use });
 }
 
-export function syncReadyChargers(token: string): Promise<SyncReadyResult> {
-  return postJson("/api/v1/sync-ready", token, {});
+export function fetchSyncReview(token: string): Promise<SyncReadyReview> {
+  return requestJson("/api/v1/sync-ready", token);
+}
+
+export function syncReadyChargers(reviewId: string, token: string): Promise<SyncReadyResult> {
+  return postJson("/api/v1/sync-ready", token, { reviewId });
 }
 
 /** Grants on the first charger cover fleet roles (the finance feed). */

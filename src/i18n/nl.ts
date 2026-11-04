@@ -3,6 +3,24 @@ import { fleetNl } from "./fleet.nl.js";
 
 /** Dutch (Belgium) owner-console messages. Keys and placeholders mirror `en.ts`. */
 export const nl: Readonly<Record<MessageKey, string>> = {
+  "stations.openOverview": "Open overzicht",
+  "stations.resolveSetup": "Bekijk het installatieprobleem",
+  "stations.connectionHelp": "Open hulp bij verbinden",
+  "stations.metric.unknown": "Laadstatus onbekend",
+  "offline.fieldAfterSettings":
+    "Rond de controle van de instellingen af voordat je passen stuurt of de praktijktest uitvoert.",
+  "offline.fieldAfterCards":
+    "Stuur de passenlijst en wacht tot de laadpaal ze aanvaardt voordat je test.",
+  "offline.fieldNext":
+    "De laadpaal heeft de huidige lijst aanvaard. Volg de gids om aan de laadpaal te testen.",
+  "offline.fieldGuide": "Open de gids voor de praktijktest",
+  "offline.fieldResult": "Praktijktest · {result}",
+  "controls.maintenance": "Onderhoud",
+  "controls.availability": "Beschikbaarheid van de aansluiting",
+  "controls.startTarget": "Start op aansluiting {connector}",
+  "controls.historyIntro":
+    "In de geschiedenis zie je het antwoord van de laadpaal en wat chargeOS daarna heeft waargenomen.",
+  "controls.target": "Opdrachten voor {name}.",
   "advanced.englishOnly":
     "Dit onderdeel is voorlopig alleen in het Engels beschikbaar, omdat de veiligheidsteksten eerst nagekeken moeten worden voor ze vertaald worden.",
   "advanced.lede":
@@ -58,10 +76,9 @@ export const nl: Readonly<Record<MessageKey, string>> = {
     "Nog geen enkele pas kan hier laden: chargeOS weigert elke pas tot je er een toevoegt. Houd je eigen pas tegen de laadpaal om ze toe te voegen.",
   "cards.first.title": "Voeg je eerste pas toe",
 
-  "cards.keepOne":
-    "Een laadpaal houdt altijd minstens één laadpas, zodat je jezelf nooit kunt buitensluiten.",
+  "cards.keepOne": "Je kunt de laatste geregistreerde laadpas niet verwijderen.",
   "cards.lede":
-    "Laadpassen die kunnen laden aan {station}. Zodra een laadpas op de laadpaal staat, werkt hij ook zonder internet.",
+    "Laadpassen die voor {station} zijn geregistreerd. De laadpaal bevestigt de ontvangst van de lijst afzonderlijk.",
   "cards.onCharger": "Op de laadpaal",
   "cards.privacy":
     "Namen worden alleen in deze console getoond. Exports, gedeelde toegang en AI-hulp gebruiken anonieme referenties.",
@@ -345,7 +362,7 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "offline.preparing": "Bezig met wijzigen…",
   "offline.readyText":
     "De laadpaal meldde alle instellingen die hij nodig heeft om je laadpassen zelfstandig te aanvaarden.",
-  "offline.readyTitle": "Klaar",
+  "offline.readyTitle": "Instellingen goedgekeurd bij controle",
   "offline.sendLocked": "Beschikbaar zodra alle controles in orde zijn.",
   "offline.sendText":
     "Vervangt de passenlijst op de laadpaal door de passen in deze console. Een aanvaarde lijst bevestigt de ontvangst. Test aan de laadpaal hoe die offline werkt.",
@@ -508,7 +525,7 @@ export const nl: Readonly<Record<MessageKey, string>> = {
 
   "stations.attention": "Vraagt aandacht",
   "stations.available": "Beschikbaar",
-  "stations.chargingNow": "Aan het laden",
+  "stations.chargingNow": "Laden gemeld",
   "stations.driver": "Persoon",
   "stations.edit": "Namen bewerken",
   "stations.editTitle": "Laadpaal bewerken",
@@ -522,12 +539,11 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "stations.field.site": "Locatie",
   "stations.field.sitePlaceholder": "Bijvoorbeeld: Thuis of kantoor Brussel",
   "stations.independence":
-    "Elke laadpaal houdt zijn eigen lijst met laadpassen bij en blijft zelfstandig werken, ook als deze console niet bereikbaar is.",
+    "Elke laadpaal heeft zijn eigen passenlijst. Test offline laden aan elke laadpaal.",
   "stations.lastSession": "Laatste sessie",
-  "stations.lede":
-    "Alle laadpalen die je beheert, van wie ze zijn en welke laadpassen ze aanvaarden.",
+  "stations.lede": "Bekijk per laadpaal de verbinding, de laatste laadstatus en de volgende stap.",
   "stations.metric.chargers": "Laadpalen",
-  "stations.metric.charging": "Nu aan het laden",
+  "stations.metric.charging": "Laden gemeld",
   "stations.metric.connected": "Verbonden",
   "stations.metric.energy": "Geregistreerde energie",
   "stations.offline": "Offline",

@@ -15,7 +15,6 @@ import {
   issuedAccess,
   refreshFleetExtras,
   runIssueDriverAccess,
-  runSyncReady,
 } from "../fleet-model.js";
 import { formatDate, t, tn, type MessageKey } from "../i18n/index.js";
 import {
@@ -401,14 +400,9 @@ export function OffboardDialog({
                   {t("fleet.offboard.retireStation", { station: station.label })}
                 </button>
               ))}
-            <button
-              class="button primary"
-              type="button"
-              disabled={action.value !== null}
-              onClick={() => void runSyncReady().then(onClose)}
-            >
-              {t("fleet.cards.syncAll")}
-            </button>
+            <a class="button primary" href="#/stations" onClick={onClose}>
+              {t("nav.stations")}
+            </a>
           </footer>
         </div>
       )}

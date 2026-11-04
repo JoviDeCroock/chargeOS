@@ -6,6 +6,8 @@ import { formatDate, formatKwh, t, tn, type MessageKey } from "../i18n/index.js"
 import { action, runSaveStation } from "../model.js";
 import { closeRowMenu, Dialog, PageHead, personName, PersonSelect } from "../ui.js";
 import { runSetOwnership, setupSheet, stationRegistry } from "../fleet-model.js";
+import type { Route } from "../routes.js";
+import { FleetSyncDialog } from "./fleet-sync.js";
 import { AddChargerDialog, RetireChargerDialog, SetupSheetDialog } from "./fleet-setup.js";
 
 const ATTENTION_KEYS: Readonly<Record<FleetStationSummary["attention"][number], MessageKey>> = {
@@ -25,12 +27,13 @@ export function StationsPage({
 }: {
   fleet: FleetSnapshot;
   directory: OwnerDirectory | null;
-  onOpen: (stationId: string) => void;
+  onOpen: (stationId: string, route?: Route) => void;
   /** The routine "next switching step" signal only matters to owners who use that module. */
   showSwitching: boolean;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [reviewingSync, setReviewingSync] = useState(false);
   const [added, setAdded] = useState<string | null>(null);
   const [retiring, setRetiring] = useState<string | null>(null);
   const registry = stationRegistry.value;
@@ -41,11 +44,23 @@ export function StationsPage({
         title={t("stations.title")}
         lede={t("stations.lede")}
         actions={
-          registry && (
-            <button class="button primary" type="button" onClick={() => setAdding(true)}>
-              {t("fleet.add.button")}
-            </button>
-          )
+          <>
+            {fleet.stations.length > 1 && (
+              <button
+                class="button secondary"
+                type="button"
+                disabled={action.value !== null}
+                onClick={() => setReviewingSync(true)}
+              >
+                {t("fleet.cards.syncAll")}
+              </button>
+            )}
+            {registry && (
+              <button class="button primary" type="button" onClick={() => setAdding(true)}>
+                {t("fleet.add.button")}
+              </button>
+            )}
+          </>
         }
       />
 
@@ -55,7 +70,20 @@ export function StationsPage({
           label={t("stations.metric.connected")}
           value={`${fleet.totals.connected} / ${fleet.totals.stations}`}
         />
-        <Metric label={t("stations.metric.charging")} value={String(fleet.totals.activeSessions)} />
+        <Metric
+          label={t("stations.metric.charging")}
+          value={String(
+            fleet.stations.filter(({ chargingStatus }) => chargingStatus === "charging").length,
+          )}
+        />
+        <Metric
+          label={t("stations.metric.unknown")}
+          value={String(
+            fleet.stations.filter(
+              ({ chargingStatus }) => !chargingStatus || chargingStatus === "unknown",
+            ).length,
+          )}
+        />
         <Metric label={t("stations.metric.energy")} value={formatKwh(fleet.totals.energyWh)} />
       </section>
 
@@ -68,7 +96,7 @@ export function StationsPage({
             attention={station.attention.filter(
               (item) => showSwitching || item !== "migration-action",
             )}
-            onOpen={() => onOpen(station.id)}
+            onOpen={(route) => onOpen(station.id, route)}
             onEdit={directory?.writable ? () => setEditing(station.id) : null}
             onRetire={
               registry && station.id !== firstStationId ? () => setRetiring(station.id) : null
@@ -95,6 +123,8 @@ export function StationsPage({
       )}
 
       <p class="fine-print">{t("stations.independence")}</p>
+
+      {reviewingSync && <FleetSyncDialog fleet={fleet} onClose={() => setReviewingSync(false)} />}
 
       {adding && (
         <AddChargerDialog
@@ -144,12 +174,25 @@ function StationCard({
   station: FleetStationSummary;
   directory: OwnerDirectory | null;
   attention: FleetStationSummary["attention"];
-  onOpen: () => void;
+  onOpen: (route?: Route) => void;
   onEdit: (() => void) | null;
   onRetire: (() => void) | null;
 }) {
   const cards = directory?.cards.filter(({ stationId }) => stationId === station.id) ?? [];
-  const state = station.activeSessionCount ? "live" : station.connected ? "ok" : "idle";
+  const charging = station.connected && station.chargingStatus === "charging";
+  const state = charging ? "live" : station.connected ? "ok" : "idle";
+  const next: { label: MessageKey; route?: Route } =
+    station.setup === "stopped"
+      ? { label: "stations.resolveSetup" }
+      : !station.connected
+        ? { label: "stations.connectionHelp" }
+        : station.registeredCardCount === 0
+          ? { label: "overview.cardDetails", route: { page: "cards" } }
+          : station.readiness !== "ready"
+            ? { label: "overview.offlineDetails", route: { page: "advanced", tab: "offline" } }
+            : station.authorizationState !== "current"
+              ? { label: "overview.cardDetails", route: { page: "cards" } }
+              : { label: "stations.open" };
   const settingUp = station.setup !== undefined && station.setup !== "active";
   return (
     <li class={`entity-card glass station-card ${state}`}>
@@ -160,9 +203,7 @@ function StationCard({
           <span>{station.site}</span>
         </div>
         <span class={`state-chip ${state === "live" ? "live" : state === "ok" ? "ok" : "idle"}`}>
-          {station.activeSessionCount
-            ? t("stations.chargingNow")
-            : t(station.connected ? "stations.available" : "stations.offline")}
+          {t(station.connected ? "station.connected" : "station.offline")}
         </span>
       </header>
       {(settingUp || station.ownership) && (
@@ -181,6 +222,18 @@ function StationCard({
       )}
       <dl class="entity-facts">
         <div>
+          <dt>{t("overview.chargingNow")}</dt>
+          <dd>
+            {t(
+              charging
+                ? "stations.chargingNow"
+                : station.connected && station.chargingStatus === "idle"
+                  ? "overview.notCharging"
+                  : "overview.chargingUnknown",
+            )}
+          </dd>
+        </div>
+        <div>
           <dt>{t("stations.driver")}</dt>
           <dd>{station.driver ?? <span class="muted">{t("people.nobody")}</span>}</dd>
         </div>
@@ -194,7 +247,9 @@ function StationCard({
                       card.name ?? personName(directory, card.holderPersonId) ?? t("cards.unnamed"),
                   )
                   .join(", ")
-              : tn("cards.count", 0)}
+              : station.registeredCardCount === undefined
+                ? t("overview.chargingUnknown")
+                : tn("cards.count", station.registeredCardCount)}
           </dd>
         </div>
         <div>
@@ -214,9 +269,14 @@ function StationCard({
         </ul>
       )}
       <footer class="entity-actions">
-        <button class="button primary compact" type="button" onClick={onOpen}>
-          {t("stations.open")}
+        <button class="button primary compact" type="button" onClick={() => onOpen(next.route)}>
+          {t(next.label)}
         </button>
+        {next.route && (
+          <button class="button ghost compact" type="button" onClick={() => onOpen()}>
+            {t("stations.openOverview")}
+          </button>
+        )}
         {onEdit && (
           <button class="button secondary compact" type="button" onClick={onEdit}>
             {t("stations.edit")}

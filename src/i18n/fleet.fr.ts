@@ -2,6 +2,29 @@ import type { fleetEn } from "./fleet.en.js";
 
 /** French (Belgium) messages for chargers, cards, employee pages, offboarding and the finance feed. */
 export const fleetFr: Readonly<Record<keyof typeof fleetEn, string>> = {
+  "fleet.sync.state.changed": "Ignorée · borne ou liste modifiée",
+  "fleet.sync.state.failed": "Acceptation non confirmée · vérifier la borne",
+  "fleet.sync.state.synced": "La borne a accepté la liste",
+  "fleet.sync.state.no-cards": "Ignorée · aucun badge enregistré",
+  "fleet.sync.state.not-ready": "Ignorée · vérification des réglages nécessaire",
+  "fleet.sync.state.offline": "Ignorée · borne déconnectée",
+  "fleet.sync.state.already-current": "Ignorée · liste actuelle déjà acceptée",
+  "fleet.sync.state.eligible": "Prête à recevoir la liste",
+  "fleet.sync.send.other": "Envoyer à {count} bornes",
+  "fleet.sync.send.one": "Envoyer à {count} borne",
+  "fleet.sync.revision": "Version de liste {revision}",
+  "fleet.sync.changes": "Ajouts : {additions} · Suppressions : {removals}",
+  "fleet.sync.reviewAgain": "Vérifier à nouveau",
+  "fleet.sync.retryBody":
+    "La vérification est indisponible ou a changé. Vérifiez les listes actuelles avant de réessayer.",
+  "fleet.sync.loading": "Vérification des bornes pouvant recevoir leur liste de badges…",
+  "fleet.sync.resultBody":
+    "Vérifiez quelles bornes ont accepté leur liste et lesquelles nécessitent encore une intervention.",
+  "fleet.sync.result": "Résultats de la synchronisation",
+  "fleet.sync.reviewBody":
+    "Chaque borne éligible recevra sa propre liste complète de badges. Vérifiez les ajouts et suppressions avant l’envoi.",
+  "fleet.sync.review": "Vérifier la synchronisation des badges",
+  "fleet.cards.alsoAccepted": "Liste de badges acceptée sur {station}",
   "driver.addPersonal": "Ajouter un badge personnel",
   "driver.cardCount.one": "{count} badge sur cette borne.",
   "driver.cardCount.other": "{count} badges sur cette borne.",
@@ -105,10 +128,10 @@ export const fleetFr: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.cards.classify": "Entreprise ou personnel…",
   "fleet.cards.copy": "Utiliser sur d’autres bornes…",
   "fleet.cards.lost": "Badge perdu : retirer partout",
-  "fleet.cards.alsoAt": "Fonctionne aussi à {stations}",
+  "fleet.cards.alsoAt": "Enregistré sur {station} · réception non confirmée",
   "fleet.cards.more": "Plus",
   "fleet.cards.removeHere": "Retirer de cette borne",
-  "fleet.cards.syncAll": "Envoyer à toutes les bornes prêtes",
+  "fleet.cards.syncAll": "Vérifier la synchronisation",
   "fleet.cards.typeNumber": "Saisir un numéro de badge",
 
   "fleet.classify.everywhere": "Ceci s’applique au même badge sur chaque borne.",
@@ -238,7 +261,7 @@ export const fleetFr: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.setup.anyFirmware": "tout firmware",
   "fleet.setup.done.body":
     "Toutes les étapes ont réussi le {time}. La borne a sa liste de badges et les réglages pour charger sans internet. Seul un vrai test sans internet le prouve.",
-  "fleet.setup.done.title": "{name} est prête",
+  "fleet.setup.done.title": "Configuration terminée pour {name}",
   "fleet.setup.expected": "Attendu : {vendor} {model}, {firmware}",
   "fleet.setup.offlineDetails": "Détails de la recharge hors ligne",
   "fleet.setup.otherWays": "Autres façons d’ajouter un badge",
@@ -283,7 +306,7 @@ export const fleetFr: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.step.identity.title": "Bonne borne",
   "fleet.step.offline-ready.body":
     "Vérifiez, et préparez si nécessaire, que la borne garde les badges pour un usage hors ligne.",
-  "fleet.step.offline-ready.title": "Recharge hors ligne vérifiée",
+  "fleet.step.offline-ready.title": "Réglages hors ligne vérifiés",
   "fleet.step.test-charge.body":
     "Chargez une fois avec le badge enregistré. L’installation se termine quand cette recharge est acceptée.",
   "fleet.step.test-charge.title": "Première recharge",

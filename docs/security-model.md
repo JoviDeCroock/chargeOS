@@ -123,6 +123,8 @@ The fast-uri override is pinned to 3.1.9, retaining the narrow ocpp-rpc schema-i
 
 The `/observe` tool has no backend endpoint and does not consume an owner token. User-selected files are bounded, parsed as data, held only in browser memory and never uploaded by the tool. Selected operational aliases, source digests, policy inputs and draft decisions are exported only on an explicit download; unselected raw columns are omitted. Source/mapping/policy changes invalidate old results and asynchronous reads cannot revive cleared data. The digest is provenance, not authenticity. Its draft cannot authorize reimbursement, create a financial obligation, mark a payment settled or alter station evidence/configuration. See [Local observation](local-observation.md).
 
+The fleet card send requires a current owner-only review. The review token authenticates the candidate set, card pseudonyms and connection/list evidence. The serialized station preflight checks the reviewed connection and desired list again before sending. Review responses expose counts and closed outcomes, never card values.
+
 ## Dangerous operations
 
 Changing an OCPP endpoint, disabling local authorization, lowering essential-use availability, updating firmware, erasing a local list, or transferring ownership requires:

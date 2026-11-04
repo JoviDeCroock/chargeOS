@@ -49,7 +49,7 @@ An employee who charges at home and at the office can use one card at both.
 
 1. In **RFID cards**, click **More** next to the card, then **Use on other chargers…**.
 2. Tick the chargers and confirm. The card number stays on the server and is never retyped.
-3. Click **Send to all ready chargers**. Only chargers that are online and passed the offline check receive their list; the others wait.
+3. On **Chargers**, click **Review card sync**. Check which chargers will receive their full list, the additions and removals, and why any charger is skipped. Confirm the send, then check each charger’s result.
 
 The card row then says **Also works at** with the other chargers.
 
@@ -57,7 +57,7 @@ The card row then says **Also works at** with the other chargers.
 
 1. In **RFID cards**, click **More** next to the card, then **Card lost: remove everywhere**.
 2. The window lists the chargers it will be removed from. If it is the only card on a charger, that charger keeps it, because chargeOS never leaves a charger without a card. Add another card there first, then remove the lost one.
-3. Click **Remove everywhere**, then **Send to all ready chargers** straight away.
+3. Click **Remove everywhere**, then go to **Chargers › Review card sync**. Confirm the eligible sends and check which chargers accepted the replacement list.
 
 Until a charger has accepted its new list, it keeps accepting the lost card without internet. Removing a card is not an instant block.
 
@@ -76,7 +76,7 @@ On their page the employee can click **Add a personal card**, tap it at their ch
    - **The company keeps the charger**: their company cards, any personal or unclassified card on their charger (including cards they added from their own page; a card that is also used elsewhere is removed from their charger only) and their employee page are removed, and the charger is unassigned so you can give it to someone else. **Also remove their personal cards** is ticked by default.
    - **(Name) takes the charger**: company cards are removed and the employee page ends. Their personal cards keep working on their own charger (they are removed from any other charger), and the charger is marked employee-owned.
 3. Read **What will happen**, then click **Apply**. Each step shows its own result. A step that could not be done says why; the others still run.
-4. Click **Send to all ready chargers**. Until then, removed cards keep working without internet.
+4. Open **Chargers › Review card sync** and confirm the eligible sends. Removed cards may still work at any charger that has not accepted the new list.
 5. If the employee takes the charger, their installer later moves it to its new system. After that, click **Retire** in the same window, or open **Chargers**, click **More** next to the charger and choose **Retire charger…**. Type the phrase shown. A retired charger can no longer connect; its history stays and its ID is never reused. Cards already stored in the charger keep working there.
 
 Reimbursement ends on the leaving date in the reimbursement service. Nothing here changes statements; see [Add a person](people.md#when-someone-leaves).
@@ -96,4 +96,4 @@ The feed lists each month's business charging per charger, with anonymous card r
 - **No recovery bundle yet.** Once you have added, retired or marked a charger from the console, chargeOS refuses to create an encrypted recovery bundle. The bundle cannot yet carry console-added chargers, so it would restore an incomplete server. If you depend on recovery after losing this server, keep one charger per server for now; see [Back up and recover](recovery.md). Every charger still keeps charging its accepted cards without chargeOS.
 - **Card classifications are only partly backed up.** After any recovery, cards show **Not classified** in the console until you classify them again. Reports for past months keep the classifications that were recorded at the time.
 - **Tap registration needs a charger that reports taps.** chargeOS sees a tap only if the charger asks the server about an unknown card. Whether a given model does this is not verified for any device yet. If nothing happens, use **Other ways to add a card** and type the card number.
-- **"Ready" is not field proof.** It means each setup step was seen online. Only a witnessed test with the internet disconnected proves offline charging on your exact charger.
+- **Settings check passed** describes the reported settings. **Field test** shows the separately recorded results for the exact charger.

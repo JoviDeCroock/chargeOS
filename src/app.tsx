@@ -87,6 +87,12 @@ export function App() {
         ? t("people.titleCompany")
         : t(PAGE_LABELS[resolved.page]);
 
+  const currentRoute = routeHash(resolved);
+  useEffect(() => {
+    // An action result belongs to the page where it happened.
+    notice.value = null;
+  }, [currentRoute]);
+
   useEffect(() => {
     document.title = `${pageTitle} · chargeOS`;
     // On narrow screens the page list scrolls sideways; keep the current one visible.
@@ -138,9 +144,9 @@ export function App() {
     },
   ];
 
-  const openStation = (stationId: string) => {
+  const openStation = (stationId: string, route: Route = { page: "overview" }) => {
     selectStation(stationId);
-    go({ page: "overview" });
+    go(route);
     void refreshSnapshot();
   };
 

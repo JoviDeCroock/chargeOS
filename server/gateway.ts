@@ -76,6 +76,14 @@ interface StopTransactionRequest {
   readonly transactionId: number;
 }
 
+export interface ReviewedLocalList {
+  readonly connectedAt: string | null;
+  readonly localListVersion: number;
+  readonly tagPseudonyms: readonly string[];
+}
+
+export class ReviewedLocalListChangedError extends Error {}
+
 export interface ChargeGateway {
   /**
    * Lets this charger connect under the name it already uses. Allowed only for the name a charger
@@ -96,7 +104,7 @@ export interface ChargeGateway {
     input: ContinuityPreparationInput,
   ): Promise<ContinuityPreparationResult>;
   sendStationCommand(stationId: string, input: StationCommandInput): Promise<StationCommandRecord>;
-  syncOwnerList(stationId: string): Promise<AuthorizationSyncResult>;
+  syncOwnerList(stationId: string, reviewed?: ReviewedLocalList): Promise<AuthorizationSyncResult>;
   /**
    * Hands over the raw value of the card that was just tapped, once, if it is still the card with
    * this pseudonym. The value never leaves the server; the caller adds it to the owner-tag registry.
@@ -1128,8 +1136,9 @@ export function createChargeGateway(
       return { assessment, changes, state: "ready" };
     },
     sendStationCommand: sendCommand,
-    async syncOwnerList(stationId) {
+    async syncOwnerList(stationId, reviewed) {
       const stationConfig = configForStation(config, stationId);
+      const reviewedPeer = reviewed ? requirePeer(peers, stationId) : null;
       const assessment = await inspect(stationId);
       if (assessment.state !== "ready" || assessment.localListVersion === null) {
         await record(
@@ -1146,13 +1155,31 @@ export function createChargeGateway(
       // already blocks this; refuse here too so no future change can send an empty list.
       if (stationConfig.ownerTags.size === 0) throw new OwnerContinuityBlockedError(assessment);
       const peer = requirePeer(peers, stationId);
+      if (reviewed && assessment.localListVersion !== reviewed.localListVersion) {
+        throw new ReviewedLocalListChangedError("The charger's card list changed after review");
+      }
       const listVersion = await evidence.allocateAuthorizationRevision(
         stationId,
         assessment.localListVersion + 1,
       );
+      const tags = uniqueCaseInsensitive(stationConfig.ownerTags);
+      if (reviewed) {
+        const current = tags
+          .map((tag) => `tag_${pseudonymizeTag(tag, stationConfig.stationSecret)}`)
+          .sort();
+        if (
+          reviewedPeer !== peer ||
+          peers.get(stationId) !== peer ||
+          connectedAt.get(stationId) !== reviewed.connectedAt ||
+          current.length !== reviewed.tagPseudonyms.length ||
+          current.some((tag, index) => tag !== reviewed.tagPseudonyms[index])
+        ) {
+          throw new ReviewedLocalListChangedError("The charger or card list changed after review");
+        }
+      }
       const params = {
         listVersion,
-        localAuthorizationList: uniqueCaseInsensitive(stationConfig.ownerTags).map((idTag) => ({
+        localAuthorizationList: tags.map((idTag) => ({
           idTag,
           idTagInfo: { status: "Accepted" },
         })),
@@ -1198,7 +1225,8 @@ export function createChargeGateway(
       serialized(stationId, () => gateway.prepareOwnerContinuity(stationId, input)),
     sendStationCommand: (stationId, input) =>
       serialized(stationId, () => gateway.sendStationCommand(stationId, input)),
-    syncOwnerList: (stationId) => serialized(stationId, () => gateway.syncOwnerList(stationId)),
+    syncOwnerList: (stationId, reviewed) =>
+      serialized(stationId, () => gateway.syncOwnerList(stationId, reviewed)),
   };
 }
 

@@ -276,7 +276,24 @@ describe("owner console", () => {
   it("opens a multi-charger overview of chargers before drilling into one", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (path) => {
+      vi.fn(async (path, init) => {
+        if (path === "/api/v1/sync-ready") {
+          if (init?.method === "POST") {
+            return json({
+              stations: [
+                { listVersion: 7, outcome: "synced", stationId: "HOME_1" },
+                { listVersion: null, outcome: "offline", stationId: "OFFICE_1" },
+              ],
+            });
+          }
+          return json({
+            reviewId: "test-review",
+            stations: [
+              { additions: 1, removals: 0, state: "eligible", stationId: "HOME_1" },
+              { additions: 1, removals: 0, state: "offline", stationId: "OFFICE_1" },
+            ],
+          });
+        }
         if (path === "/api/v1/fleet") {
           return json({
             console: { profile: "company" },
@@ -362,6 +379,26 @@ describe("owner console", () => {
     signIn();
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Chargers" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Review card sync" }));
+    const review = within(screen.getByRole("dialog"));
+    await review.findByText("Skipped · charger disconnected");
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.some(
+          ([path, init]) => path === "/api/v1/sync-ready" && init?.method === "POST",
+        ),
+    ).toBe(false);
+    fireEvent.click(review.getByRole("button", { name: "Send to 1 charger" }));
+    await review.findByText(/Charger accepted the list.*List version 7/);
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.find(
+          ([path, init]) => path === "/api/v1/sync-ready" && init?.method === "POST",
+        )?.[1]?.body,
+    ).toBe('{"reviewId":"test-review"}');
+    fireEvent.click(review.getAllByRole("button", { name: "Close" }).at(-1)!);
     const list = screen.getByRole("list", { name: "Chargers" });
     const cards = [...list.querySelectorAll<HTMLElement>(":scope > li")];
     expect(cards).toHaveLength(2);
@@ -376,10 +413,10 @@ describe("owner console", () => {
     const nav = screen.getByRole("navigation", { name: "Console sections" });
     expect(within(nav).getByRole("link", { name: "Employees" })).toBeTruthy();
     expect(within(nav).getByRole("link", { name: "Usage" })).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "Open" })).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Open connection help" })).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "Edit names" })).toHaveLength(2);
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Open" })[0]!);
+    fireEvent.click(within(cards[0]!).getByRole("button", { name: "Open" }));
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "Driveway", level: 1 })).toBeTruthy(),
     );
@@ -657,10 +694,38 @@ describe("owner console", () => {
     expect(screen.getByText("3 repeated messages")).toBeTruthy();
     expect(screen.getByText("conflicting data")).toBeTruthy();
 
+    snapshot.value = {
+      ...snapshot.value!,
+      station: {
+        ...snapshot.value!.station,
+        connectors: [
+          {
+            connectorId: 1,
+            status: "Available",
+            errorCode: "NoError",
+            updatedAt: OWNER_SNAPSHOT.generatedAt,
+          },
+          {
+            connectorId: 2,
+            status: "Available",
+            errorCode: "NoError",
+            updatedAt: OWNER_SNAPSHOT.generatedAt,
+          },
+        ],
+      },
+    };
     openTab("Remote control");
     expect(screen.getByText("Command history")).toBeTruthy();
     expect(screen.getByText("uncertain")).toBeTruthy();
-    expect(screen.getByText(/never switches a charger off/)).toBeTruthy();
+    const startControls = within(screen.getByRole("form", { name: "Start charging" }));
+    fireEvent.change(startControls.getByLabelText("Connector"), { target: { value: "2" } });
+    expect(startControls.getByRole("button", { name: "Start on connector 2" })).toBeTruthy();
+    const availability = within(screen.getByRole("form", { name: "Connector availability" }));
+    expect(availability.getByRole("button", { name: "Make connector 1 available" })).toBeTruthy();
+    expect(screen.getByText("Commands for Home charger.")).toBeTruthy();
+    const maintenance = screen.getByText("Maintenance").closest("details")!;
+    expect(maintenance.open).toBe(false);
+    maintenance.open = true;
     expect((screen.getByRole("button", { name: "Restart" }) as HTMLButtonElement).disabled).toBe(
       true,
     );

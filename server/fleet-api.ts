@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import {
@@ -8,6 +9,7 @@ import {
   type FleetCardActionResult,
   type FleetCardsProjection,
   type SyncReadyResult,
+  type SyncReadyReview,
 } from "../shared/cards.js";
 import type { FleetSnapshot, OwnerSnapshot } from "../shared/contracts.js";
 import { PERSON_ID_PATTERN, TAG_PSEUDONYM_PATTERN } from "../shared/directory.js";
@@ -31,7 +33,11 @@ import {
 } from "./delegation.js";
 import type { OwnerDirectoryStore } from "./directory.js";
 import type { EvidenceEvent, EvidenceStore } from "./events.js";
-import type { ChargeGateway } from "./gateway.js";
+import {
+  ReviewedLocalListChangedError,
+  type ChargeGateway,
+  type ReviewedLocalList,
+} from "./gateway.js";
 import { buildStationSetup } from "./onboarding.js";
 import {
   openAddedStationOwnerTags,
@@ -145,8 +151,36 @@ export async function handleFleetOwnerApi(
     });
     return true;
   }
+  if (path === "/api/v1/sync-ready" && method === "GET") {
+    sendJson(response, 200, reviewSync(config, gateway, await evidence.readEvents()).review);
+    return true;
+  }
   if (path === "/api/v1/sync-ready" && method === "POST") {
-    await respond(response, async () => [200, await syncReady(config, gateway, evidence)]);
+    await respond(response, async () => {
+      const body = objectWithExactKeys(await readJsonBody(request), ["reviewId"]);
+      if (typeof body?.reviewId !== "string" || !/^[a-f0-9]{64}$/u.test(body.reviewId)) {
+        sendError(
+          response,
+          400,
+          "sync_review_required",
+          "Review the charger list before sending cards",
+        );
+        return null;
+      }
+      const { review, targets } = reviewSync(config, gateway, await evidence.readEvents());
+      if (
+        !timingSafeEqual(Buffer.from(review.reviewId, "hex"), Buffer.from(body.reviewId, "hex"))
+      ) {
+        sendError(
+          response,
+          409,
+          "sync_review_changed",
+          "The charger list changed. Review it again.",
+        );
+        return null;
+      }
+      return [200, await syncReady(review, targets, gateway)];
+    });
     return true;
   }
 
@@ -603,33 +637,82 @@ async function removeCardEverywhere(
   return { stations: results };
 }
 
+function reviewSync(config: GatewayConfig, gateway: ChargeGateway, events: Events) {
+  const targets = new Map<string, ReviewedLocalList>();
+  const fingerprint = createHmac("sha256", config.ownerApiToken).update(
+    "chargeOS fleet sync review v1",
+  );
+  const stations: SyncReadyReview["stations"] = (config.stations ?? []).map(({ id }) => {
+    const { authorization, station, readiness } = buildOwnerSnapshot(
+      configForStation(config, id),
+      gateway,
+      events,
+    );
+    const localListVersion = readiness?.localListVersion ?? null;
+    const state =
+      authorization.tagCount === 0
+        ? "no-cards"
+        : !station.connected
+          ? "offline"
+          : readiness?.state !== "ready" || readiness.restartRequired || localListVersion === null
+            ? "not-ready"
+            : authorization.syncState === "current"
+              ? "already-current"
+              : "eligible";
+    const row = {
+      stationId: id,
+      state,
+      additions: authorization.pendingAdditions.length,
+      removals: authorization.pendingRevocations.length,
+    } as const;
+    if (state === "eligible" && localListVersion !== null) {
+      const expected = {
+        connectedAt: station.connectedAt,
+        localListVersion:
+          authorization.lastSyncAt && readiness && authorization.lastSyncAt >= readiness.checkedAt
+            ? (authorization.lastSyncRevision ?? localListVersion)
+            : localListVersion,
+        tagPseudonyms: authorization.tagPseudonyms,
+      };
+      targets.set(id, expected);
+      fingerprint.update(
+        JSON.stringify([
+          row,
+          expected,
+          authorization.lastAttemptRevision,
+          authorization.pendingRevision,
+          authorization.acknowledgedTagPseudonyms,
+          readiness?.checkedAt,
+        ]),
+      );
+    } else {
+      fingerprint.update(JSON.stringify(row));
+    }
+    return row;
+  });
+  return { review: { reviewId: fingerprint.digest("hex"), stations }, targets };
+}
+
 async function syncReady(
-  config: GatewayConfig,
+  review: SyncReadyReview,
+  targets: ReadonlyMap<string, ReviewedLocalList>,
   gateway: ChargeGateway,
-  evidence: EvidenceStore,
 ): Promise<SyncReadyResult> {
-  const events = await evidence.readEvents();
-  const results: SyncReadyResult["stations"][number][] = [];
-  for (const station of config.stations ?? []) {
-    const scoped = configForStation(config, station.id);
-    const snapshot = buildOwnerSnapshot(scoped, gateway, events);
-    const skip = (outcome: SyncReadyResult["stations"][number]["outcome"]) =>
-      results.push({ listVersion: null, outcome, stationId: station.id });
-    if (scoped.ownerTags.size === 0) skip("no-cards");
-    else if (!snapshot.station.connected) skip("offline");
-    else if (snapshot.readiness?.state !== "ready") skip("not-ready");
-    else if (snapshot.authorization.syncState === "current") skip("already-current");
-    else {
-      try {
-        const result = await gateway.syncOwnerList(station.id);
-        results.push({ listVersion: result.listVersion, outcome: "synced", stationId: station.id });
-      } catch {
-        // The ledger holds the exact refusal; the console shows the charger to look at.
-        skip("failed");
-      }
+  const stations: SyncReadyResult["stations"][number][] = [];
+  for (const { stationId, state } of review.stations) {
+    if (state !== "eligible") {
+      stations.push({ stationId, outcome: state, listVersion: null });
+      continue;
+    }
+    try {
+      const result = await gateway.syncOwnerList(stationId, targets.get(stationId)!);
+      stations.push({ stationId, outcome: "synced", listVersion: result.listVersion });
+    } catch (error) {
+      const outcome = error instanceof ReviewedLocalListChangedError ? "changed" : "failed";
+      stations.push({ stationId, outcome, listVersion: null });
     }
   }
-  return { stations: results };
+  return { stations };
 }
 
 function cardReference(value: unknown): CardReference {

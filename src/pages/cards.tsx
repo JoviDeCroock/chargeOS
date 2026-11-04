@@ -16,7 +16,7 @@ import {
 } from "../model.js";
 import type { Route } from "../routes.js";
 import { cardLabel, closeRowMenu, Dialog, PageHead, PersonSelect, shortPseudonym } from "../ui.js";
-import { fleetCards, runSyncReady } from "../fleet-model.js";
+import { fleetCards, refreshFleetCards } from "../fleet-model.js";
 import { fleet as fleetSignal } from "../model.js";
 import type { MessageKey } from "../i18n/index.js";
 import type { CardOwnership, CardUse } from "../../shared/cards.js";
@@ -49,6 +49,10 @@ export function CardsPage({
   const [editing, setEditing] = useState<Editing | null>(null);
   const authorization = current.authorization;
   const stationId = current.station.id;
+  const multipleChargers = (fleetSignal.value?.stations.length ?? 0) > 1;
+  useEffect(() => {
+    if (multipleChargers) void refreshFleetCards();
+  }, [stationId, multipleChargers, authorization.lastSyncRevision]);
   const canName = Boolean(directory?.writable);
 
   return (
@@ -92,12 +96,9 @@ export function CardsPage({
             const onCharger = authorization.acknowledgedTagPseudonyms.includes(tag);
             const policy = current.cardPolicies?.find(({ tagPseudonym }) => tagPseudonym === tag);
             // The same physical card on other chargers, recognised on the server without its number.
-            const elsewhere = presentOn(stationId, tag)
-              .filter((id) => id !== stationId)
-              .map(
-                (id) =>
-                  fleetSignal.value?.stations.find((station) => station.id === id)?.label ?? id,
-              );
+            const elsewhere = cardMembers(stationId, tag).filter(
+              (member) => member.stationId !== stationId,
+            );
             return (
               <li key={tag} class="card-row">
                 <span class="rfid-chip" aria-hidden="true" />
@@ -107,11 +108,15 @@ export function CardsPage({
                     {card.holder ?? <span class="muted">{t("people.nobody")}</span>}
                     {card.named && <code class="card-ref">{shortPseudonym(tag)}</code>}
                   </small>
-                  {elsewhere.length > 0 && (
-                    <small class="card-also">
-                      {t("fleet.cards.alsoAt", { stations: elsewhere.join(", ") })}
+                  {elsewhere.map((member) => (
+                    <small key={member.stationId} class="card-also">
+                      {t(member.onCharger ? "fleet.cards.alsoAccepted" : "fleet.cards.alsoAt", {
+                        station:
+                          fleetSignal.value?.stations.find(({ id }) => id === member.stationId)
+                            ?.label ?? member.stationId,
+                      })}
                     </small>
-                  )}
+                  ))}
                 </div>
                 <span class="card-tags">
                   {policy ? (
@@ -306,16 +311,6 @@ function SyncBanner({
               : t("cards.sync.checkFirst")}
         </p>
       </div>
-      {(fleetSignal.value?.stations.length ?? 0) > 1 && (
-        <button
-          class="button secondary"
-          type="button"
-          disabled={action.value !== null}
-          onClick={() => void runSyncReady()}
-        >
-          {t("fleet.cards.syncAll")}
-        </button>
-      )}
       {ready ? (
         <button
           class="button primary"
@@ -733,11 +728,16 @@ function isOnlyCard(id: string): boolean {
   );
 }
 
-function presentOn(stationId: string, tagPseudonym: string): readonly string[] {
+function cardMembers(stationId: string, tagPseudonym: string) {
   const card = fleetCards.value?.cards.find(({ members }) =>
     members.some(
       (member) => member.stationId === stationId && member.tagPseudonym === tagPseudonym,
     ),
   );
-  return card ? card.members.map((member) => member.stationId) : [stationId];
+  return card?.members ?? [];
+}
+
+function presentOn(stationId: string, tagPseudonym: string): readonly string[] {
+  const members = cardMembers(stationId, tagPseudonym);
+  return members.length ? members.map((member) => member.stationId) : [stationId];
 }

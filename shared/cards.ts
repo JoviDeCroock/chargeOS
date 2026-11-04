@@ -74,13 +74,19 @@ export interface FleetCardActionResult {
   }[];
 }
 
-export type SyncReadyOutcome =
-  | "synced"
-  | "already-current"
-  | "offline"
-  | "not-ready"
-  | "no-cards"
-  | "failed";
+export type SyncSkipReason = "already-current" | "offline" | "not-ready" | "no-cards";
+
+export interface SyncReadyReview {
+  readonly reviewId: string;
+  readonly stations: readonly {
+    readonly stationId: string;
+    readonly state: "eligible" | SyncSkipReason;
+    readonly additions: number;
+    readonly removals: number;
+  }[];
+}
+
+export type SyncReadyOutcome = SyncSkipReason | "synced" | "failed" | "changed";
 
 export interface SyncReadyResult {
   readonly stations: readonly {

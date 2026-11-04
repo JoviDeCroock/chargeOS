@@ -195,6 +195,111 @@ describe("company gateway", () => {
   /* Owner routes                                                      */
   /* ---------------------------------------------------------------- */
 
+  it("reviews eligible chargers, rejects changed lists and reports an accepted full revision", async () => {
+    const harness = await start();
+    const client = await connect(harness, "HOME-1", HOME_SECRET);
+    const settings: Record<string, string> = {
+      AllowOfflineTxForUnknownId: "false",
+      LocalAuthListEnabled: "true",
+      LocalAuthorizeOffline: "true",
+      LocalAuthListMaxLength: "100",
+      SendLocalListMaxLength: "100",
+    };
+    let version = 0;
+    client.handle("GetConfiguration", async ({ params }) => ({
+      configurationKey: ((params?.key ?? []) as string[]).map((key) => ({
+        key,
+        readonly: false,
+        value: settings[key] ?? "true",
+      })),
+    }));
+    client.handle("GetLocalListVersion", async () => ({ listVersion: version }));
+    const send = vi.fn(async ({ params }) => {
+      version = params.listVersion;
+      return { status: "Accepted" };
+    });
+    client.handle("SendLocalList", send);
+    await harness.gateway.inspectLocalAuthorization("HOME-1");
+
+    const path = "/api/v1/sync-ready";
+    const review = await (await call(harness, path)).json();
+    expect(review.stations).toEqual([
+      { additions: 2, removals: 0, state: "offline", stationId: "OFFICE-1" },
+      { additions: 1, removals: 0, state: "eligible", stationId: "HOME-1" },
+    ]);
+    expect(JSON.stringify(review)).not.toContain(COMPANY_CARD);
+    expect(send).not.toHaveBeenCalled();
+    expect((await call(harness, path, { body: {} })).status).toBe(400);
+
+    const added = await call(harness, "/api/v1/stations/HOME-1/owner-tags", {
+      body: { tag: PERSONAL_CARD },
+    });
+    expect(added.status).toBe(201);
+    expect((await call(harness, path, { body: { reviewId: review.reviewId } })).status).toBe(409);
+    expect(send).not.toHaveBeenCalled();
+
+    const beforeChange = await (await call(harness, path)).json();
+    version = 4; // A charger-side change after review must never send a replacement list.
+    expect(
+      await (await call(harness, path, { body: { reviewId: beforeChange.reviewId } })).json(),
+    ).toMatchObject({
+      stations: [{ outcome: "offline" }, { outcome: "changed" }],
+    });
+    expect(send).not.toHaveBeenCalled();
+
+    const next = await (await call(harness, path)).json();
+    const body = { reviewId: next.reviewId };
+    expect(await (await call(harness, path, { body })).json()).toMatchObject({
+      stations: [
+        { listVersion: null, outcome: "offline", stationId: "OFFICE-1" },
+        { listVersion: 5, outcome: "synced", stationId: "HOME-1" },
+      ],
+    });
+    expect(send).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        params: expect.objectContaining({
+          updateType: "Full",
+          localAuthorizationList: expect.arrayContaining([
+            expect.objectContaining({ idTag: COMPANY_CARD }),
+            expect.objectContaining({ idTag: PERSONAL_CARD }),
+          ]),
+        }),
+      }),
+    );
+    expect((await call(harness, path, { body })).status).toBe(409);
+    expect(JSON.stringify(harness.evidence.events)).not.toContain(PERSONAL_CARD);
+  });
+
+  it("keeps live connector reports separate from recorded sessions across disconnects", async () => {
+    const harness = await start();
+    const client = await connect(harness, "HOME-1", HOME_SECRET);
+    await client.call("StartTransaction", {
+      connectorId: 1,
+      idTag: COMPANY_CARD,
+      meterStart: 0,
+      timestamp: new Date().toISOString(),
+    });
+    const status = async () => {
+      const response = await call(harness, "/api/v1/fleet");
+      return (await response.json()).stations.find(({ id }: { id: string }) => id === "HOME-1");
+    };
+    expect(await status()).toMatchObject({ activeSessionCount: 1, chargingStatus: "unknown" });
+    await client.call("StatusNotification", {
+      connectorId: 1,
+      errorCode: "NoError",
+      status: "Charging",
+    });
+    expect(await status()).toMatchObject({ chargingStatus: "charging" });
+    await client.close({ force: true });
+    await vi.waitFor(async () =>
+      expect(await status()).toMatchObject({
+        activeSessionCount: 1,
+        chargingStatus: "unknown",
+        connected: false,
+      }),
+    );
+  });
+
   it("copies a card to other chargers and refuses unknown targets without changing anything", async () => {
     const harness = await start();
     const card = { stationId: "OFFICE-1", tagPseudonym: OFFICE(POOL_CARD) };

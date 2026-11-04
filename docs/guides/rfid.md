@@ -24,7 +24,7 @@ chargeOS listens only for the charger you chose and only while the window says i
 3. Optionally give the card a **Card name**, such as "Blue key fob", and choose **Who uses it**. Choose **Someone new…** to add a person at the same time. Names are labels in the console only; see [Name chargers, people and cards](owner-console.md#name-chargers-people-and-cards).
 4. Click **Add card**. The card is now on the list as **Waiting to be sent**. It does not work at the charger yet.
 5. The banner at the top of the page says changes are waiting. If it offers **Send to charger**, click it while the charger is connected and confirm. Otherwise click **Check offline charging**. On **Station settings › Offline charging**, click **Check the charger** and fix anything that is not ready. Then click **Send to charger**. Sending stays disabled until every check passes.
-6. Check that the banner says **All cards are on the charger** and that the card shows **On the charger**. **Station settings › Offline charging** shows the version the charger accepted under **Card list version on charger**. A card still waiting, or a list the charger refused, does not work at the charger.
+6. Check that the banner says **The charger accepted the current list** and that the card shows **On the charger**. A card registered on another charger has a separate delivery status. **Station settings › Offline charging** shows the version the charger accepted under **Card list version on charger**. A card still waiting, or a list the charger refused, does not work at the charger.
 7. Test the actual card. Then ask your administrator for a fresh encrypted recovery bundle; see [Back up and recover](recovery.md).
 
 ## Before the first card

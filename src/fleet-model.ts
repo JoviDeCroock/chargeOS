@@ -44,7 +44,6 @@ export const fleetCards = signal<FleetCardsProjection | null>(null);
 export const fleetGrants = signal<readonly DelegateGrantSummary[] | null>(null);
 /** The one-time setup sheet of a charger just added; cleared when the dialog closes. */
 export const setupSheet = signal<ChargerSetupSheet | null>(null);
-export const lastSyncReady = signal<SyncReadyResult | null>(null);
 /** A delegate secret shown once (employee page link or finance feed). */
 export const issuedAccess = signal<{
   readonly created: DelegateGrantCreated;
@@ -73,6 +72,18 @@ export async function refreshFleetExtras(): Promise<void> {
     cards.status === "fulfilled" && Array.isArray(cards.value?.cards) ? cards.value : null;
   fleetGrants.value =
     grants.status === "fulfilled" && Array.isArray(grants.value) ? grants.value : null;
+}
+
+/** Refresh the cross-charger delivery labels when opening Cards or after a local send. */
+export async function refreshFleetCards(): Promise<void> {
+  const token = ownerToken.value;
+  if (!token) return;
+  try {
+    const cards = await fetchFleetCards(token);
+    if (ownerToken.value === token && Array.isArray(cards?.cards)) fleetCards.value = cards;
+  } catch {
+    if (ownerToken.value === token) fleetCards.value = null;
+  }
 }
 
 async function run<T>(
@@ -190,18 +201,9 @@ export async function runRemoveEverywhere(
   return result;
 }
 
-export async function runSyncReady(): Promise<SyncReadyResult | null> {
-  const result = await run("sync", (token) => syncReadyChargers(token));
+export async function runSyncReady(reviewId: string): Promise<SyncReadyResult | null> {
+  const result = await run("sync", (token) => syncReadyChargers(reviewId, token));
   if (result) {
-    lastSyncReady.value = result;
-    const synced = result.stations.filter(({ outcome }) => outcome === "synced").length;
-    const failed = result.stations.filter(({ outcome }) => outcome === "failed").length;
-    notice.value = {
-      kind: failed ? "error" : "success",
-      message: failed
-        ? t("fleet.notice.syncSomeFailed", { failed, total: synced + failed })
-        : tn("fleet.notice.syncDone", synced),
-    };
     await refreshSnapshot(false);
     await refreshFleetExtras();
   }

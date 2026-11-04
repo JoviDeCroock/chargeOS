@@ -3,6 +3,24 @@ import { fleetFr } from "./fleet.fr.js";
 
 /** French (Belgium) owner-console messages. Keys and placeholders mirror `en.ts`. */
 export const fr: Readonly<Record<MessageKey, string>> = {
+  "stations.openOverview": "Ouvrir la vue d’ensemble",
+  "stations.resolveSetup": "Voir le problème de configuration",
+  "stations.connectionHelp": "Ouvrir l’aide à la connexion",
+  "stations.metric.unknown": "État de recharge inconnu",
+  "offline.fieldAfterSettings":
+    "Terminez la vérification des réglages avant d’envoyer les badges ou de faire le test sur place.",
+  "offline.fieldAfterCards":
+    "Envoyez la liste de badges et attendez que la borne l’accepte avant le test.",
+  "offline.fieldNext":
+    "La borne a accepté la liste actuelle. Suivez le guide pour effectuer le test sur place.",
+  "offline.fieldGuide": "Ouvrir le guide du test sur place",
+  "offline.fieldResult": "Test sur place · {result}",
+  "controls.maintenance": "Maintenance",
+  "controls.availability": "Disponibilité de la prise",
+  "controls.startTarget": "Démarrer sur la prise {connector}",
+  "controls.historyIntro":
+    "L’historique indique la réponse de la borne et ce que chargeOS a observé ensuite.",
+  "controls.target": "Commandes pour {name}.",
   "advanced.englishOnly":
     "Cette section n’est disponible qu’en anglais pour l’instant, car ses textes de sécurité doivent être relus avant d’être traduits.",
   "advanced.lede":
@@ -58,10 +76,9 @@ export const fr: Readonly<Record<MessageKey, string>> = {
     "Aucun badge ne peut encore charger ici : chargeOS refuse tous les badges tant que vous n’en avez pas ajouté. Présentez votre propre badge à la borne pour l’ajouter.",
   "cards.first.title": "Ajoutez votre premier badge",
 
-  "cards.keepOne":
-    "Une borne garde toujours au moins un badge, pour que vous ne puissiez jamais vous bloquer.",
+  "cards.keepOne": "chargeOS empêche la suppression du dernier badge enregistré.",
   "cards.lede":
-    "Les badges qui peuvent lancer une recharge à {station}. Une fois sur la borne, un badge fonctionne aussi sans internet.",
+    "Badges enregistrés pour {station}. La borne confirme séparément la réception de sa liste.",
   "cards.onCharger": "Sur la borne",
   "cards.privacy":
     "Les noms ne sont affichés que dans cette console. Les exports, l’accès partagé et l’aide IA utilisent des références anonymes.",
@@ -345,7 +362,7 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "offline.preparing": "Modification…",
   "offline.readyText":
     "La borne a signalé tous les réglages dont elle a besoin pour accepter vos badges de manière autonome.",
-  "offline.readyTitle": "Prête",
+  "offline.readyTitle": "Vérification des réglages réussie",
   "offline.sendLocked": "Disponible dès que toutes les vérifications sont OK.",
   "offline.sendText":
     "Remplace la liste de la borne par les badges de cette console. Une liste acceptée confirme la réception. Faites un test à la borne pour vérifier son fonctionnement hors ligne.",
@@ -509,7 +526,7 @@ export const fr: Readonly<Record<MessageKey, string>> = {
 
   "stations.attention": "Demande votre attention",
   "stations.available": "Disponible",
-  "stations.chargingNow": "En charge",
+  "stations.chargingNow": "Recharge signalée",
   "stations.driver": "Personne",
   "stations.edit": "Modifier les noms",
   "stations.editTitle": "Modifier la borne",
@@ -523,12 +540,12 @@ export const fr: Readonly<Record<MessageKey, string>> = {
   "stations.field.site": "Lieu",
   "stations.field.sitePlaceholder": "Par exemple : Domicile ou bureau de Bruxelles",
   "stations.independence":
-    "Chaque borne garde sa propre liste de badges et continue de fonctionner seule, même lorsque cette console est indisponible.",
+    "Chaque borne a sa propre liste de badges. Vérifiez la recharge hors ligne sur chaque borne.",
   "stations.lastSession": "Dernière session",
   "stations.lede":
-    "Toutes les bornes que vous gérez, à qui elles appartiennent et quels badges elles acceptent.",
+    "Consultez la connexion, le dernier état de recharge et la prochaine étape pour chaque borne.",
   "stations.metric.chargers": "Bornes",
-  "stations.metric.charging": "En charge",
+  "stations.metric.charging": "Recharge signalée",
   "stations.metric.connected": "Connectées",
   "stations.metric.energy": "Énergie enregistrée",
   "stations.offline": "Hors ligne",

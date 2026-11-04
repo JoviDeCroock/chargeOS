@@ -8,6 +8,24 @@
 import { fleetEn } from "./fleet.en.js";
 
 export const en = {
+  "stations.openOverview": "Open overview",
+  "stations.resolveSetup": "Review setup issue",
+  "stations.connectionHelp": "Open connection help",
+  "stations.metric.unknown": "Charging status unknown",
+  "offline.fieldAfterSettings":
+    "Finish the settings check before sending cards or running the field test.",
+  "offline.fieldAfterCards":
+    "Send the card list and wait for the charger to accept it before testing.",
+  "offline.fieldNext":
+    "The charger accepted the current list. Follow the guide to test at the charger.",
+  "offline.fieldGuide": "Open the field test guide",
+  "offline.fieldResult": "Field test · {result}",
+  "controls.maintenance": "Maintenance",
+  "controls.availability": "Connector availability",
+  "controls.startTarget": "Start on connector {connector}",
+  "controls.historyIntro":
+    "The history shows the charger’s reply and what chargeOS observed afterward.",
+  "controls.target": "Commands for {name}.",
   "advanced.englishOnly":
     "This section is only available in English for now, because its safety wording must be reviewed before it is translated.",
   "advanced.lede":
@@ -63,9 +81,9 @@ export const en = {
     "No card can charge here yet: chargeOS refuses every card until you add one. Tap your own card at the charger to add it.",
   "cards.first.title": "Add your first card",
 
-  "cards.keepOne": "A charger always keeps at least one card, so you can never lock yourself out.",
+  "cards.keepOne": "chargeOS won’t let you remove the last registered card.",
   "cards.lede":
-    "Cards that can start charging at {station}. Once a card is on the charger, it also works without internet.",
+    "Cards registered for {station}. The charger confirms receipt of its card list separately.",
   "cards.onCharger": "On the charger",
   "cards.privacy":
     "Names are only shown in this console. Exports, shared access and AI help use anonymous card references instead.",
@@ -341,7 +359,7 @@ export const en = {
   "offline.preparing": "Changing…",
   "offline.readyText":
     "The charger reported every setting it needs to accept your cards on its own.",
-  "offline.readyTitle": "Ready",
+  "offline.readyTitle": "Settings check passed",
   "offline.sendLocked": "Available once every check passes.",
   "offline.sendText":
     "Replaces the charger’s card list with the cards in this console. An accepted list confirms delivery. Test at the charger to check offline behavior.",
@@ -501,7 +519,7 @@ export const en = {
 
   "stations.attention": "Needs attention",
   "stations.available": "Available",
-  "stations.chargingNow": "Charging",
+  "stations.chargingNow": "Charging reported",
   "stations.driver": "Person",
   "stations.edit": "Edit names",
   "stations.editTitle": "Edit charger",
@@ -514,11 +532,11 @@ export const en = {
   "stations.field.site": "Location",
   "stations.field.sitePlaceholder": "For example: Home or Brussels office",
   "stations.independence":
-    "Each charger keeps its own card list and keeps working on its own, even when this console is unavailable.",
+    "Each charger has its own card list. Check offline charging at each charger.",
   "stations.lastSession": "Last session",
-  "stations.lede": "Every charger you manage, who it belongs to and which cards it accepts.",
+  "stations.lede": "See each charger’s connection, latest charging report and next step.",
   "stations.metric.chargers": "Chargers",
-  "stations.metric.charging": "Charging now",
+  "stations.metric.charging": "Charging reported",
   "stations.metric.connected": "Connected",
   "stations.metric.energy": "Energy recorded",
   "stations.offline": "Offline",

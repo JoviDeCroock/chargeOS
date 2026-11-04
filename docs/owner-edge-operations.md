@@ -210,7 +210,8 @@ Company-gateway owner routes (see [Run company and employee chargers](guides/com
 - `POST /api/v1/stations/:stationId/ownership` (`{ "ownership" }`; a planning label only)
 - `POST /api/v1/stations/:stationId/card-capture/register` (`{ "tagPseudonym", "name", "holderPersonId", "ownership", "use" }`)
 - `GET /api/v1/fleet-cards`, `POST /api/v1/fleet-cards/copy` (`{ "card": { "stationId", "tagPseudonym" }, "toStationIds" }`), `POST /api/v1/fleet-cards/remove` (`{ "card", "confirmation" }`), `POST /api/v1/fleet-cards/policy` (`{ "card", "ownership", "use" }`)
-- `POST /api/v1/sync-ready` (full-list synchronization for every connected charger whose readiness passes; each uses the normal preflight)
+- `GET /api/v1/sync-ready` lists eligible and skipped chargers, with pending addition and removal counts and a review ID. It sends no charger commands.
+- `POST /api/v1/sync-ready` takes `{ "reviewId": "…" }` after the owner confirms. A stale review returns `409`. Each eligible charger still gets the normal preflight, and a changed connection, list or revision blocks that send. The result reports the outcome and accepted revision per charger.
 
 Company-gateway delegate routes:
 

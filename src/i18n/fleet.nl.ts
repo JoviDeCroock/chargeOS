@@ -2,6 +2,29 @@ import type { fleetEn } from "./fleet.en.js";
 
 /** Dutch (Belgium) messages for chargers, cards, employee pages, offboarding and the finance feed. */
 export const fleetNl: Readonly<Record<keyof typeof fleetEn, string>> = {
+  "fleet.sync.state.changed": "Overgeslagen · laadpaal of lijst gewijzigd",
+  "fleet.sync.state.failed": "Aanvaarding onbevestigd · controleer de laadpaal",
+  "fleet.sync.state.synced": "Laadpaal heeft de lijst aanvaard",
+  "fleet.sync.state.no-cards": "Overgeslagen · geen geregistreerde passen",
+  "fleet.sync.state.not-ready": "Overgeslagen · controle van instellingen nodig",
+  "fleet.sync.state.offline": "Overgeslagen · laadpaal niet verbonden",
+  "fleet.sync.state.already-current": "Overgeslagen · huidige lijst al aanvaard",
+  "fleet.sync.state.eligible": "Klaar om te versturen",
+  "fleet.sync.send.other": "Stuur naar {count} laadpalen",
+  "fleet.sync.send.one": "Stuur naar {count} laadpaal",
+  "fleet.sync.revision": "Lijstversie {revision}",
+  "fleet.sync.changes": "Toevoegingen: {additions} · Verwijderingen: {removals}",
+  "fleet.sync.reviewAgain": "Opnieuw bekijken",
+  "fleet.sync.retryBody":
+    "Het overzicht is niet beschikbaar of is gewijzigd. Controleer de huidige lijsten voordat je opnieuw probeert.",
+  "fleet.sync.loading": "Controleren welke laadpalen hun passenlijst kunnen ontvangen…",
+  "fleet.sync.resultBody":
+    "Bekijk welke laadpalen hun lijst hebben aanvaard en waar nog actie nodig is.",
+  "fleet.sync.result": "Resultaten van de synchronisatie",
+  "fleet.sync.reviewBody":
+    "Elke laadpaal die in aanmerking komt, krijgt zijn eigen volledige passenlijst. Controleer de toevoegingen en verwijderingen voordat je verstuurt.",
+  "fleet.sync.review": "Bekijk de synchronisatie",
+  "fleet.cards.alsoAccepted": "Passenlijst aanvaard bij {station}",
   "driver.addPersonal": "Persoonlijke laadpas toevoegen",
   "driver.cardCount.one": "{count} laadpas op deze laadpaal.",
   "driver.cardCount.other": "{count} laadpassen op deze laadpaal.",
@@ -104,10 +127,10 @@ export const fleetNl: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.cards.classify": "Bedrijf of persoonlijk…",
   "fleet.cards.copy": "Gebruiken aan andere laadpalen…",
   "fleet.cards.lost": "Laadpas verloren: overal verwijderen",
-  "fleet.cards.alsoAt": "Werkt ook aan {stations}",
+  "fleet.cards.alsoAt": "Geregistreerd bij {station} · ontvangst onbevestigd",
   "fleet.cards.more": "Meer",
   "fleet.cards.removeHere": "Verwijderen van deze laadpaal",
-  "fleet.cards.syncAll": "Naar alle klare laadpalen sturen",
+  "fleet.cards.syncAll": "Bekijk synchronisatie",
   "fleet.cards.typeNumber": "Laadpasnummer intypen",
 
   "fleet.classify.everywhere": "Dit geldt voor dezelfde laadpas aan elke laadpaal.",
@@ -234,7 +257,7 @@ export const fleetNl: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.setup.anyFirmware": "elke firmware",
   "fleet.setup.done.body":
     "Alle stappen zijn gelukt op {time}. De laadpaal heeft zijn lijst met laadpassen en de instellingen om zonder internet te laden. Alleen een echte test zonder internet bewijst dat het werkt.",
-  "fleet.setup.done.title": "{name} is klaar",
+  "fleet.setup.done.title": "Installatie voltooid voor {name}",
   "fleet.setup.expected": "Verwacht: {vendor} {model}, {firmware}",
   "fleet.setup.offlineDetails": "Details over offline laden",
   "fleet.setup.otherWays": "Andere manieren om een laadpas toe te voegen",
@@ -280,7 +303,7 @@ export const fleetNl: Readonly<Record<keyof typeof fleetEn, string>> = {
   "fleet.step.identity.title": "Juiste laadpaal",
   "fleet.step.offline-ready.body":
     "Kijk na, en bereid zo nodig voor, dat de laadpaal laadpassen bewaart voor offline gebruik.",
-  "fleet.step.offline-ready.title": "Offline laden nagekeken",
+  "fleet.step.offline-ready.title": "Offline instellingen gecontroleerd",
   "fleet.step.test-charge.body":
     "Laad één keer met de geregistreerde laadpas. De installatie is klaar zodra die lading aanvaard is.",
   "fleet.step.test-charge.title": "Eerste lading",

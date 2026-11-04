@@ -13,7 +13,7 @@ import type {
 } from "../../shared/contracts.js";
 import { CONTINUITY_PREPARATION_PHRASE } from "../../shared/continuity.js";
 import type { OwnerDirectory } from "../../shared/directory.js";
-import { formatDate, t, type MessageKey } from "../i18n/index.js";
+import { formatDate, t, tn, type MessageKey } from "../i18n/index.js";
 import {
   action,
   issuedDelegate,
@@ -45,7 +45,7 @@ import {
   SessionTable,
   type Tone,
 } from "../ui.js";
-import { Halo } from "./overview.js";
+import { Halo, offlineFieldState } from "./overview.js";
 
 export function StationSettingsPage({
   snapshot: current,
@@ -65,8 +65,8 @@ export function StationSettingsPage({
   onEdit: (() => void) | null;
 }) {
   return (
-    <div class="section-stack">
-      <PageHead title={t("nav.advanced")} lede={t("advanced.lede")} />
+    <div class={`section-stack${tab === "controls" ? " remote-settings" : ""}`}>
+      {tab !== "controls" && <PageHead title={t("nav.advanced")} lede={t("advanced.lede")} />}
       <nav class="tab-strip" aria-label={t("advanced.tabs")}>
         {ADVANCED_TABS.filter((id) => visibleTabs.has(id)).map((id) => {
           const tone = tabTones[id];
@@ -93,7 +93,7 @@ export function StationSettingsPage({
       {tab === "offline" ? (
         <OfflineTab snapshot={current} />
       ) : tab === "controls" ? (
-        <ControlsTab snapshot={current} directory={directory} />
+        <ControlsTab key={current.station.id} snapshot={current} directory={directory} />
       ) : tab === "sessions" ? (
         <section class="panel glass" aria-label={t("tab.sessions")}>
           <SessionTable
@@ -157,7 +157,6 @@ function OfflineTab({ snapshot: current }: { snapshot: OwnerSnapshot }) {
       <section class={`hero glass readiness-${state}`} aria-labelledby="offline-title">
         <Halo readiness={readiness} connected={connected} />
         <div class="hero-body">
-          <p class="hero-kicker">{t("offline.kicker")}</p>
           <h2 id="offline-title" class="hero-title">
             {t(
               state === "ready"
@@ -168,7 +167,23 @@ function OfflineTab({ snapshot: current }: { snapshot: OwnerSnapshot }) {
             )}
           </h2>
           <p class="hero-text">{t("offline.explain")}</p>
-          {state === "ready" && <p class="physical-gate">{t("offline.physicalTest")}</p>}
+          <div class="offline-field-summary">
+            <strong>
+              {t("offline.fieldResult", { result: t(offlineFieldState(current.freedomTest)) })}
+            </strong>
+            <p>
+              {t(
+                state !== "ready"
+                  ? "offline.fieldAfterSettings"
+                  : authorization.syncState === "current"
+                    ? "offline.fieldNext"
+                    : "offline.fieldAfterCards",
+              )}
+            </p>
+            <a class="text-link" href="/help?guide=connect-a-charger#check-charging-after-the-move">
+              {t("offline.fieldGuide")}
+            </a>
+          </div>
           <div class="hero-actions">
             <button
               class="button primary"
@@ -220,6 +235,12 @@ function OfflineTab({ snapshot: current }: { snapshot: OwnerSnapshot }) {
             {action.value === "sync" ? t("cards.sync.sending") : t("cards.sync.send")}
           </button>
           {state !== "ready" && <p class="fine-print">{t("offline.sendLocked")}</p>}
+          {authorization.syncState === "current" && <p>{t("overview.listAccepted")}</p>}
+          {authorization.pendingRevocations.length > 0 && (
+            <p class="risk-text">
+              {tn("cards.staleTitle", authorization.pendingRevocations.length)}
+            </p>
+          )}
           <dl class="facts compact">
             <Fact
               label={t("offline.lastRevision")}
@@ -301,12 +322,16 @@ function ControlsTab({
   snapshot: OwnerSnapshot;
   directory: OwnerDirectory | null;
 }) {
-  const connectorIds = [
-    ...new Set([1, ...current.station.connectors.map(({ connectorId }) => connectorId)]),
+  const reportedConnectorIds = [
+    ...new Set(current.station.connectors.map(({ connectorId }) => connectorId)),
   ]
-    .filter((connectorId) => connectorId >= 1)
+    .filter((id) => id > 0)
     .sort((left, right) => left - right);
+  const connectorIds = reportedConnectorIds.length ? reportedConnectorIds : [1];
   const [connectorId, setConnectorId] = useState(connectorIds[0] ?? 1);
+  const [availabilityConnector, setAvailabilityConnector] = useState(connectorIds[0] ?? 1);
+  const [unlockConnector, setUnlockConnector] = useState(connectorIds[0] ?? 1);
+  const name = current.station.label;
   const [tagPseudonym, setTagPseudonym] = useState(current.authorization.tagPseudonyms[0] ?? "");
   const [resetType, setResetType] = useState<"Hard" | "Soft">("Soft");
   const [resetConfirmation, setResetConfirmation] = useState("");
@@ -318,9 +343,9 @@ function ControlsTab({
   return (
     <section class="panel glass command-panel" aria-labelledby="commands-title">
       <header class="panel-head">
-        <h2 id="commands-title">{t("controls.title")}</h2>
+        <h1 id="commands-title">{t("controls.title")}</h1>
       </header>
-      <p class="panel-intro">{t("controls.intro")}</p>
+      <p class="panel-intro">{t("controls.target", { name })}</p>
       {offline && <p class="inline-alert warn">{t("controls.offline")}</p>}
 
       <div class="command-grid">
@@ -332,20 +357,8 @@ function ControlsTab({
             void runStationCommand({ connectorId, tagPseudonym, type: "RemoteStartTransaction" });
           }}
         >
-          <h3>{t("controls.startTitle")}</h3>
-          <label>
-            {t("controls.connector")}
-            <select
-              value={connectorId}
-              onChange={(event) => setConnectorId(Number(event.currentTarget.value))}
-            >
-              {connectorIds.map((id) => (
-                <option key={id} value={id}>
-                  {t("station.connector", { id })}
-                </option>
-              ))}
-            </select>
-          </label>
+          <h2>{t("controls.startTitle")}</h2>
+          <ConnectorSelect ids={connectorIds} value={connectorId} onChange={setConnectorId} />
           <label>
             {t("controls.card")}
             <select
@@ -363,12 +376,12 @@ function ControlsTab({
             </select>
           </label>
           <button class="button primary" type="submit" disabled={offline || busy || !tagPseudonym}>
-            {t("controls.start")}
+            {t("controls.startTarget", { connector: connectorId })}
           </button>
         </form>
 
         <div class="command-form">
-          <h3>{t("controls.stopTitle")}</h3>
+          <h2>{t("controls.stopTitle")}</h2>
           {activeSessions.length === 0 ? (
             <p class="muted">{t("controls.noSession")}</p>
           ) : (
@@ -392,103 +405,149 @@ function ControlsTab({
               </button>
             ))
           )}
-          <button
-            class="button ghost"
-            type="button"
-            disabled={offline || busy}
-            onClick={() =>
-              void runStationCommand({
-                availability: "Operative",
-                connectorId,
-                type: "ChangeAvailability",
-              })
-            }
-          >
-            {t("controls.makeAvailable", { connector: connectorId })}
-          </button>
         </div>
 
         <form
-          class="command-form guarded"
-          aria-label={t("controls.unlockTitle", { connector: connectorId })}
+          class="command-form"
+          aria-label={t("controls.availability")}
           onSubmit={(event) => {
             event.preventDefault();
             void runStationCommand({
-              confirmation: unlockConfirmation,
-              connectorId,
-              type: "UnlockConnector",
-            }).then((done) => done && setUnlockConfirmation(""));
+              availability: "Operative",
+              connectorId: availabilityConnector,
+              type: "ChangeAvailability",
+            });
           }}
         >
-          <h3>{t("controls.unlockTitle", { connector: connectorId })}</h3>
-          <p class="fine-print">{t("controls.unlockHint")}</p>
-          <label class="confirmation-field">
-            {t("common.typePhrase")}
-            <span class="phrase" lang="en">
-              {STATION_UNLOCK_PHRASE}
-            </span>
-            <input
-              value={unlockConfirmation}
-              autocomplete="off"
-              onInput={(event) => setUnlockConfirmation(event.currentTarget.value)}
-            />
-          </label>
-          <button
-            class="button danger"
-            type="submit"
-            disabled={offline || busy || unlockConfirmation !== STATION_UNLOCK_PHRASE}
-          >
-            {t("controls.unlock")}
-          </button>
-        </form>
-
-        <form
-          class="command-form guarded"
-          aria-label={t("controls.restartTitle")}
-          onSubmit={(event) => {
-            event.preventDefault();
-            void runStationCommand({
-              confirmation: resetConfirmation,
-              resetType,
-              type: "Reset",
-            }).then((done) => done && setResetConfirmation(""));
-          }}
-        >
-          <h3>{t("controls.restartTitle")}</h3>
-          <label>
-            {t("controls.restartType")}
-            <select
-              value={resetType}
-              onChange={(event) => setResetType(event.currentTarget.value as "Hard" | "Soft")}
-            >
-              <option value="Soft">{t("controls.soft")}</option>
-              <option value="Hard">{t("controls.hard")}</option>
-            </select>
-          </label>
-          <label class="confirmation-field">
-            {t("common.typePhrase")}
-            <span class="phrase" lang="en">
-              {STATION_RESET_PHRASE}
-            </span>
-            <input
-              value={resetConfirmation}
-              autocomplete="off"
-              onInput={(event) => setResetConfirmation(event.currentTarget.value)}
-            />
-          </label>
-          <button
-            class="button danger"
-            type="submit"
-            disabled={offline || busy || resetConfirmation !== STATION_RESET_PHRASE}
-          >
-            {t("controls.restart")}
+          <h2>{t("controls.availability")}</h2>
+          <ConnectorSelect
+            ids={connectorIds}
+            value={availabilityConnector}
+            onChange={setAvailabilityConnector}
+          />
+          <button class="button secondary" type="submit" disabled={offline || busy}>
+            {t("controls.makeAvailable", { connector: availabilityConnector })}
           </button>
         </form>
       </div>
 
-      <h3 class="subhead">{t("controls.history")}</h3>
+      <details class="command-maintenance">
+        <summary>{t("controls.maintenance")}</summary>
+        <div class="command-grid">
+          <form
+            class="command-form guarded"
+            aria-label={t("controls.unlockTitle", { connector: unlockConnector })}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void runStationCommand({
+                confirmation: unlockConfirmation,
+                connectorId: unlockConnector,
+                type: "UnlockConnector",
+              }).then((done) => done && setUnlockConfirmation(""));
+            }}
+          >
+            <h2>{t("controls.unlockTitle", { connector: unlockConnector })}</h2>
+            <p class="fine-print">{t("controls.unlockHint")}</p>
+            <ConnectorSelect
+              ids={connectorIds}
+              value={unlockConnector}
+              onChange={(id) => {
+                setUnlockConnector(id);
+                setUnlockConfirmation("");
+              }}
+            />
+            <label class="confirmation-field">
+              {t("common.typePhrase")}
+              <span class="phrase" lang="en">
+                {STATION_UNLOCK_PHRASE}
+              </span>
+              <input
+                value={unlockConfirmation}
+                autocomplete="off"
+                onInput={(event) => setUnlockConfirmation(event.currentTarget.value)}
+              />
+            </label>
+            <button
+              class="button danger"
+              type="submit"
+              disabled={offline || busy || unlockConfirmation !== STATION_UNLOCK_PHRASE}
+            >
+              {t("controls.unlock")}
+            </button>
+          </form>
+
+          <form
+            class="command-form guarded"
+            aria-label={t("controls.restartTitle")}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void runStationCommand({
+                confirmation: resetConfirmation,
+                resetType,
+                type: "Reset",
+              }).then((done) => done && setResetConfirmation(""));
+            }}
+          >
+            <h2>{t("controls.restartTitle")}</h2>
+            <label>
+              {t("controls.restartType")}
+              <select
+                value={resetType}
+                onChange={(event) => setResetType(event.currentTarget.value as "Hard" | "Soft")}
+              >
+                <option value="Soft">{t("controls.soft")}</option>
+                <option value="Hard">{t("controls.hard")}</option>
+              </select>
+            </label>
+            <label class="confirmation-field">
+              {t("common.typePhrase")}
+              <span class="phrase" lang="en">
+                {STATION_RESET_PHRASE}
+              </span>
+              <input
+                value={resetConfirmation}
+                autocomplete="off"
+                onInput={(event) => setResetConfirmation(event.currentTarget.value)}
+              />
+            </label>
+            <button
+              class="button danger"
+              type="submit"
+              disabled={offline || busy || resetConfirmation !== STATION_RESET_PHRASE}
+            >
+              {t("controls.restart")}
+            </button>
+          </form>
+        </div>
+      </details>
+
+      <h2 class="subhead">{t("controls.history")}</h2>
+      <p class="panel-intro">{t("controls.historyIntro")}</p>
       <CommandHistory commands={current.commands} />
     </section>
+  );
+}
+
+function ConnectorSelect({
+  ids,
+  value,
+  onChange,
+}: {
+  ids: readonly number[];
+  value: number;
+  onChange: (id: number) => void;
+}) {
+  return (
+    <label>
+      {t("controls.connector")}
+      <select value={value} onChange={(event) => onChange(Number(event.currentTarget.value))}>
+        {ids.map((id) => (
+          <option key={id} value={id}>
+            {t("station.connector", { id })}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
