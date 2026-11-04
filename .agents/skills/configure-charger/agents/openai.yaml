@@ -1,0 +1,4 @@
+interface:
+  display_name: "Configure Charger"
+  short_description: "Connect a charger to chargeOS and make offline owner charging ready"
+  default_prompt: "Use $configure-charger to connect this charger to our chargeOS edge and prepare offline owner charging."

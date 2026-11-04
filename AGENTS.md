@@ -23,6 +23,9 @@ Read [VISION.md](VISION.md) and [docs/README.md](docs/README.md) before changing
 - `docs/`: canonical product, architecture, security, compatibility, and operational evidence.
 - `docs/decisions/`: accepted architecture decisions.
 - `.agents/skills/liberate-charger/`: repeatable research and charger-liberation workflow.
+- `.agents/skills/deploy-owner-edge/`: owner-edge hosting, deployment, upgrade and backup workflow.
+- `.agents/skills/deploy-company/`: company owner edge, employer workspace and employee-hub readiness workflow.
+- `.agents/skills/configure-charger/`: charger connection, offline-readiness and card-list workflow for owner or company edges.
 
 ## Working rules
 

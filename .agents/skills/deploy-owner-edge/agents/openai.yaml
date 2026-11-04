@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deploy Owner Edge"
+  short_description: "Deploy and operate a chargeOS edge for one owner"
+  default_prompt: "Use $deploy-owner-edge to plan and deploy a chargeOS owner edge on this host without weakening offline owner charging."

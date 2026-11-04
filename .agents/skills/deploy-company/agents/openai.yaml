@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deploy for a Company"
+  short_description: "Plan company chargers, employee access and the employer workspace"
+  default_prompt: "Use $deploy-company to plan a chargeOS deployment for our company's chargers and employees."
