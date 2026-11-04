@@ -362,10 +362,18 @@ function ChargingStatus({
             ({ status, connectorId }) =>
               status === "active" && connectorId === connector.connectorId,
           );
-          // A carried/replayed open session is not enough to target a current stop.
-          const session =
-            active.length === 1 && Date.parse(active[0]!.startedAt) >= connectedAt
-              ? active[0]
+          // One open session on a connector that reports charging is what it is charging,
+          // also when it started before chargeOS last reconnected (a restart mid-charge).
+          const session = active.length === 1 ? active[0]! : null;
+          // A carried/replayed open session is not enough to target a current stop: the
+          // charger must have started it, or timestamped a meter reading for it, since
+          // this connection began.
+          const stoppable =
+            session &&
+            (Date.parse(session.startedAt) >= connectedAt ||
+              (session.latestMeterReading !== null &&
+                Date.parse(session.latestMeterReading.at) >= connectedAt))
+              ? session
               : null;
           const card = session ? cardLabel(directory, station.id, session.tagPseudonym) : null;
           return (
@@ -388,14 +396,14 @@ function ChargingStatus({
                 <p>{t("overview.lastChargingReport", { date: formatDate(connector.updatedAt) })}</p>
                 {card && <p>{card.holder ? `${card.name} · ${card.holder}` : card.name}</p>}
               </div>
-              {session && (
+              {stoppable && (
                 <button
                   class="button secondary"
                   type="button"
                   disabled={action.value !== null}
                   onClick={() =>
                     void runStationCommand({
-                      transactionId: session.transactionId,
+                      transactionId: stoppable.transactionId,
                       type: "RemoteStopTransaction",
                     })
                   }

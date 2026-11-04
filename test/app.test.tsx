@@ -424,6 +424,64 @@ describe("owner console", () => {
     expect(screen.getByRole("heading", { name: "What chargeOS knows" })).toBeTruthy();
   });
 
+  it("keeps showing a charge that outlived a reconnect and offers stop once it is proven current", async () => {
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    const connectedAt = "2026-08-14T11:59:00.000Z";
+    const carried = {
+      ...OWNER_SNAPSHOT.sessions[0]!,
+      latestMeterReading: { at: "2026-08-14T11:45:00.000Z", energyWh: 1_500 },
+      startedAt: "2026-08-14T11:30:00.000Z",
+      status: "active",
+      stoppedAt: null,
+    } as const;
+    let response: OwnerSnapshot = {
+      ...OWNER_SNAPSHOT,
+      sessions: [carried],
+      station: {
+        ...OWNER_SNAPSHOT.station,
+        connectedAt,
+        connectors: [
+          {
+            connectorId: 1,
+            errorCode: "NoError",
+            status: "Charging",
+            updatedAt: "2026-08-14T11:59:30.000Z",
+          },
+        ],
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (path) => {
+        if (path === "/api/v1/fleet") return json(SINGLE_FLEET);
+        if (path === "/api/v1/directory") return json(EMPTY_DIRECTORY);
+        return json(response);
+      }),
+    );
+
+    render(<App />);
+    signIn();
+    const status = within(await screen.findByRole("region", { name: "What chargeOS knows" }));
+    await waitFor(() => expect(status.getByText("Connector 1 reports charging")).toBeTruthy());
+    // Started before this connection and last metered before it: show progress, not a stop.
+    expect(status.getByText(/^1\.5 kWh so far, from the charger’s meter reading at /)).toBeTruthy();
+    expect(status.getByText(/^Started /)).toBeTruthy();
+    expect(status.queryByRole("button", { name: "Stop charging" })).toBeNull();
+
+    // A reading the charger timestamped on this connection proves the session is current.
+    response = {
+      ...response,
+      sessions: [
+        { ...carried, latestMeterReading: { at: "2026-08-14T12:00:00.000Z", energyWh: 1_800 } },
+      ],
+    };
+    await waitFor(() => {
+      fireEvent.click(status.getByRole("button", { name: "Refresh status" }));
+      expect(status.getByText(/^1\.8 kWh so far/)).toBeTruthy();
+    });
+    expect(status.getByRole("button", { name: "Stop charging" })).toBeTruthy();
+  });
+
   it("keeps stale charging reports, acknowledged cards and field review independent", async () => {
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
     const earlier = "2026-08-14T11:58:00.000Z";
