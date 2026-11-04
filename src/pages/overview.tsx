@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { CapabilityAssessment, ChargeSession, OwnerSnapshot } from "../../shared/contracts.js";
 import type { OwnerDirectory } from "../../shared/directory.js";
 import { formatDate, t, tn } from "../i18n/index.js";
-import { isPauseStatus, LiveReadout, PAUSE_COPY } from "../live-charging.js";
+import { isPauseStatus, LiveReadout, PAUSE_TITLE } from "../live-charging.js";
 import { action, pollSnapshot, runStationCommand } from "../model.js";
 import type { Route } from "../routes.js";
 import { freedomStatusLabel, migrationStatusLabel } from "../switching.js";
@@ -13,7 +13,6 @@ import { ConnectChargerPanel, needsConnectionHelp } from "./connect.js";
 import { TapCardDialog } from "./cards.js";
 import { SetupChecklist } from "./fleet-setup.js";
 import {
-  cardLabel,
   visibleSite,
   StatusPill,
   connectorStatusLabel,
@@ -171,7 +170,6 @@ export function OverviewPage({
       {(!settingUp || liveOrAlert) && (
         <OverviewStatus
           snapshot={current}
-          directory={directory}
           go={go}
           unavailable={unavailable}
           onRefresh={station.boot || unavailable ? refresh : null}
@@ -274,7 +272,6 @@ export function offlineFieldState(freedomTest: OwnerSnapshot["freedomTest"]) {
 
 function OverviewStatus({
   snapshot: current,
-  directory,
   go,
   unavailable,
   onRefresh,
@@ -282,7 +279,6 @@ function OverviewStatus({
   compact = false,
 }: {
   snapshot: OwnerSnapshot;
-  directory: OwnerDirectory | null;
   go: (next: Route) => void;
   unavailable: boolean;
   onRefresh: (() => void) | null;
@@ -331,7 +327,7 @@ function OverviewStatus({
             {t("overview.chargingNow")}
           </dt>
           <dd>
-            <ChargingStatus snapshot={current} directory={directory} unavailable={unavailable} />
+            <ChargingStatus snapshot={current} unavailable={unavailable} />
           </dd>
         </div>
         <div class="overview-status-row">
@@ -419,11 +415,9 @@ function OverviewStatus({
 
 function ChargingStatus({
   snapshot: current,
-  directory,
   unavailable,
 }: {
   snapshot: OwnerSnapshot;
-  directory: OwnerDirectory | null;
   unavailable: boolean;
 }) {
   const { station, sessions } = current;
@@ -442,7 +436,7 @@ function ChargingStatus({
       <ul class="overview-live">
         {live.map((connector) => {
           const active = openOn(connector.connectorId);
-          const pause = isPauseStatus(connector.status) ? PAUSE_COPY[connector.status] : null;
+          const pause = isPauseStatus(connector.status) ? PAUSE_TITLE[connector.status] : null;
           // One open session on a connector that reports charging is what it is charging,
           // also when it started before chargeOS last reconnected (a restart mid-charge).
           const session = active.length === 1 ? active[0]! : null;
@@ -456,23 +450,20 @@ function ChargingStatus({
                 Date.parse(session.latestMeterReading.at) >= connectedAt))
               ? session
               : null;
-          const card = session ? cardLabel(directory, station.id, session.tagPseudonym) : null;
           return (
             <li key={connector.connectorId}>
               <div>
                 <strong class={pause ? "live-paused" : undefined}>
-                  {t(pause ? pause.title : "overview.chargingOn", {
+                  {t(pause ?? "overview.chargingOn", {
                     connector: connector.connectorId,
                   })}
                 </strong>
-                {pause && <p class="live-pause-hint">{t(pause.hint)}</p>}
                 {session && <LiveReadout session={session} paused={Boolean(pause)} />}
-                {(!session?.latestMeterReading || pause) && (
+                {!session?.latestMeterReading && (
                   <p class="live-sub">
                     {t("overview.lastChargingReport", { date: formatDate(connector.updatedAt) })}
                   </p>
                 )}
-                {card && <p>{card.holder ? `${card.name} · ${card.holder}` : card.name}</p>}
               </div>
               {stoppable && (
                 <button

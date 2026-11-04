@@ -11,7 +11,6 @@ import {
   estimatedCost,
   intervalPowers,
   parseEnergyPrice,
-  readingInterval,
   setEnergyPrice,
 } from "../src/live-charging.js";
 import { chargingEvents, notificationSupport } from "../src/notifications.js";
@@ -87,24 +86,16 @@ describe("charging speed", () => {
     );
     // Start is prepended at 0 Wh; the 30-second start gap and the 12-second pair are both skipped.
     expect(powers.map(({ kw }) => Number(kw.toFixed(2)))).toEqual([2.85, 2.75]);
-    expect(readingInterval(session())).toBe(15 * 60_000);
-    expect(readingInterval(session({ meterTrace: trace([0, 0], [15, 698]) }))).toBeNull();
   });
 });
 
-describe("charging speed after a pause and on long sessions", () => {
-  it("leaves out time the car sat paused, and stops predicting readings once thinned", () => {
+describe("charging speed after a pause", () => {
+  it("leaves out time the car sat paused", () => {
     // 2.1 kWh in 45 minutes, then two hours plugged in with the meter standing still.
     const paused = session({
       meterTrace: trace([0, 0], [15, 698], [30, 1_379], [45, 2_088], [105, 2_088], [165, 2_089]),
     });
     expect(averagePowerKw(paused)).toBeCloseTo(2.785, 2);
-    const thinned = session({
-      meterTrace: trace(
-        ...Array.from({ length: 24 }, (_, index): [number, number] => [index * 30, index * 1_400]),
-      ),
-    });
-    expect(readingInterval(thinned)).toBeNull();
   });
 
   it("shows no estimated cost for an open session without a meter reading", () => {
@@ -201,8 +192,9 @@ describe("notifications", () => {
       "Home charger, connector 1: the car isn’t taking power right now.",
     ]);
     const byCharger = snapshotWith([open], [connector("SuspendedEVSE")]);
-    expect(chargingEvents(before, byCharger)[0]!.body).toContain(
-      "the charger is holding back power",
+    // Chargers also report SuspendedEVSE when the car is full, so this stays neutral.
+    expect(chargingEvents(before, byCharger)[0]!.body).toBe(
+      "Home charger, connector 1: charging is paused.",
     );
     expect(chargingEvents(byCar, before)[0]!.title).toBe("Charging resumed");
     expect(chargingEvents(before, snapshotWith([open], [connector("Faulted")]))[0]!.title).toBe(

@@ -467,8 +467,9 @@ describe("owner console", () => {
     // Started before this connection and last metered before it: show progress, not a stop.
     expect(status.getByText("1.5 kWh")).toBeTruthy();
     expect(status.getByText("so far")).toBeTruthy();
-    expect(status.getByText(/^Since /)).toBeTruthy();
-    expect(status.getByText(/^Meter read at /)).toBeTruthy();
+    expect(status.getByText(/^Started at: /)).toBeTruthy();
+    // The readout is the figure, start, average and speed line: nothing else.
+    expect(status.queryByText(/Meter read|next reading/)).toBeNull();
     expect(status.queryByRole("button", { name: "Stop charging" })).toBeNull();
 
     // A reading the charger timestamped on this connection proves the session is current.
@@ -532,8 +533,10 @@ describe("owner console", () => {
     const status = within(await screen.findByRole("region", { name: "What chargeOS knows" }));
     await waitFor(() => expect(status.getByText("Connector 1: paused by the car")).toBeTruthy());
     expect(status.getByText("2.8 kWh")).toBeTruthy();
-    expect(status.getByText(/about 2\.8 kW on average/)).toBeTruthy();
-    expect(status.getByText(/^About €0\.84 so far at €0\.30\/kWh/)).toBeTruthy();
+    expect(status.getByText("Average: 2.8 kW")).toBeTruthy();
+    expect(status.getByText("Estimated cost: €0.84")).toBeTruthy();
+    // A pause adds only its title: no explanation or report line under the readout.
+    expect(status.queryByText(/^Last report|battery|schedule/i)).toBeNull();
     expect(
       status.getByRole("img", {
         name: "Charging speed during this session, between 2.8 kW and 2.8 kW",
@@ -606,7 +609,7 @@ describe("owner console", () => {
       expect(status.getByText("Connector 1 reports charging")).toBeTruthy();
     });
     expect(status.getByText("2.1 kWh")).toBeTruthy();
-    expect(status.getByText(/^Since /)).toBeTruthy();
+    expect(status.getByText(/^Started at: /)).toBeTruthy();
     expect(status.getByRole("button", { name: "Stop charging" })).toBeTruthy();
 
     unavailable = true;

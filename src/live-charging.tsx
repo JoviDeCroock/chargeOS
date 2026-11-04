@@ -1,6 +1,6 @@
 import { signal } from "@preact/signals";
 
-import { METER_TRACE_MAX_POINTS, type ChargeSession } from "../shared/contracts.js";
+import type { ChargeSession } from "../shared/contracts.js";
 import {
   formatKwh,
   formatNumber,
@@ -67,31 +67,6 @@ export function intervalPowers(
   return powers;
 }
 
-/**
- * Typical gap between the charger's meter readings, when at least two gaps are known. A trace at
- * its cap has been thinned, so its gaps no longer match the charger's interval: say nothing then.
- */
-export function readingInterval(session: ChargeSession): number | null {
-  if (session.meterTrace.length >= METER_TRACE_MAX_POINTS) return null;
-  const times = session.meterTrace.map(({ at }) => Date.parse(at));
-  const gaps = times
-    .slice(1)
-    .map((time, index) => time - times[index]!)
-    .filter((gap) => gap >= 60_000);
-  if (gaps.length < 2) return null;
-  const sorted = [...gaps].sort((left, right) => left - right);
-  return sorted[Math.floor(sorted.length / 2)]!;
-}
-
-/** Elapsed charging time as "1 h 05 min" or "12 min". */
-export function formatElapsed(fromIso: string, to = Date.now()): string {
-  const minutes = Math.max(0, Math.round((to - Date.parse(fromIso)) / 60_000));
-  const hours = Math.floor(minutes / 60);
-  return hours
-    ? t("sessions.hoursMinutes", { hours, minutes: String(minutes % 60).padStart(2, "0") })
-    : t("sessions.minutes", { minutes });
-}
-
 /* ------------------------------------------------------------------ */
 /* Pause reasons                                                       */
 /* ------------------------------------------------------------------ */
@@ -102,10 +77,13 @@ export function isPauseStatus(status: string): status is PauseStatus {
   return status === "SuspendedEV" || status === "SuspendedEVSE";
 }
 
-/** What an OCPP suspended state means for the owner; it names who is holding back, not why. */
-export const PAUSE_COPY: Readonly<Record<PauseStatus, { title: MessageKey; hint: MessageKey }>> = {
-  SuspendedEV: { hint: "live.pausedByCarHint", title: "live.pausedByCar" },
-  SuspendedEVSE: { hint: "live.pausedByChargerHint", title: "live.pausedByCharger" },
+/**
+ * How a paused connector is titled. SuspendedEV names the car; SuspendedEVSE stays neutral because
+ * chargers also report it when the car is simply full (an Alfen did after a reconnect).
+ */
+export const PAUSE_TITLE: Readonly<Record<PauseStatus, MessageKey>> = {
+  SuspendedEV: "live.pausedByCar",
+  SuspendedEVSE: "live.paused",
 };
 
 /* ------------------------------------------------------------------ */
@@ -239,9 +217,7 @@ export function LiveReadout({
   const reading = session.latestMeterReading;
   if (!reading) return <p>{t("overview.noMeterReading")}</p>;
   const average = averagePowerKw(session);
-  const interval = readingInterval(session);
   const cost = estimatedCost(reading.energyWh);
-  const price = energyPrice.value;
   return (
     <div class="live-readout">
       <p class="live-figure">
@@ -249,25 +225,12 @@ export function LiveReadout({
         <span class="live-kwh">{formatKwh(reading.energyWh)}</span>
         <span class="live-unit">{t("live.soFar")}</span>
       </p>
-      <p class="live-meta">
-        {t("live.since", {
-          duration: formatElapsed(session.startedAt),
-          time: formatTime(session.startedAt),
-        })}
-        {average !== null && <> · {t("live.average", { power: formatKw(average) })}</>}
-      </p>
-      {cost && price && (
-        <p class="live-meta">{t("live.costSoFar", { cost, price: priceLabel(price) })}</p>
+      <p class="live-meta">{t("live.startedAt", { time: formatTime(session.startedAt) })}</p>
+      {average !== null && (
+        <p class="live-meta">{t("live.averageLine", { power: formatKw(average) })}</p>
       )}
+      {cost && <p class="live-meta">{t("live.costLine", { cost })}</p>}
       <SessionSparkline session={session} width={220} height={40} />
-      <p class="live-sub">
-        {interval
-          ? t("live.meterReadNext", {
-              next: formatTime(new Date(Date.parse(reading.at) + interval).toISOString()),
-              time: formatTime(reading.at),
-            })
-          : t("live.meterRead", { time: formatTime(reading.at) })}
-      </p>
     </div>
   );
 }

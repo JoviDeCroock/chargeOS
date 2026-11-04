@@ -5171,11 +5171,6 @@ td.numeric {
   color: var(--warn);
 }
 
-.live-pause-hint {
-  max-width: 44ch;
-  color: var(--ink-2);
-}
-
 .live-readout .sparkline {
   margin: 6px 0 2px;
 }
