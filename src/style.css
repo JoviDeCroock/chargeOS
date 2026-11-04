@@ -692,8 +692,8 @@ body {
   background: var(--current);
   color: var(--current-ink);
   box-shadow:
-    0 1px 0 rgb(255 255 255 / 25%) inset,
-    0 8px 20px -10px color-mix(in srgb, var(--current) 80%, transparent);
+    0 1px 0 rgb(255 255 255 / 18%) inset,
+    0 1px 2px rgb(15 31 43 / 14%);
 }
 
 .button.primary:hover:not(:disabled) {
@@ -949,18 +949,6 @@ body {
   border-radius: 50%;
   border: 2px solid currentColor;
   opacity: 0;
-  animation: signal 2.8s ease-out 3;
-}
-
-@keyframes signal {
-  0% {
-    opacity: 0.6;
-    transform: scale(0.6);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.6);
-  }
 }
 
 .state-chip,
@@ -3914,12 +3902,8 @@ body {
 }
 
 .hero.readiness-unknown {
-  grid-template-columns: 168px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   padding-block: 28px;
-}
-
-.hero.readiness-unknown .halo {
-  width: 168px;
 }
 
 .offline-steps ol {
@@ -3991,10 +3975,175 @@ body {
 
 @media (max-width: 900px) {
   .hero.readiness-unknown {
-    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+    text-align: left;
   }
 
-  .hero.readiness-unknown .halo {
-    width: 140px;
+  .hero.readiness-unknown .hero-body {
+    justify-items: start;
   }
+
+  .hero.readiness-unknown .hero-actions {
+    justify-content: flex-start;
+  }
+}
+
+/* While setup runs, the status summary only reports; the checklist carries the actions. */
+.overview-status.compact {
+  padding: 18px 26px 16px;
+}
+
+.overview-status.compact .panel-head {
+  margin-bottom: 6px;
+}
+
+.overview-status.compact .panel-head h2 {
+  color: var(--ink-2);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.overview-status.compact .overview-status-row {
+  padding-block: 12px 2px;
+}
+
+/* Inline in the lede, with a 44 px tall hit area that does not move the text. */
+.page-head .name-action {
+  margin-block: -12px;
+  padding: 12px 2px;
+  font-size: inherit;
+}
+
+/* Phone header: brand and one menu button; the page list opens on request. */
+.rail-menu-toggle {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .rail {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand toggle"
+      "nav nav"
+      "foot foot";
+    row-gap: 0;
+  }
+
+  .rail-menu-toggle {
+    display: inline-flex;
+    grid-area: toggle;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: var(--field);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .rail-menu-current {
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+
+  .rail-menu-current::after {
+    margin-left: 10px;
+    color: var(--line-strong);
+    content: "|";
+  }
+
+  .rail:not(.menu-open) .rail-nav,
+  .rail:not(.menu-open) .rail-foot {
+    display: none;
+  }
+
+  .rail.menu-open .rail-nav {
+    margin-top: 12px;
+  }
+
+  .rail.menu-open .rail-foot {
+    margin-top: 10px;
+  }
+}
+
+.setup-panel .panel-head {
+  flex-wrap: wrap;
+}
+
+.setup-panel .panel-head > div {
+  flex: 1 1 320px;
+}
+
+@media (max-width: 640px) {
+  .stage-updated {
+    display: inline !important;
+  }
+
+  :where(.console-backdrop) .button.compact {
+    min-height: 44px;
+  }
+}
+
+/* Waiting steps keep a visible outline. */
+.setup-step.waiting .setup-node {
+  border-color: var(--idle);
+}
+
+.empty-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 24px;
+}
+
+.offline-steps li {
+  display: grid;
+  gap: 2px;
+}
+
+.offline-steps li strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.offline-steps li span {
+  color: var(--ink-2);
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/* Extra-section rows read as body text, not as form-label fine print. */
+:where(.console-backdrop) .module-list label {
+  color: var(--ink);
+  font-size: 0.98rem;
+  font-weight: 400;
+}
+
+.module-list strong {
+  font-weight: 600;
+}
+
+.module-list small {
+  font-size: 0.92rem;
+  font-weight: 400;
+}
+
+@media (max-width: 640px) {
+  .stage-context .status-pill {
+    display: inline-flex;
+  }
+
+  .stage-context .status-pill span {
+    display: inline-block;
+  }
+}
+
+.stage-context .status-pill span {
+  color: inherit;
 }

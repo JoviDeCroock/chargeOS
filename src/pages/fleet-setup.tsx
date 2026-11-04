@@ -323,8 +323,19 @@ export function SetupChecklist({
               <strong>
                 {t(uncompared ? "fleet.step.identity.unchecked" : STEP_TEXT[step.id].title)}
               </strong>
-              {step.state !== "done" && <p>{t(STEP_TEXT[step.id].body)}</p>}
-              {step.id === "identity" && station.boot && (
+              {step.state !== "done" && (
+                <p
+                  class={
+                    step.state === "waiting" && step.id === "test-charge"
+                      ? "setup-later"
+                      : undefined
+                  }
+                >
+                  {t(STEP_TEXT[step.id].body)}
+                </p>
+              )}
+              {/* The report matters while identity is in question; Details keeps it afterwards. */}
+              {step.id === "identity" && station.boot && step.state !== "done" && (
                 <p class="setup-identity">
                   {t("fleet.setup.reported", {
                     firmware: station.boot.firmwareVersion ?? "—",
@@ -348,9 +359,7 @@ export function SetupChecklist({
                   {t(DETAIL_TEXT[step.detail])}
                 </p>
               )}
-              {step.detail === "identity-unchecked" && step.state === "done" && (
-                <p class="setup-detail">{t(DETAIL_TEXT[step.detail])}</p>
-              )}
+              {uncompared && <p class="setup-detail">{t("fleet.detail.identity-unchecked")}</p>}
               {step.state === "current" && (
                 <StepAction
                   step={step.id}
@@ -381,12 +390,14 @@ export function SetupChecklist({
       <header class="panel-head">
         <div>
           <h2 id="setup-title">{t("fleet.setup.title")}</h2>
-          <p class="panel-sub">{t("fleet.setup.progress", { done, total: setup.steps.length })}</p>
+          <p class="panel-sub">{t("fleet.setup.why")}</p>
         </div>
         <span
           class={`state-chip ${setup.state === "stopped" ? "risk" : setup.state === "waiting-for-charger" ? "idle" : "warn"}`}
         >
-          {t(`fleet.setup.state.${setup.state}` as MessageKey)}
+          {setup.state === "in-progress"
+            ? t("fleet.setup.progress", { done, total: setup.steps.length })
+            : t(`fleet.setup.state.${setup.state}` as MessageKey)}
         </span>
       </header>
       {steps}

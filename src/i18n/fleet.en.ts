@@ -142,8 +142,7 @@ export const fleetEn = {
 
   "fleet.detail.identity-mismatch":
     "Stop: the charger that connected is not the make, model or firmware you expected. Check with the installer before going further.",
-  "fleet.detail.identity-unchecked":
-    "Not compared: no expected model was entered when this charger was added.",
+  "fleet.detail.identity-unchecked": "Not compared with an expected model.",
   "fleet.detail.readiness-blocked":
     "The charger cannot keep cards for offline use as it is set up now. Open offline charging for details.",
   "fleet.detail.restart-required": "The charger must restart before the check can continue.",
@@ -295,7 +294,7 @@ export const fleetEn = {
     "Check, and if needed prepare, the charger to keep cards for offline use.",
   "fleet.step.offline-ready.title": "Offline settings checked",
   "fleet.step.test-charge.body":
-    "Once the cards are on the charger, charge once with a registered card. Charges from before that don’t count.",
-  "fleet.step.test-charge.title": "First charge",
+    "Once the cards are on the charger, charge once with a registered card. This shows the card works; the offline field test is a separate check.",
+  "fleet.step.test-charge.title": "Test charge with a card",
   "usage.privatePart": "of which private: {energy}",
 } as const;

@@ -102,7 +102,7 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "cards.sync.neverLong": "De laadpaal heeft de ontvangst van een passenlijst nog niet bevestigd.",
   "cards.sync.offline":
     "De laadpaal is niet verbonden. Je kunt de lijst versturen zodra de verbinding terug is.",
-  "cards.sync.openOffline": "Offline laden controleren",
+  "cards.sync.openOffline": "Offline-instellingen controleren",
   "cards.sync.pending": "Wijzigingen wachten op de laadpaal",
   "cards.sync.pendingLong.one": "{count} wijziging wacht om naar de laadpaal verstuurd te worden",
   "cards.sync.pendingLong.other":
@@ -133,7 +133,7 @@ export const nl: Readonly<Record<MessageKey, string>> = {
 
   "cards.title": "Laadpassen",
   "cards.unnamed": "Laadpas zonder naam",
-  "cards.unnamedShort": "Laadpas {id}",
+  "cards.unnamedShort": "Laadpas zonder naam · {id}",
   "cards.waiting": "Wacht op versturen",
 
   "command.message.accepted":
@@ -178,7 +178,7 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "connect.identityWithAlias": "{id}, of {alias} (de naam die je laadpaal al gebruikt)",
 
   "connect.installerNote":
-    "Je installateur vult deze instellingen in via de configuratietool van de laadpaal zelf. chargeOS wijzigt zelf nooit instellingen van de laadpaal.",
+    "Je installateur vult de verbindingsinstellingen in via de eigen configuratietool van de laadpaal. chargeOS wijzigt die verbindingsinstellingen nooit zelf.",
   "connect.intro":
     "Vul deze instellingen in via de configuratietool van je laadpaal. Deze pagina werkt zichzelf bij zodra de laadpaal verbinding maakt.",
   "connect.password": "Wachtwoord",
@@ -283,10 +283,11 @@ export const nl: Readonly<Record<MessageKey, string>> = {
 
   "module.assist.description": "Vraag je eigen AI-aanbieder om advies bij problemen, alleen lezen.",
   "module.assist.label": "AI-hulp",
-  "module.evidence.description": "Bekijk en download de fraudebestendige registratie.",
+  "module.evidence.description":
+    "Bekijk en download het verslag van wat chargeOS zag, verzegeld zodat latere wijzigingen zichtbaar zouden zijn.",
   "module.evidence.label": "Registraties",
   "module.liberation.description":
-    "Zet een laadpaal over van zijn vorige aanbieder en voer daarna de offline test met getuige uit (de Freedom Test).",
+    "Zet een laadpaal over van zijn vorige aanbieder en test daarna laden zonder internet met een getuige.",
   "module.liberation.label": "Overstappen van aanbieder",
   "module.sharing.description":
     "Geef een installateur, werkgever of energieleverancier tijdelijke toegang om te lezen.",
@@ -390,11 +391,11 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "overview.fieldUnverified": "Niet geverifieerd",
   "overview.installerSettings": "Verbindingsinstellingen voor je installateur",
   "overview.lastCardList": "Laatst aanvaarde lijst: {date}",
-  "overview.lastChargingReport": "Laadpaalstatus gemeld op {date}",
+  "overview.lastChargingReport": "Gemeld door de laadpaal om {date}",
   "overview.listAccepted": "De laadpaal heeft de huidige lijst aanvaard",
-  "overview.noCardList": "De laadpaal heeft de ontvangst van een passenlijst nog niet bevestigd.",
+  "overview.noCardList": "Nog niet bevestigd door de laadpaal.",
   "overview.noCards": "Geen passen geregistreerd in chargeOS",
-  "overview.notCharging": "De laadpaal meldt geen actieve laadsessie",
+  "overview.notCharging": "Laadt niet",
   "overview.notConnected": "Niet verbonden",
   "overview.offlineDetails": "Bekijk de instellingen voor offline laden",
   "overview.reconnect":
@@ -404,8 +405,7 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "overview.settingsBlocked": "De controle van de instellingen heeft een probleem gevonden.",
   "overview.settingsPassed":
     "De instellingen zijn gecontroleerd. Alleen een test aan de laadpaal toont wat er offline gebeurt.",
-  "overview.settingsUnchecked":
-    "Controleer de instellingen na de verbinding en volg daarna de gids voor de praktijktest.",
+  "overview.settingsUnchecked": "Instellingen nog niet gecontroleerd.",
   "overview.statusTitle": "Wat chargeOS weet",
   "overview.statusUnavailable":
     "De console kon niet vernieuwen. De actuele laadstatus is niet beschikbaar.",
@@ -530,7 +530,7 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "stations.driver": "Persoon",
   "stations.edit": "Namen bewerken",
   "stations.editTitle": "Laadpaal bewerken",
-  "stations.energy": "Geregistreerde energie",
+  "stations.energy": "Energie, totaal",
   "stations.field.driver": "Persoon",
   "stations.field.driverHint":
     "Het verbruik op deze laadpaal wordt onder deze persoon gerapporteerd.",
@@ -616,14 +616,27 @@ export const nl: Readonly<Record<MessageKey, string>> = {
   "usage.historyHint": "Een maandgrafiek verschijnt zodra er meer dan één maand laadgegevens zijn.",
   "offline.techDetails": "Instellingen die dit wijzigt",
   "offline.steps.title": "Zo stel je laden zonder internet in",
-  "offline.steps.check": "Controleer de laadpaal. Dit leest alleen de instellingen.",
+  "offline.steps.check":
+    "Controleer de laadpaal. Dit leest alleen de instellingen; ontbreekt er een, dan kun je laden zonder internet hier aanzetten.",
   "offline.steps.prepare": "Ontbreekt er een instelling, zet laden zonder internet dan hier aan.",
-  "offline.steps.send": "Stuur je laadpassen naar de laadpaal.",
+  "offline.steps.send": "Stuur je laadpassen naar de laadpaal en wacht tot hij de lijst aanvaardt.",
   "offline.steps.test":
-    "Test het aan de laadpaal met het internet losgekoppeld, met de gids voor de praktijktest.",
+    "Koppel aan de laadpaal het internet los en laad met je laadpas, volgens de gids voor de praktijktest.",
   "cards.noPerson": "Niemand gekoppeld",
   "cards.addName": "Naam geven",
   "cards.reference": "Referentie {id}",
   "stations.continueSetup": "Verder instellen",
+  "fleet.setup.why":
+    "Deze stappen bereiden de laadpaal voor om je laadpassen ook zonder internet te aanvaarden. De praktijktest op het einde bevestigt dat.",
+  "details.notNamed": "Nog geen naam",
+  "stations.nameItShort": "Naam geven",
+  "app.menu": "Menu",
+  "app.closeMenu": "Menu sluiten",
+  "controls.availableNow": "Nu: {status}",
+  "offline.steps.fieldTitle": "Praktijktest",
+  "cards.sync.notSent": "Je laadpassen zijn nog niet naar de laadpaal gestuurd.",
+  "overview.notSent": "Nog niet naar de laadpaal gestuurd.",
+  "controls.alreadyAvailable": "Al beschikbaar",
+  "stations.chargingShort": "Laden",
   ...fleetNl,
 };

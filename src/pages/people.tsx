@@ -47,7 +47,7 @@ export function PeoplePage({
         lede={t(company ? "people.ledeCompany" : "people.lede")}
         actions={
           directory.writable && (
-            <button class="button primary" type="button" onClick={() => setEditing("new")}>
+            <button class="button secondary" type="button" onClick={() => setEditing("new")}>
               {t(company ? "people.addCompany" : "people.add")}
             </button>
           )
@@ -58,6 +58,11 @@ export function PeoplePage({
       {directory.people.length === 0 ? (
         <section class="panel glass empty-panel">
           <p>{t(company ? "people.emptyCompany" : "people.empty")}</p>
+          {directory.writable && (
+            <button class="button primary" type="button" onClick={() => setEditing("new")}>
+              {t(company ? "people.addCompany" : "people.add")}
+            </button>
+          )}
         </section>
       ) : (
         <ul class="entity-grid" aria-label={title}>

@@ -105,7 +105,7 @@ export const en = {
   "cards.sync.never": "Cards not sent yet",
   "cards.sync.neverLong": "The charger hasn’t confirmed receipt of a card list.",
   "cards.sync.offline": "The charger is disconnected. You can send the list when it reconnects.",
-  "cards.sync.openOffline": "Check offline charging",
+  "cards.sync.openOffline": "Check offline settings",
   "cards.sync.pending": "Changes waiting for the charger",
   "cards.sync.pendingLong.one": "{count} change is waiting to be sent to the charger",
   "cards.sync.pendingLong.other": "{count} changes are waiting to be sent to the charger",
@@ -135,7 +135,7 @@ export const en = {
 
   "cards.title": "RFID cards",
   "cards.unnamed": "Unnamed card",
-  "cards.unnamedShort": "Card {id}",
+  "cards.unnamedShort": "Unnamed card · {id}",
   "cards.waiting": "Waiting to be sent",
 
   "command.message.accepted":
@@ -179,7 +179,7 @@ export const en = {
   "connect.identityWithAlias": "{id}, or {alias} (the name your charger already uses)",
 
   "connect.installerNote":
-    "Your installer enters these settings in the charger's own configuration tool. chargeOS never changes the charger's settings itself.",
+    "Your installer enters the connection settings in the charger’s own configuration tool. chargeOS never changes those connection settings itself.",
   "connect.intro":
     "Enter these settings in your charger's configuration tool. This page updates on its own when the charger connects.",
   "connect.password": "Password",
@@ -283,10 +283,11 @@ export const en = {
 
   "module.assist.description": "Ask your own AI provider for read-only troubleshooting advice.",
   "module.assist.label": "AI help",
-  "module.evidence.description": "See the tamper-evident record and download it.",
+  "module.evidence.description":
+    "See and download the record of what chargeOS observed, sealed so later changes would show.",
   "module.evidence.label": "Records",
   "module.liberation.description":
-    "Move a charger away from its previous provider, then run the witnessed offline test (the Freedom Test).",
+    "Move a charger away from its previous provider, then test offline charging with a witness.",
   "module.liberation.label": "Switching provider",
   "module.sharing.description":
     "Give an installer, employer or energy provider temporary read-only access.",
@@ -386,11 +387,11 @@ export const en = {
   "overview.fieldUnverified": "Not verified",
   "overview.installerSettings": "Connection settings for your installer",
   "overview.lastCardList": "Last accepted list: {date}",
-  "overview.lastChargingReport": "Charger status reported at {date}",
+  "overview.lastChargingReport": "Reported by the charger at {date}",
   "overview.listAccepted": "The charger accepted the current list",
-  "overview.noCardList": "The charger hasn’t confirmed receipt of a card list.",
+  "overview.noCardList": "Not yet confirmed by the charger.",
   "overview.noCards": "No cards registered in chargeOS",
-  "overview.notCharging": "Charger reports no charging",
+  "overview.notCharging": "Not charging",
   "overview.notConnected": "Not connected",
   "overview.offlineDetails": "View offline charging settings",
   "overview.reconnect":
@@ -400,8 +401,7 @@ export const en = {
   "overview.settingsBlocked": "The settings check found a problem.",
   "overview.settingsPassed":
     "The settings check passed. Only a test at the charger can show what happens offline.",
-  "overview.settingsUnchecked":
-    "Check the settings after connection, then follow the field test guide.",
+  "overview.settingsUnchecked": "Settings not checked yet.",
   "overview.statusTitle": "What chargeOS knows",
   "overview.statusUnavailable":
     "The console couldn’t refresh. Live charging status is unavailable.",
@@ -524,7 +524,7 @@ export const en = {
   "stations.driver": "Person",
   "stations.edit": "Edit names",
   "stations.editTitle": "Edit charger",
-  "stations.energy": "Energy recorded",
+  "stations.energy": "Energy, all time",
   "stations.field.driver": "Person",
   "stations.field.driverHint": "Usage on this charger is reported under this person.",
   "stations.field.id": "Charge point ID (cannot be changed here):",
@@ -609,15 +609,28 @@ export const en = {
   "usage.historyHint": "A monthly chart appears once there is more than one month of charging.",
   "offline.techDetails": "Settings this changes",
   "offline.steps.title": "How offline charging gets set up",
-  "offline.steps.check": "Check the charger. This only reads its settings.",
+  "offline.steps.check":
+    "Check the charger. This only reads its settings; if one is missing, you can turn on offline charging here.",
   "offline.steps.prepare": "If a setting is missing, turn on offline charging here.",
-  "offline.steps.send": "Send your cards to the charger.",
+  "offline.steps.send": "Send your cards to the charger and wait until it accepts the list.",
   "offline.steps.test":
-    "Test it at the charger with the internet disconnected, using the field test guide.",
+    "At the charger, disconnect the internet and charge with your card, following the field test guide.",
   "cards.noPerson": "No person linked",
   "cards.addName": "Add a name",
   "cards.reference": "Reference {id}",
   "stations.continueSetup": "Continue setup",
+  "fleet.setup.why":
+    "These steps prepare the charger to accept your cards even without internet. The field test at the end confirms it.",
+  "details.notNamed": "Not named yet",
+  "stations.nameItShort": "Name it",
+  "app.menu": "Menu",
+  "app.closeMenu": "Close menu",
+  "controls.availableNow": "Now: {status}",
+  "offline.steps.fieldTitle": "Field test",
+  "cards.sync.notSent": "Your cards haven’t been sent to the charger yet.",
+  "overview.notSent": "Not sent to the charger yet.",
+  "controls.alreadyAvailable": "Already available",
+  "stations.chargingShort": "Charging",
   ...fleetEn,
 } as const;
 

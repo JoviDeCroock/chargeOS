@@ -3,7 +3,7 @@ import { useEffect, useRef } from "preact/hooks";
 
 import type { ChargeSession } from "../shared/contracts.js";
 import type { OwnerDirectory } from "../shared/directory.js";
-import { formatDate, formatNumber, t, tn, type MessageKey } from "./i18n/index.js";
+import { formatDate, formatKwh, t, tn, type MessageKey } from "./i18n/index.js";
 
 export type Tone = "ok" | "warn" | "risk" | "live" | "idle";
 
@@ -210,7 +210,6 @@ export function SessionTable({
             <th>{t("sessions.connector")}</th>
             <th class="numeric">{t("sessions.energy")}</th>
             <th>{t("sessions.status")}</th>
-            <th>{t("sessions.number")}</th>
           </tr>
         </thead>
         <tbody>
@@ -228,9 +227,7 @@ export function SessionTable({
                 </td>
                 <td>{session.connectorId}</td>
                 <td class="numeric">
-                  {session.energyWh === null
-                    ? "—"
-                    : `${formatNumber(session.energyWh / 1000, 2)} kWh`}
+                  {session.energyWh === null ? "—" : formatKwh(session.energyWh)}
                 </td>
                 <td>
                   <span
@@ -250,7 +247,6 @@ export function SessionTable({
                     </small>
                   )}
                 </td>
-                <td class="mono muted">{session.transactionId}</td>
               </tr>
             );
           })}
@@ -266,7 +262,7 @@ export function PageHead({
   actions,
 }: {
   title: string;
-  lede?: string;
+  lede?: ComponentChildren;
   actions?: ComponentChildren;
 }) {
   return (

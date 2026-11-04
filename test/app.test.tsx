@@ -592,7 +592,6 @@ describe("owner console", () => {
     expect(screen.getByText("1 removed card may still work at the charger")).toBeTruthy();
     expect(screen.getByText("2 changes are waiting to be sent to the charger")).toBeTruthy();
     expect(screen.getByText("Unnamed card")).toBeTruthy();
-    expect(screen.getByText("Reference 123456")).toBeTruthy();
     expect((screen.getByRole("button", { name: "Remove" }) as HTMLButtonElement).disabled).toBe(
       true,
     );
@@ -722,7 +721,11 @@ describe("owner console", () => {
     fireEvent.change(startControls.getByLabelText("Connector"), { target: { value: "2" } });
     expect(startControls.getByRole("button", { name: "Start on connector 2" })).toBeTruthy();
     const availability = within(screen.getByRole("form", { name: "Connector availability" }));
-    expect(availability.getByRole("button", { name: "Make connector 1 available" })).toBeTruthy();
+    // The fixture reports connector 1 as available, so there is nothing to change.
+    expect(
+      (availability.getByRole("button", { name: "Already available" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
     expect(screen.getByText("Commands for Home charger.")).toBeTruthy();
     const maintenance = screen.getByText("Maintenance").closest("details")!;
     expect(maintenance.open).toBe(false);

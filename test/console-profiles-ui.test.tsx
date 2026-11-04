@@ -263,7 +263,7 @@ describe("console profiles", () => {
     expect(within(usage).getByText("9.0 kWh", { selector: ".usage-tile strong" })).toBeTruthy();
     expect(within(usage).getByText("This month by card")).toBeTruthy();
     // Without saved names, cards fall back to a short anonymous reference.
-    expect(within(usage).getByText("Card guest")).toBeTruthy();
+    expect(within(usage).getByText("Unnamed card · guest")).toBeTruthy();
 
     expect(navLinks()).toEqual([
       "Overview",

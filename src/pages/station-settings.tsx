@@ -155,7 +155,7 @@ function OfflineTab({ snapshot: current }: { snapshot: OwnerSnapshot }) {
   return (
     <div class="section-stack">
       <section class={`hero glass readiness-${state}`} aria-labelledby="offline-title">
-        <Halo readiness={readiness} connected={connected} />
+        {readiness && <Halo readiness={readiness} connected={connected} />}
         <div class="hero-body">
           <h2 id="offline-title" class="hero-title">
             {t(
@@ -223,11 +223,20 @@ function OfflineTab({ snapshot: current }: { snapshot: OwnerSnapshot }) {
           <header class="panel-head">
             <h2 id="offline-steps-title">{t("offline.steps.title")}</h2>
           </header>
+          {/* The same step names as the overview checklist, from the check onwards. */}
           <ol>
-            <li class="current">{t("offline.steps.check")}</li>
-            <li>{t("offline.steps.prepare")}</li>
-            <li>{t("offline.steps.send")}</li>
-            <li>{t("offline.steps.test")}</li>
+            <li class="current">
+              <strong>{t("fleet.step.offline-ready.title")}</strong>
+              <span>{t("offline.steps.check")}</span>
+            </li>
+            <li>
+              <strong>{t("fleet.step.cards-on-charger.title")}</strong>
+              <span>{t("offline.steps.send")}</span>
+            </li>
+            <li>
+              <strong>{t("offline.steps.fieldTitle")}</strong>
+              <span>{t("offline.steps.test")}</span>
+            </li>
           </ol>
           <p class="fine-print">{t("offline.physicalWork")}</p>
         </section>
@@ -355,7 +364,10 @@ function ControlsTab({
   const [connectorId, setConnectorId] = useState(connectorIds[0] ?? 1);
   const [availabilityConnector, setAvailabilityConnector] = useState(connectorIds[0] ?? 1);
   const [unlockConnector, setUnlockConnector] = useState(connectorIds[0] ?? 1);
-  const name = current.station.label;
+  const name =
+    current.station.label === current.station.id
+      ? t("overview.unnamedTitle")
+      : current.station.label;
   const [tagPseudonym, setTagPseudonym] = useState(current.authorization.tagPseudonyms[0] ?? "");
   const [resetType, setResetType] = useState<"Hard" | "Soft">("Soft");
   const [resetConfirmation, setResetConfirmation] = useState("");
@@ -363,6 +375,9 @@ function ControlsTab({
   const busy = action.value !== null;
   const offline = !current.station.connected;
   const activeSessions = current.sessions.filter(({ status }) => status === "active");
+  const availabilityStatus =
+    current.station.connectors.find(({ connectorId: id }) => id === availabilityConnector)
+      ?.status ?? null;
 
   return (
     <section class="panel glass command-panel" aria-labelledby="commands-title">
@@ -399,17 +414,20 @@ function ControlsTab({
               })}
             </select>
           </label>
-          <button class="button primary" type="submit" disabled={offline || busy || !tagPseudonym}>
+          <button
+            class="button secondary"
+            type="submit"
+            disabled={offline || busy || !tagPseudonym}
+          >
             {t("controls.startTarget", { connector: connectorId })}
           </button>
         </form>
 
-        <div class="command-form">
-          <h2>{t("controls.stopTitle")}</h2>
-          {activeSessions.length === 0 ? (
-            <p class="muted">{t("controls.noSession")}</p>
-          ) : (
-            activeSessions.map((session) => (
+        {/* Stopping only appears while something charges; otherwise it would be an empty tile. */}
+        {activeSessions.length > 0 && (
+          <div class="command-form">
+            <h2>{t("controls.stopTitle")}</h2>
+            {activeSessions.map((session) => (
               <button
                 key={session.transactionId}
                 class="button secondary"
@@ -427,9 +445,9 @@ function ControlsTab({
                   id: session.transactionId,
                 })}
               </button>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
 
         <form
           class="command-form"
@@ -449,8 +467,19 @@ function ControlsTab({
             value={availabilityConnector}
             onChange={setAvailabilityConnector}
           />
-          <button class="button secondary" type="submit" disabled={offline || busy}>
-            {t("controls.makeAvailable", { connector: availabilityConnector })}
+          {availabilityStatus && availabilityStatus !== "Available" && (
+            <p class="muted">
+              {t("controls.availableNow", { status: connectorStatusLabel(availabilityStatus) })}
+            </p>
+          )}
+          <button
+            class="button secondary"
+            type="submit"
+            disabled={offline || busy || availabilityStatus === "Available"}
+          >
+            {availabilityStatus === "Available"
+              ? t("controls.alreadyAvailable")
+              : t("controls.makeAvailable", { connector: availabilityConnector })}
           </button>
         </form>
       </div>
@@ -651,7 +680,16 @@ function DetailsTab({
         )}
       </header>
       <dl class="facts">
-        <Fact label={t("stations.field.name")} value={station.label} />
+        <Fact
+          label={t("stations.field.name")}
+          value={
+            station.label === station.id ? (
+              <span class="muted">{t("details.notNamed")}</span>
+            ) : (
+              station.label
+            )
+          }
+        />
         <Fact label={t("stations.field.site")} value={station.site} />
         <Fact label={t("stations.driver")} value={station.driver ?? t("people.nobody")} />
         <Fact label={t("details.chargePointId")} value={station.id} mono />

@@ -195,7 +195,7 @@
 }
 
 .setup-step.done:not(:last-child)::before {
-  background: var(--halo);
+  background: var(--ok);
 }
 
 .setup-node {
@@ -209,8 +209,8 @@
 }
 
 .setup-step.done .setup-node {
-  border-color: var(--halo);
-  background: var(--halo);
+  border-color: var(--ok);
+  background: var(--ok);
 }
 
 .setup-step.done .setup-node::after,
@@ -242,7 +242,7 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: var(--halo);
+  background: var(--ok);
 }
 
 .setup-done-mark::after {
@@ -263,20 +263,10 @@
   background: var(--risk-soft);
 }
 
-/* Done, but without a comparison: a neutral mark rather than a green tick. */
-.setup-step.uncompared .setup-node {
-  border-color: var(--idle);
-  background: var(--glass-strong);
-}
-
-.setup-step.uncompared .setup-node::after {
-  top: 8px;
-  left: 4px;
-  width: 10px;
-  height: 0;
-  border-right: 0;
-  border-bottom: 2px solid var(--idle);
-  transform: none;
+.setup-step.waiting .setup-copy p.setup-later {
+  display: block;
+  color: var(--ink-3);
+  font-size: 0.84rem;
 }
 
 /* The one step that needs the owner now sits on a quiet tinted ground. */
@@ -303,6 +293,11 @@
 .setup-step.done .setup-copy strong {
   color: var(--ink-2);
   font-weight: 550;
+}
+
+.setup-step.done .setup-copy .setup-detail {
+  display: block;
+  margin-top: -2px;
 }
 
 .setup-copy p {

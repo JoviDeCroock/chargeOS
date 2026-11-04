@@ -82,8 +82,8 @@ describe("an employee leaves", () => {
     fireEvent.click(screen.getByLabelText(/The company keeps the charger/u));
     expect(planLines()).toEqual([
       "Remove Blue key fob from Driveway",
-      "Remove Card aaaaaa from Driveway",
-      "Remove Card cccccc from Driveway",
+      "Remove Unnamed card · aaaaaa from Driveway",
+      "Remove Unnamed card · cccccc from Driveway",
       "End the employee page for Driveway",
       "Unassign Driveway",
     ]);
@@ -101,7 +101,7 @@ describe("an employee leaves", () => {
     fireEvent.click(screen.getByLabelText(/Sam takes the charger/u));
     expect(planLines()).toEqual([
       "Remove Blue key fob from Driveway",
-      "Remove Card cccccc from Driveway",
+      "Remove Unnamed card · cccccc from Driveway",
       "End the employee page for Driveway",
     ]);
   });

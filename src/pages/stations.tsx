@@ -56,7 +56,7 @@ export function StationsPage({
               </button>
             )}
             {registry && (
-              <button class="button primary" type="button" onClick={() => setAdding(true)}>
+              <button class="button secondary" type="button" onClick={() => setAdding(true)}>
                 {t("fleet.add.button")}
               </button>
             )}
@@ -228,7 +228,7 @@ function StationCard({
       )}
       <dl class="entity-facts">
         <div>
-          <dt>{t("overview.chargingNow")}</dt>
+          <dt>{t("stations.chargingShort")}</dt>
           <dd>
             {t(
               charging

@@ -50,6 +50,8 @@ const CONSOLE_PAGES: ReadonlySet<Page> = new Set(["stations", "people", "usage",
 export function App() {
   const [route, go] = useRoute();
   const [editingStation, setEditingStation] = useState<string | null>(null);
+  // Phones fold the page list behind one button so content starts near the top.
+  const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
     applyDocumentLanguage();
     if (ownerToken.value) void refreshFleet().then(refreshFleetExtras);
@@ -91,6 +93,7 @@ export function App() {
   useEffect(() => {
     // An action result belongs to the page where it happened.
     notice.value = null;
+    setMenuOpen(false);
   }, [currentRoute]);
 
   useEffect(() => {
@@ -155,7 +158,7 @@ export function App() {
       <a class="skip-link" href="#console-main">
         {t("app.skip")}
       </a>
-      <aside class="rail glass-chrome">
+      <aside class={`rail glass-chrome${menuOpen ? " menu-open" : ""}`}>
         <a
           class="rail-brand"
           href={hasMultipleStations ? "#/stations" : "#/overview"}
@@ -166,8 +169,18 @@ export function App() {
         >
           <BrandMark />
         </a>
+        <button
+          class="rail-menu-toggle"
+          type="button"
+          aria-expanded={menuOpen}
+          aria-controls="console-menu"
+          onClick={() => setMenuOpen(!menuOpen)}
+        >
+          <span class="rail-menu-current">{pageTitle}</span>
+          {t(menuOpen ? "app.closeMenu" : "app.menu")}
+        </button>
 
-        <nav class="rail-nav" aria-label={t("app.sections")}>
+        <nav id="console-menu" class="rail-nav" aria-label={t("app.sections")}>
           {hasMultipleStations && (
             <label class="station-switcher">
               <span>{t("app.charger")}</span>
@@ -228,18 +241,30 @@ export function App() {
       <div class="stage">
         <header class="stage-bar">
           <div class="stage-context">
-            {consolePage ? (
+            {/* The overview names the charger in its own heading; the bar only reports status. */}
+            {resolved.page === "overview" ? (
+              <StatusPill
+                connected={current.station.connected}
+                awaitingConnection={!current.station.boot}
+              />
+            ) : consolePage ? (
               <>
                 <strong>
                   {resolved.page === "people" && company
                     ? t("people.titleCompany")
                     : t(PAGE_LABELS[resolved.page as Page])}
                 </strong>
-                <span>{tn("app.chargerCount", fleetSnapshot.totals.stations)}</span>
+                {hasMultipleStations && (
+                  <span>{tn("app.chargerCount", fleetSnapshot.totals.stations)}</span>
+                )}
               </>
             ) : (
               <>
-                <strong>{current.station.label}</strong>
+                <strong>
+                  {current.station.label === current.station.id
+                    ? t("overview.unnamedTitle")
+                    : current.station.label}
+                </strong>
                 <span>
                   {current.station.site}
                   {current.station.driver ? `, ${current.station.driver}` : ""}
@@ -248,7 +273,7 @@ export function App() {
             )}
           </div>
           <div class="stage-status">
-            {consolePage ? (
+            {resolved.page === "overview" ? null : consolePage && hasMultipleStations ? (
               <FleetStatusPill fleet={fleetSnapshot} />
             ) : (
               <StatusPill

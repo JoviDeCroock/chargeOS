@@ -56,6 +56,9 @@ export function CardsPage({
     if (multipleChargers) void refreshFleetCards();
   }, [stationId, multipleChargers, authorization.lastSyncRevision]);
   const canName = Boolean(directory?.writable);
+  const unnamedCount = authorization.tagPseudonyms.filter(
+    (tag) => !cardLabel(directory, stationId, tag).named,
+  ).length;
 
   return (
     <div class="section-stack">
@@ -63,7 +66,12 @@ export function CardsPage({
         title={t("cards.title")}
         lede={t("cards.lede", { station: current.station.label })}
         actions={
-          <button class="button primary" type="button" onClick={() => setEditing({ kind: "tap" })}>
+          // Header actions stay secondary; the page's next step below is the one primary button.
+          <button
+            class="button secondary"
+            type="button"
+            onClick={() => setEditing({ kind: "tap" })}
+          >
             {t("cards.add")}
           </button>
         }
@@ -108,9 +116,12 @@ export function CardsPage({
                   <strong>{card.named ? card.name : t("cards.unnamed")}</strong>
                   <small>
                     {card.holder ?? <span class="muted">{t("cards.noPerson")}</span>}
-                    <span class="card-ref">
-                      {t("cards.reference", { id: shortPseudonym(tag) })}
-                    </span>
+                    {/* A short reference only where it tells two unnamed cards apart. */}
+                    {!card.named && unnamedCount > 1 && (
+                      <span class="card-ref">
+                        {t("cards.reference", { id: shortPseudonym(tag) })}
+                      </span>
+                    )}
                   </small>
                   {elsewhere.map((member) => (
                     <small key={member.stationId} class="card-also">
@@ -304,7 +315,11 @@ function SyncBanner({
       <div>
         <strong>
           {authorization.syncState === "never-synced"
-            ? t("cards.sync.neverLong")
+            ? t(
+                authorization.lastAttemptRevision === null && authorization.pendingRevision === null
+                  ? "cards.sync.notSent"
+                  : "cards.sync.neverLong",
+              )
             : tn("cards.sync.pendingLong", Math.max(waiting, 1))}
         </strong>
         <p>
@@ -328,7 +343,7 @@ function SyncBanner({
         </button>
       ) : (
         <button
-          class="button secondary"
+          class="button primary"
           type="button"
           onClick={() => go({ page: "advanced", tab: "offline" })}
         >

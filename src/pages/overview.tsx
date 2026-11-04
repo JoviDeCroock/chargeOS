@@ -47,17 +47,31 @@ export function OverviewPage({
   const showStatusBoard = ["sharing", "switching", "freedom"].some((tab) => visibleTabs.has(tab));
   // A charger nobody has named yet only has its technical ID; lead with a plain title instead.
   const unnamed = station.label === station.id;
+  const settingUp = Boolean(current.setup && current.setup.state !== "active");
   return (
     <div class="section-stack">
       <PageHead
         title={unnamed ? t("overview.unnamedTitle") : station.label}
-        lede={[unnamed ? station.id : null, station.site, station.driver]
-          .filter(Boolean)
-          .join(" · ")}
+        lede={
+          <>
+            {[unnamed ? station.id : null, station.site, station.driver]
+              .filter(Boolean)
+              .join(" · ")}
+            {unnamed && onEdit && (
+              <>
+                {" · "}
+                <button class="text-button name-action" type="button" onClick={onEdit}>
+                  {t("stations.nameItShort")}
+                </button>
+              </>
+            )}
+          </>
+        }
         actions={
+          !unnamed &&
           onEdit && (
             <button class="button secondary" type="button" onClick={onEdit}>
-              {t(unnamed ? "stations.nameIt" : "stations.edit")}
+              {t("stations.edit")}
             </button>
           )
         }
@@ -90,6 +104,7 @@ export function OverviewPage({
         unavailable={unavailable}
         onRefresh={station.boot || unavailable ? refresh : null}
         refreshing={refreshing}
+        compact={settingUp}
       />
 
       {/* The setup checklist already asks for the first card on a charger added here. */}
@@ -184,6 +199,7 @@ function OverviewStatus({
   unavailable,
   onRefresh,
   refreshing,
+  compact = false,
 }: {
   snapshot: OwnerSnapshot;
   directory: OwnerDirectory | null;
@@ -191,6 +207,8 @@ function OverviewStatus({
   unavailable: boolean;
   onRefresh: (() => void) | null;
   refreshing: boolean;
+  /** While setup runs, the checklist below carries the actions; the summary only reports. */
+  compact?: boolean;
 }) {
   const { authorization, readiness, freedomTest } = current;
   const fieldState = offlineFieldState(freedomTest);
@@ -209,7 +227,10 @@ function OverviewStatus({
         ? "warn"
         : "idle";
   return (
-    <section class="panel glass overview-status" aria-labelledby="overview-status-title">
+    <section
+      class={`panel glass overview-status${compact ? " compact" : ""}`}
+      aria-labelledby="overview-status-title"
+    >
       <header class="panel-head">
         <h2 id="overview-status-title">{t("overview.statusTitle")}</h2>
         {onRefresh && (
@@ -251,7 +272,14 @@ function OverviewStatus({
             {authorization.lastSyncAt ? (
               <p>{t("overview.lastCardList", { date: formatDate(authorization.lastSyncAt) })}</p>
             ) : (
-              <p>{t("overview.noCardList")}</p>
+              <p>
+                {t(
+                  authorization.lastAttemptRevision === null &&
+                    authorization.pendingRevision === null
+                    ? "overview.notSent"
+                    : "overview.noCardList",
+                )}
+              </p>
             )}
             {authorization.pendingRevision !== null && <p>{t("overview.cardListWaiting")}</p>}
             {authorization.pendingRevocations.length > 0 && (
@@ -259,7 +287,7 @@ function OverviewStatus({
                 {tn("cards.staleTitle", authorization.pendingRevocations.length)}
               </p>
             )}
-            {(current.station.boot || authorization.syncState !== "never-synced") && (
+            {!compact && (current.station.boot || authorization.syncState !== "never-synced") && (
               <a
                 class="text-link"
                 href="#/cards"
@@ -292,7 +320,7 @@ function OverviewStatus({
             {readiness && (
               <p>{t("offline.lastChecked", { date: formatDate(readiness.checkedAt) })}</p>
             )}
-            {(current.station.boot || readiness) && (
+            {!compact && (current.station.boot || readiness) && (
               <a
                 class="text-link"
                 href="#/advanced/offline"
