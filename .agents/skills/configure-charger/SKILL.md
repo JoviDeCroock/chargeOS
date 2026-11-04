@@ -30,7 +30,7 @@ Opening the enclosure, wiring and SIM removal or replacement are installer work 
 
 Rules:
 
-- **Transport.** Over the internet, only `wss://` to the OCPP hostname with a publicly trusted certificate. Plain `ws://<lan-ip>:<port>/` is only for an isolated LAN lab or a planned private-network migration. Never use the console hostname or an IP address with `wss://`.
+- **Transport.** Over the internet, only `wss://` to the OCPP hostname with a publicly trusted certificate. Plain `ws://<lan-ip>:<port>/` is only for an isolated LAN lab or a planned private-network migration. Never use the console hostname or an IP address with `wss://`. Chargers cannot join a tailnet, so never give a charger a Tailscale (`100.x`, `ts.net`) address; a Tailscale console address is for people only.
 - **URL shape.** chargeOS takes the identity from the last path segment. If the tool takes a base URL and appends the identity, give the base with a trailing slash. If you write the identity yourself, add no slash after it. The identity is case-sensitive.
 - **Security profile.** Pick the profile that sends the Basic-auth password. Profile 0 (no password) gets 401.
 - **Password.** Never shorten or retype a password into a different shape. Passwords from before 2026-11-01 are 48 characters and some chargers refuse them; there is no guided rotation yet, so escalate.

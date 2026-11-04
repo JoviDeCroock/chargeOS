@@ -41,7 +41,7 @@ Adding or revoking a tag changes desired state only. It does not prove the charg
 
 Set `CHARGEOS_OCPP_PUBLIC_URL` to the charger address base the installer types in, for example `wss://ocpp.company.be/` (it must end with `/`, without credentials, query or fragment). It is display-only: the owner console's **Connect your charger** panel appends the charger name to it, and it never changes what the gateway accepts. The setup wizard sets it.
 
-Loopback is the default. Set `CHARGEOS_OCPP_HOST=0.0.0.0` only on a controlled charger LAN or behind a WSS reverse proxy. Set `CHARGEOS_API_HOST=0.0.0.0` only behind an authenticated TLS boundary or on a trusted owner network. The bearer token does not make plaintext internet transport safe.
+Loopback is the default. Set `CHARGEOS_OCPP_HOST=0.0.0.0` only on a controlled charger LAN or behind a WSS reverse proxy. Set `CHARGEOS_API_HOST=0.0.0.0` only behind an authenticated TLS boundary or on a trusted owner network. The bearer token does not make plaintext internet transport safe. For a private console on a tailnet, prefer keeping the API on loopback behind [Tailscale Serve](#private-owner-console-over-tailscale).
 
 The OCPP listener defaults to eight TCP connections, one authenticated socket per provisioned station identity, a 1 MiB complete-message limit, 600 valid RPC messages per minute per peer, and a burst of 60. Malformed RPC messages retain the separate three-strike protocol close. Set the global connection ceiling high enough for the measured fleet plus bounded reconnect headroom. Tune only from exact model/firmware traffic evidence; a low limit can disconnect online management, while a high limit weakens resource protection. A disconnect never changes that station's already-acknowledged local owner list.
 
@@ -64,6 +64,39 @@ docker compose up --build
 ```
 
 The default Compose file persists `/data/events.ndjson`, its archives, and `/data/owner-tags.json` in the `chargeos-data` volume and exposes OCPP port 9000 plus owner UI/API port 9080. It is a lab profile, not an internet deployment.
+
+## Private owner console over Tailscale
+
+For a source or native edge whose owner already uses [Tailscale](https://tailscale.com/kb/1312/serve), Tailscale Serve can give the owner console a private HTTPS address without opening router ports, DNS records or ACME. It is a convenience for the owner and a few trusted administrators. It is not the production boundary above, it is not covered by `pnpm verify:runtime`, and it has no automated test in this repository.
+
+Scope:
+
+- Console and owner API only. Chargers cannot join a tailnet. Keep OCPP on the controlled charger LAN (`ws://<lan-ip>:<port>/`, lab transport) or move to the production `wss://` edge. Never give a charger a `ts.net` or tailnet address.
+- Reachable from every device that the tailnet's access rules allow, including users the machine has been shared with. Don't share the edge machine outside the owner's group, and check its access rules.
+- Not for employees. Employees' `/me` pages and the employer workspace need public HTTPS (see [company hosting](company-hosting.md)). Don't enrol employees into the owner's tailnet to work around that; it also exposes the host's other services to them unless access rules restrict it.
+- Don't create **Employee page**, finance or other delegate links, or copy `/help` links for others, from the Tailscale console. The console builds links from the address it is opened on (`src/pages/offboarding.tsx`), so they would carry the private `ts.net` name, fail for anyone outside the tailnet, and spread that name. Issue them from a production HTTPS address instead.
+- Tailscale Funnel exposes a port to the public internet. It is unsupported for chargeOS: it is outside the documented boundary and every peer would share one failed-authentication bucket.
+
+Setup on the edge host:
+
+1. In the Tailscale admin console's DNS page, enable MagicDNS and **HTTPS Certificates**. Tailscale's certificates come from Let's Encrypt, so the machine's full `*.ts.net` name is published in the public Certificate Transparency logs. Rename the machine first if its name is sensitive ([enabling HTTPS](https://tailscale.com/kb/1153/enabling-https)).
+2. Expect changes to the Serve configuration on Linux to need root or a designated operator (an inference from Tailscale's operator model, not verified here). `sudo tailscale set --operator=<user>` makes `<user>` an operator ("A Unix username other than `root` to operate `tailscaled`", [CLI reference](https://tailscale.com/kb/1080/cli)); otherwise run the `serve` commands below with `sudo`.
+3. Bind the API to loopback: `CHARGEOS_API_HOST=127.0.0.1`, keep `CHARGEOS_API_PORT`, and restart chargeOS. Keep `CHARGEOS_TRUST_PROXY_HEADERS=false`.
+4. Run `tailscale serve --bg --https=443 http://127.0.0.1:<api-port>`. With `--bg` the configuration persists until disabled and resumes after restarts ([serve reference](https://tailscale.com/kb/1242/tailscale-serve)). Check it with `tailscale serve status`.
+5. Open `https://<machine>.<tailnet>.ts.net/` from a tailnet device and sign in with the owner token as usual.
+
+To undo it, repeat the original command with `off` at the end, `tailscale serve --https=443 http://127.0.0.1:<api-port> off` (Tailscale requires the original flags; whether `--bg` must be repeated is unverified), and confirm with `tailscale serve status`. Or run `tailscale serve reset` if the host serves nothing else), then restore the previous `CHARGEOS_API_HOST` and restart.
+
+Behavior and limits:
+
+- TLS terminates in `tailscaled` on the edge host. Tailscale says it never sees the certificate's private key, and tailnet connections are already encrypted with WireGuard ([what is Tailscale](https://tailscale.com/kb/1151/what-is-tailscale)). Inference: HTTPS here mainly adds a browser secure context and a stable name, not much transport confidentiality.
+- chargeOS sees every console request from `127.0.0.1`. Proxy-header trust must stay off, because other local processes are also loopback peers and the header is not proven to come only from Serve. As a result, every tailnet peer and every local process on the host share one failed-authentication bucket (`server/api.ts`): ten failures within a minute make every `/api/` call answer `429`, even with the right token, until that minute ends. Each call to the unauthenticated setup sign-in proof route counts as a failure, so a peer can cause this without guessing a token. A successful owner request before the limit clears the shared counter. Accept this only for a small trusted group.
+- Serve strips and then adds `Tailscale-User-*` identity headers. chargeOS ignores them. Only the owner token, or a delegate token the owner issued, authenticates the API; tailnet membership grants nothing.
+- Tailscale access rules apply to Serve traffic. Restrict the edge host to the people who should reach the console.
+- Anyone who can run commands as the edge user, or as an operator, can change or remove the Serve configuration. Treat that account as part of the owner boundary.
+- The setup wizard's **Open my console** flow is for wizard deployments only. Sign in by pasting the owner token.
+
+Sources checked 2026-11-04: see [the source register](source-register.md#tailscale-serve--checked-2026-11-04).
 
 ## Production HTTPS/WSS edge
 

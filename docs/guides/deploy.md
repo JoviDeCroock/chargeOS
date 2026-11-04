@@ -50,6 +50,20 @@ Click **Deploy chargeOS** after reviewing the destination. The wizard creates a 
 
 Use the standard Coolify Traefik proxy setup described in [Deployment setup](../deployment-setup.md). Hosting, DNS, an accessible repository and a verified published image are prerequisites; chargeOS does not purchase them for you. The managed adapter has simulated test coverage, but a real hosted deployment still needs its topology, certificates and recovery checked before live use.
 
+## Open the console privately with Tailscale
+
+If chargeOS runs on a computer in your home and you already use Tailscale, whoever set up chargeOS for you can give the owner console a private `https://` address. It works only on devices your Tailscale network allows. Nothing is opened on your router and no domain name is needed. This is an advanced option that the chargeOS team has not tested. Use it only for yourself and a few trusted helpers.
+
+- Your charging station does not use this address. It keeps connecting over your home network, or over the internet address from a full deployment above.
+- Employees cannot use it. Don't create **Employee page** links or other shared-access links while you are on the Tailscale address: the link would contain that private address and would not open for them. Create them from a full deployment with your own domain names.
+- Anyone you have shared that computer with in Tailscale can reach the console too. Share it only with people you trust.
+- Do not use Tailscale **Funnel** to make the console public.
+- When HTTPS is turned on in Tailscale, the computer's Tailscale name is written into a public list of certificates that anyone can search, for example `living-room-pc.tail1234.ts.net`. Pick a name that reveals nothing private.
+- You still sign in with your owner token. Being on your Tailscale network does not let anyone in by itself.
+- If a device or program makes too many failed sign-in attempts, the console may refuse everyone, you included, for up to a minute. Wait and try again.
+
+The person who set up chargeOS follows the [Tailscale steps](../owner-edge-operations.md#private-owner-console-over-tailscale).
+
 ## What the status means
 
 **Your setup files are ready** means nothing has started. **Your containers have started** means Docker reported the software running; you still need to check DNS and HTTPS. **Submitted to Coolify** means the cloud platform accepted a request, not that the software or a physical charger works.

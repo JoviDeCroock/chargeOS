@@ -91,6 +91,16 @@ This research did not access a competitor’s authenticated customer portal, exe
 
 - [EVerest demo images](https://github.com/EVerest/everest-demo) `ghcr.io/everest/everest-demo/manager:2025.10.0-single-phase` (everest-core `c86cd9c`, 2025-11-05; [libocpp](https://github.com/EVerest/libocpp) v0.30.3), pinned by digest in `scripts/interop-everest.mjs`. EVerest is a Linux Foundation Energy charger stack whose libocpp is used in production chargers. Its OCPP 1.6 configuration ships `LocalAuthorizeOffline=false` and has no `AllowOfflineTxForUnknownId` key. `pnpm interop:everest` is an interoperability check against this independent implementation; it is not evidence for any physical charger, model or vendor.
 
+## Tailscale Serve — checked 2026-11-04
+
+- [Tailscale Serve](https://tailscale.com/kb/1312/serve): Serve needs tailnet HTTPS certificates, is reachable only inside the tailnet (Funnel is the public variant), applies access rules, and strips then adds `Tailscale-User-Login`/`-Name`/`-Profile-Pic` identity headers.
+- [`tailscale serve` command](https://tailscale.com/kb/1242/tailscale-serve): `--bg` persists the configuration until disabled and resumes it after restarts; `--https` exposes an HTTPS server; proxies support only `http://127.0.0.1`; `status`, `reset`, and `off` appended to the original command with all original flags. The page does not document `X-Forwarded-For` or `Host` handling, so chargeOS does not rely on either.
+- [Enabling HTTPS](https://tailscale.com/kb/1153/enabling-https): requires MagicDNS; certificates come from Let's Encrypt through a DNS-01 challenge, private keys stay on the device, and machine names are published in the public Certificate Transparency ledger.
+- [What is Tailscale](https://tailscale.com/kb/1151/what-is-tailscale): "encrypted point-to-point connections using the open source WireGuard protocol".
+- [Tailscale CLI](https://tailscale.com/kb/1080/cli): `tailscale set --operator` names "A Unix username other than `root` to operate `tailscaled`". The pages do not state that changing Serve on Linux needs root or an operator; that requirement is an inference from the operator model and is unverified on a real host.
+
+These sources describe Tailscale's behavior, not a tested chargeOS deployment. No chargeOS test exercises Serve.
+
 ## EnergyVision integrated competitor benchmark — checked 2026-10-28
 
 - [Residential bundle](https://www.energyvision.be/nl-be/energieoplossingen/een-thuislaadpunt-zonder-investering): energy, solar, installed charging, app and solar-aware charging modes. Advertised scope, not hands-on compatibility proof.

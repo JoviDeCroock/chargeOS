@@ -23,14 +23,15 @@ The deployment exists to serve the core invariant: an already-authorized owner c
 
 ## Choose a profile
 
-| Situation                                                       | Profile                                                                                           | Status                                                                                        |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Owner with a server that has Docker and inbound 80/443          | Setup wizard (`node scripts/deploy.mjs`), Docker target                                           | Production HTTPS/WSS boundary; generated `compose.json` package tested, not the runtime drill |
-| Operator who wants the files directly                           | `compose.production.yaml` + `.env.production`                                                     | Same boundary, single station, recovery-capable; `pnpm verify:runtime` drills this file       |
-| Owner with several chargers under one root                      | `compose.fleet.production.yaml` + stations file                                                   | Operable, but no continuity bundle (see below)                                                |
-| Managed hosting with an existing Coolify account                | Wizard, Coolify target (`compose.coolify.json`)                                                   | Mock-tested only; no documented owner backup path yet                                         |
-| Trial against a real charger on the owner's LAN, no Docker/sudo | Native user-space install (see the `liberate-charger` skill, **Run a reversible home-lab trial**) | Lab only: plaintext `ws://` on the LAN, never internet-facing                                 |
-| Software evaluation without a charger                           | `pnpm dev` + `pnpm simulate`, or `compose.yaml`                                                   | Lab only                                                                                      |
+| Situation                                                                                 | Profile                                                                                                                | Status                                                                                        |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Owner with a server that has Docker and inbound 80/443                                    | Setup wizard (`node scripts/deploy.mjs`), Docker target                                                                | Production HTTPS/WSS boundary; generated `compose.json` package tested, not the runtime drill |
+| Operator who wants the files directly                                                     | `compose.production.yaml` + `.env.production`                                                                          | Same boundary, single station, recovery-capable; `pnpm verify:runtime` drills this file       |
+| Owner with several chargers under one root                                                | `compose.fleet.production.yaml` + stations file                                                                        | Operable, but no continuity bundle (see below)                                                |
+| Managed hosting with an existing Coolify account                                          | Wizard, Coolify target (`compose.coolify.json`)                                                                        | Mock-tested only; no documented owner backup path yet                                         |
+| Trial against a real charger on the owner's LAN, no Docker/sudo                           | Native user-space install (see the `liberate-charger` skill, **Run a reversible home-lab trial**)                      | Lab only: plaintext `ws://` on the LAN, never internet-facing                                 |
+| Private HTTPS console for the owner on a source/native edge, owner already uses Tailscale | Tailscale Serve in front of a loopback API (`docs/owner-edge-operations.md`, **Private owner console over Tailscale**) | Untested convenience; console only, tailnet only                                              |
+| Software evaluation without a charger                                                     | `pnpm dev` + `pnpm simulate`, or `compose.yaml`                                                                        | Lab only                                                                                      |
 
 Product decision: recovery-grade deployments use one station per edge. The encrypted continuity format is single-station and fails closed for a fleet, and export is refused once a charger was added, retired or marked from the console. Tell the owner this before they add a second charger.
 
@@ -53,7 +54,19 @@ Use this only for a LAN trial or a host where the owner accepts that it is outsi
 - Bind `CHARGEOS_OCPP_HOST` to the LAN interface address, never `0.0.0.0` or an overlay address. Default `CHARGEOS_API_HOST` to loopback. Binding it to an encrypted overlay address such as a tailnet IP is the "trusted owner network" case in `docs/owner-edge-operations.md` (**Configure**), which the owner must accept; no canonical doc describes an overlay deployment. The bearer token does not make plaintext internet transport safe.
 - Keep `CHARGEOS_TRUST_PROXY_HEADERS=false` unless a single declared proxy is provably the only peer. On a shared host, other local processes are also loopback peers.
 - Run chargeOS as a user that no other agent or service shares. Any process running as the same user can read the owner token, station secret and raw owner tags.
-- Inference, not a tested profile: HTTPS for a private console can come from an overlay that terminates TLS on the host (for example Tailscale Serve proxying to `127.0.0.1:<api-port>`). It needs root or an operator grant once, publishes the hostname in Certificate Transparency logs, and is not covered by `verify:runtime`. A third-party TLS-terminating tunnel or CDN in front of the console or OCPP is unsupported: it sees the owner token and charger password and breaks the proxy-trust model. Stop and escalate instead.
+- A third-party TLS-terminating tunnel or CDN in front of the console or OCPP is unsupported: it sees the owner token and charger password and breaks the proxy-trust model. Stop and escalate instead.
+
+## Private console over Tailscale
+
+Offer this when the owner wants HTTPS for their own console on a source or native edge and already uses Tailscale. Follow **Private owner console over Tailscale** in `docs/owner-edge-operations.md`; the owner-facing text is in `docs/guides/deploy.md`.
+
+1. Check first, read-only: `tailscale status --self --json` (MagicDNS name, whether the tailnet has HTTPS certificates), `tailscale serve status`, and whether the user is root or an operator. Report what is missing.
+2. The owner enables MagicDNS and **HTTPS Certificates** in the admin console. Warn them that the machine's `*.ts.net` name goes into public Certificate Transparency logs.
+3. The owner runs `sudo tailscale set --operator=<user>` once, or runs the `serve` commands with `sudo`. That Linux needs this is an unverified inference; report what actually happened.
+4. Set `CHARGEOS_API_HOST=127.0.0.1`, keep `CHARGEOS_TRUST_PROXY_HEADERS=false`, restart, then `tailscale serve --bg --https=443 http://127.0.0.1:<api-port>`.
+5. Verify `https://<machine>.<tailnet>.ts.net/api/v1/health` and an owner sign-in from another tailnet device. Undo by repeating the serve command with `off` appended, confirm with `tailscale serve status`, and restore the previous bind.
+
+Don't route OCPP through Tailscale (chargers can't join a tailnet), don't use Funnel, and don't present this as the production boundary or as a way to serve employees. Every tailnet peer and local process shares one failed-authentication bucket. Delegate and employee links are built from the address the console is opened on, so never issue them from the `ts.net` address.
 
 ## Secrets and console access
 
