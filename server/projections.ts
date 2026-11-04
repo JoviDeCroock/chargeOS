@@ -1,3 +1,4 @@
+import { currentChargingReport } from "../shared/charging-status.js";
 import type {
   CapabilityAssessment,
   ChargeSession,
@@ -109,6 +110,8 @@ export function buildFleetSnapshot(
       attention.add("evidence-conflict");
     }
     return {
+      chargingStatus: currentChargingReport(snapshot.station).status,
+      registeredCardCount: snapshot.authorization.tagCount,
       activeSessionCount: snapshot.sessions.filter(({ status }) => status === "active").length,
       attention: [...attention],
       authorizationState: snapshot.authorization.syncState,

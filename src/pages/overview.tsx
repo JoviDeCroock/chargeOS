@@ -1,3 +1,4 @@
+import { currentChargingReport } from "../../shared/charging-status.js";
 import { useEffect, useRef, useState } from "preact/hooks";
 
 import type { CapabilityAssessment, OwnerSnapshot } from "../../shared/contracts.js";
@@ -165,6 +166,18 @@ function useOverviewRefresh(stationId: string, automatic: boolean) {
   return { refresh: () => void request.current?.(), refreshing, unavailableFor };
 }
 
+export function offlineFieldState(freedomTest: OwnerSnapshot["freedomTest"]) {
+  const fieldState =
+    freedomTest.status === "baseline-stale"
+      ? "overview.fieldStale"
+      : freedomTest.run?.state === "active" && freedomTest.status === "evidence-complete-unreviewed"
+        ? "overview.fieldReview"
+        : freedomTest.run?.state === "active" && freedomTest.status === "failed"
+          ? "overview.fieldFailed"
+          : "overview.fieldUnverified";
+  return fieldState;
+}
+
 function OverviewStatus({
   snapshot: current,
   directory,
@@ -181,14 +194,7 @@ function OverviewStatus({
   refreshing: boolean;
 }) {
   const { authorization, readiness, freedomTest } = current;
-  const fieldState =
-    freedomTest.status === "baseline-stale"
-      ? "overview.fieldStale"
-      : freedomTest.run?.state === "active" && freedomTest.status === "evidence-complete-unreviewed"
-        ? "overview.fieldReview"
-        : freedomTest.run?.state === "active" && freedomTest.status === "failed"
-          ? "overview.fieldFailed"
-          : "overview.fieldUnverified";
+  const fieldState = offlineFieldState(freedomTest);
   return (
     <section class="panel glass overview-status" aria-labelledby="overview-status-title">
       <header class="panel-head">
@@ -283,17 +289,6 @@ function OverviewStatus({
   );
 }
 
-const NON_CHARGING_STATUSES = new Set([
-  "Available",
-  "Preparing",
-  "SuspendedEVSE",
-  "SuspendedEV",
-  "Finishing",
-  "Reserved",
-  "Unavailable",
-  "Faulted",
-]);
-
 function ChargingStatus({
   snapshot: current,
   directory,
@@ -305,12 +300,8 @@ function ChargingStatus({
 }) {
   const { station, sessions } = current;
   const connectedAt = station.connectedAt ? Date.parse(station.connectedAt) : Number.NaN;
-  const connectors = station.connectors.filter(({ connectorId }) => connectorId > 0);
-  const isCurrent = ({ updatedAt }: { updatedAt: string }) => Date.parse(updatedAt) >= connectedAt;
-  const charging =
-    !unavailable && station.connected
-      ? connectors.filter((connector) => connector.status === "Charging" && isCurrent(connector))
-      : [];
+  const report = unavailable ? null : currentChargingReport(station);
+  const charging = report?.status === "charging" ? report.connectors : [];
   if (charging.length) {
     return (
       <ul class="overview-live">
@@ -353,21 +344,15 @@ function ChargingStatus({
       </ul>
     );
   }
-  const reportsIdle =
-    !unavailable &&
-    station.connected &&
-    connectors.length > 0 &&
-    connectors.every(
-      (connector) => isCurrent(connector) && NON_CHARGING_STATUSES.has(connector.status),
-    );
-  const oldestReport = reportsIdle
-    ? connectors.reduce((oldest, connector) =>
-        oldest.updatedAt < connector.updatedAt ? oldest : connector,
-      )
-    : null;
+  const oldestReport =
+    report?.status === "idle"
+      ? report.connectors.reduce((oldest, connector) =>
+          oldest.updatedAt < connector.updatedAt ? oldest : connector,
+        )
+      : null;
   return (
     <>
-      <strong>{t(reportsIdle ? "overview.notCharging" : "overview.chargingUnknown")}</strong>
+      <strong>{t(oldestReport ? "overview.notCharging" : "overview.chargingUnknown")}</strong>
       <p>
         {oldestReport
           ? t("overview.lastChargingReport", { date: formatDate(oldestReport.updatedAt) })

@@ -1,3 +1,4 @@
+import type { ReportedChargingStatus } from "./charging-status.js";
 import type { CardCaptureProjection } from "./card-capture.js";
 import type { StationCommandRecord } from "./commands.js";
 import type { StationConnectionDiagnostics } from "./connection.js";
@@ -124,6 +125,9 @@ export interface OwnerSnapshot {
 
 export interface FleetStationSummary {
   readonly activeSessionCount: number;
+  /** From connector reports on the current connection, independent of recorded sessions. */
+  readonly chargingStatus?: ReportedChargingStatus;
+  readonly registeredCardCount?: number;
   readonly attention: readonly (
     | "offline"
     | "authorization-pending"
